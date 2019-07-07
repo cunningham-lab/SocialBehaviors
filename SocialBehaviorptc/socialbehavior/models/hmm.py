@@ -118,16 +118,28 @@ class HMM:
 
         ll = self.observation.log_prob(data)  # (T, K)
 
-        return hmmnorm_cython(log_pi0, log_Ps, ll.contiguous())
+        return hmmnorm_cython(log_pi0, log_Ps, ll)
 
     @property
     def params(self):
+        """
+        :return: pi0, P, mus_init, log_sigmas, As
+        """
         return [self.pi0, self.P] + self.observation.params
 
+    # numpy operation
     def most_likely_states(self, data):
         log_pi0 = torch.nn.LogSoftmax(dim=0)(self.pi0).detach().numpy()  # (K, )
-        log_Ps = torch.nn.LogSoftmax(dim=1)(self.P.numpy()).detach.numpy()  # (K, K)
+        log_Ps = torch.nn.LogSoftmax(dim=1)(self.P).detach().numpy()  # (K, K)
+
         log_likes = self.observation.log_prob(data).detach().numpy()
-        return viterbi(log_pi0, log_Ps, log_likes)
+        return viterbi(log_pi0, log_Ps[None,], log_likes)
+
+    def permute(self, perm):
+        self.pi0 = self.pi0[perm]
+        self.P = self.P[np.ix_(perm, perm)]
+        self.observation.permute(perm)
+
+
 
 
