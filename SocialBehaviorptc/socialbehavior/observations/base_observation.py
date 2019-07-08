@@ -21,6 +21,9 @@ class BaseObservations():
     def log_prob(self, data):
         raise NotImplementedError
 
-    def sample_x(self, z, xhist):
+    def sample_x(self, z, xhist=None, return_np=True):
+        raise NotImplementedError
+
+    def permute(self, perm):
         raise NotImplementedError
 

@@ -24,7 +24,7 @@ class ARGaussianObservation(BaseObservations):
 
         # consider diagonal covariance
         if sigmas is None:
-            self.log_sigmas = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, requires_grad=True)
+            self.log_sigmas = torch.tensor(np.log(5*np.ones((K, D))), dtype=torch.float64, requires_grad=True)
         else:
             # TODO: assert sigmas positive
             assert sigmas.shape == (self.K, self.D)
@@ -40,6 +40,12 @@ class ARGaussianObservation(BaseObservations):
     @property
     def params(self):
         return [self.mus_init, self.log_sigmas] + self.transformation.params
+        #return [self.mus_init] + self.transformation.params
+
+    def permute(self, perm):
+        self.mus_init = self.mus_init[perm]
+        self.log_sigmas = self.log_sigmas[perm]
+        self.transformation.permute(perm)
 
     def _get_scale_tril(self, log_sigmas):
         sigmas = torch.exp(log_sigmas)
@@ -83,15 +89,18 @@ class ARGaussianObservation(BaseObservations):
         out = torch.sum(out, dim=-1)
         return out
 
-    def sample_x(self, z, xhist):
+    def sample_x(self, z, xhist=None, return_np=True):
         """
         generate samples
         """
 
         with torch.no_grad():
-            return self.rsample_x(z, xhist)
+            x = self.rsample_x(z, xhist)
+        if return_np:
+            return x.numpy()
+        return x
 
-    def rsample_x(self, z, xhist):
+    def rsample_x(self, z, xhist=None):
         """
         generate reparameterized samples
         :param z: shape ()
@@ -103,11 +112,12 @@ class ARGaussianObservation(BaseObservations):
         assert sigmas_z.shape == (self.D,)
 
         # no previous x
-        if xhist.shape[0] == 0:
+        if xhist is None or xhist.shape[0] == 0:
             mu = self.mus_init[z]  # (D,)
         else:
             # sample from the autoregressive distribution
             # currently consider lag = 1
+            assert len(xhist.shape) == 2
             x_pre = xhist[-1:]  # (1, D)
             mu = self.transformation.transform_condition_on_z(z, x_pre)  # (1, D_out)
             assert mu.shape == (1, self.D)
@@ -116,6 +126,7 @@ class ARGaussianObservation(BaseObservations):
         out = mu + sigmas_z * torch.randn(self.D, dtype=torch.float64)  # (self.D, )
 
         return out
+
 
 
 

@@ -1,9 +1,11 @@
 from abc import ABC, abstractmethod
 
+
 # base class for transformation
 class BaseTransformation(object):
 
-    def __init__(self, d_out):
+    def __init__(self, K, d_out):
+        self.K = K
         self.d_out = d_out # output dimension
 
     @property
@@ -16,4 +18,8 @@ class BaseTransformation(object):
 
     @abstractmethod
     def transform_condition_on_z(self, z, inputs):
+        pass
+
+    @abstractmethod
+    def permute(self, perm):
         pass
