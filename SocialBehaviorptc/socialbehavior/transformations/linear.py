@@ -19,7 +19,7 @@ class LinearTransformation(BaseTransformation):
 
         if use_bias:
             if bs is None:
-                bs = np.random.rand(self.K, self.d_out)
+                bs = np.random.randn(self.K, self.d_out)
             self.bs = torch.tensor(bs, dtype=torch.float64, requires_grad=True)
         else:
             self.bs = torch.zeros(self.K, self.d_out, dtype=torch.float64)

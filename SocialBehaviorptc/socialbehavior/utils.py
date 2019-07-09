@@ -59,6 +59,8 @@ def k_step_prediction(model, model_z, data, k=0):
     """
     Conditioned on the most likely hidden states, make the k-step prediction.
     """
+    data = check_and_convert_to_tensor(data)
+
     x_predict_arr = []
     if k == 0:
         for t in range(data.shape[0]):
@@ -68,7 +70,7 @@ def k_step_prediction(model, model_z, data, k=0):
         assert k>0
         # neglects t = 0 since there is no history
         for t in range(1, data.shape[0]-k):
-            zx_predict = model.sample_x(k, prefix=(model_z[t-1:t], data[t-1:t]))
+            zx_predict = model.sample(k, prefix=(model_z[t-1:t], data[t-1:t]))
             assert zx_predict[1].shape == (k, 4)
             x_predict = zx_predict[1][k-1]
             x_predict_arr.append(x_predict)
@@ -77,6 +79,12 @@ def k_step_prediction(model, model_z, data, k=0):
 
 
 def check_and_convert_to_tensor(inputs, dtype=torch.float64):
+    """
+    check if inputs type is either ndarray or tensor
+    :param inputs:
+    :param dtype: the torch.dtype that inputs should be converted to
+    :return: converted tensor
+    """
     if isinstance(inputs, np.ndarray):
         return torch.tensor(inputs, dtype=dtype)
     elif isinstance(inputs, torch.Tensor):

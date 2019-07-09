@@ -17,7 +17,7 @@ from socialbehavior.utils import check_and_convert_to_tensor
 
 class HMM:
 
-    def __init__(self, K, D, M=0, observation="gaussian"):
+    def __init__(self, K, D, M=0, observation="gaussian", pi0=None, Pi=None):
         """
 
         :param K: number of hidden states
@@ -32,9 +32,16 @@ class HMM:
         self.D = D
         self.M = M
 
-        # unnormalized initial and transition probability
-        self.pi0 = torch.ones(self.K, dtype=torch.float64, requires_grad=True)
-        self.P = torch.ones(self.K, self.K, dtype=torch.float64, requires_grad=True)
+        # parameter for the softmax distribution
+        if pi0 is None:
+            self.pi0 = torch.ones(self.K, dtype=torch.float64, requires_grad=True)
+        else:
+            self.pi0 = check_and_convert_to_tensor(pi0, dtype=torch.float64)
+        if Pi is None:
+            Pi = 2 * np.eye(K) + .05 * npr.rand(K, K)
+            self.Pi = torch.tensor(Pi, dtype=torch.float64, requires_grad=True)
+        else:
+            self.Pi = check_and_convert_to_tensor(Pi, dtype=torch.float64)
 
         if isinstance(observation, str):
             if observation == "gaussian":
@@ -43,6 +50,17 @@ class HMM:
             self.observation = observation
         else:
             raise Exception("Invalid observation type.")
+
+    def sample_z(self, T):
+        # sample the time-invariant markov chain only
+        z = torch.empty(T, dtype=torch.int)
+        pi0 = torch.nn.Softmax(dim=0)(self.pi0.detach())
+        z[0] = npr.choice(self.K, p=pi0)
+
+        P = torch.nn.Softmax(dim=1)(self.Pi.detach())  # (K, K)
+        for t in range(1, T):
+            z[t] = npr.choice(self.K, p=P[z[t - 1]])
+        return z
 
     def sample(self, T, prefix=None, return_np=True):
         """
@@ -88,7 +106,7 @@ class HMM:
             assert z.shape == (T_pre + T, )
             data = torch.cat((x_pre, torch.empty((T, D), dtype=dtype)))
 
-        P = torch.nn.Softmax(dim=1)(self.P.detach()) # (K, K)
+        P = torch.nn.Softmax(dim=1)(self.Pi.detach()) # (K, K)
         for t in range(T_pre, T_pre + T):
             z[t] = npr.choice(K, p=P[z[t-1]])
 
@@ -115,9 +133,11 @@ class HMM:
         :param data : x, shape (T, D)
         :return: log p(x)
         """
+        data = check_and_convert_to_tensor(data, torch.float64)
+
         T = data.shape[0]
         log_pi0 = torch.nn.LogSoftmax(dim=0)(self.pi0)  # (K, )
-        log_P = torch.nn.LogSoftmax(dim=1)(self.P)  # (K, K)
+        log_P = torch.nn.LogSoftmax(dim=1)(self.Pi)  # (K, K)
 
         if T == 1:
             log_Ps = log_P[None,][:0]
@@ -131,9 +151,9 @@ class HMM:
     @property
     def params(self):
         """
-        :return: pi0, P, mus_init, log_sigmas, As, bs ...
+        :return: pi0, Pi, mus_init, log_sigmas, As, bs ...
         """
-        return [self.pi0, self.P] + self.observation.params
+        return [self.pi0, self.Pi] + self.observation.params
 
     @property
     def params_require_grad(self):
@@ -142,15 +162,17 @@ class HMM:
 
     # numpy operation
     def most_likely_states(self, data):
+        data = check_and_convert_to_tensor(data)
+
         log_pi0 = torch.nn.LogSoftmax(dim=0)(self.pi0).detach().numpy()  # (K, )
-        log_Ps = torch.nn.LogSoftmax(dim=1)(self.P).detach().numpy()  # (K, K)
+        log_Ps = torch.nn.LogSoftmax(dim=1)(self.Pi).detach().numpy()  # (K, K)
 
         log_likes = self.observation.log_prob(data).detach().numpy()
         return viterbi(log_pi0, log_Ps[None,], log_likes)
 
     def permute(self, perm):
         self.pi0 = self.pi0[perm]
-        self.P = self.P[np.ix_(perm, perm)]
+        self.Pi = self.Pi[np.ix_(perm, perm)]
         self.observation.permute(perm)
 
     # return np
@@ -191,7 +213,6 @@ class HMM:
         if return_np:
             return xs.numpy()
         return xs
-
 
 
 

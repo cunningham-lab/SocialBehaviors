@@ -2,7 +2,7 @@ import torch
 import numpy as np
 
 from socialbehavior.transformations.linear import LinearTransformation
-from socialbehavior.utils import random_rotation
+from socialbehavior.utils import random_rotation, check_and_convert_to_tensor
 
 
 class ConstrainedLinearTransformation(LinearTransformation):
@@ -16,12 +16,12 @@ class ConstrainedLinearTransformation(LinearTransformation):
         if bounds is None:
             self.bounds = None
         else:
-            self.bounds = torch.tensor(bounds, dtype=torch.float64)
+            self.bounds = check_and_convert_to_tensor(bounds, dtype=torch.float64)
             # for each dimension in d_out, there should be a lower bound and an upper bound
             assert self.bounds.shape == (d_out, 2)
 
             # currently consider the center as a fixed number
-            self.center = torch.mean(bounds, dim=1)  # (d_out, )
+            self.center = torch.mean(self.bounds, dim=1)  # (d_out, )
 
     def transform(self, inputs):
         """
@@ -39,7 +39,7 @@ class ConstrainedLinearTransformation(LinearTransformation):
         :param inputs: (T, d_in)
         :return: (T, d_out)
         """
-        out = super(ConstrainedLinearTransformation, self).transform(inputs)
+        out = super(ConstrainedLinearTransformation, self).transform_condition_on_z(z, inputs)
         return self.scale_fn(out)
 
     def scale_fn(self, inputs):
