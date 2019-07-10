@@ -16,27 +16,21 @@ def log_d_sigmoid(x):
 
 class SigmoidNormal(BaseDistribution):
     r"""
-    Creates a sigmoid-normal distribution parameterized by a mean vector, a covariance matrix, bounds and centers
+    Creates a sigmoid-normal distribution parameterized by a mean vector, a covariance matrix and bounds
     Normal -> scaled sigmoid
     """
 
-    def __init__(self, mus, log_sigmas, bounds, centers=None, alpha=1.0):
+    def __init__(self, mus, log_sigmas, bounds, alpha=1.0):
         super(SigmoidNormal, self).__init__()
 
         self.mus = mus
         self.log_sigmas = log_sigmas
 
         self.bounds = check_and_convert_to_tensor(bounds, dtype=torch.float64)  # mus.shape + (2, )
-        assert self.bounds.shape == self.mus.shape + (2,)
+        #assert self.bounds.shape == self.mus.shape + (2,)
 
-        if centers is None:
-            # set centers to be the centers of the bounds
-            self.centers = torch.mean(self.bounds, dim=-1)  # mus.shape
-        else:
-            self.centers = check_and_convert_to_tensor(centers, dtype=torch.float64)
-            assert self.centers.shape == self.mus.shape
-
-        self.alpha = torch.tensor(alpha, dtype=torch.float64)  # smoothness parameter for the scale function
+        self.alpha = torch.tensor(alpha, dtype=torch.float64)
+        assert self.alpha.shape == ()
 
     @property
     def normal_dist(self):
@@ -50,12 +44,12 @@ class SigmoidNormal(BaseDistribution):
 
     def _scale_fn(self, z):
         """
-        f(z) = (upper_bounds - lower_bound) * sigmoid( alpha * (z - offset)) + lowerbound
+        f(z) = (upper_bounds - lower_bound) * sigmoid(z) + lowerbound
         :param z: batch_shape + mus.shape
         :return: z_tran: batch_shape + mus.shape
         """
 
-        z_tran = (self.bounds[..., 1] - self.bounds[..., 0]) * torch.sigmoid(self.alpha * (z - self.centers))\
+        z_tran = (self.bounds[..., 1] - self.bounds[..., 0]) * torch.sigmoid(self.alpha * z) \
                     + self.bounds[...,0]
 
         assert z_tran.shape == z.shape
@@ -64,7 +58,7 @@ class SigmoidNormal(BaseDistribution):
 
     def _inverse_scale_fn(self, z_tran):
         """
-        f_inv (z_tran) = 1 / alpha * sigmoid_inv ( (z_tran - lower_bound) / (upper_bound - lower_bound) ) + offset
+        f_inv (z_tran) = sigmoid_inv ( (z_tran - lower_bound) / (upper_bound - lower_bound) )
         :param z_tran: (..., D)
         :return: z: (..., D)
         """
@@ -74,7 +68,7 @@ class SigmoidNormal(BaseDistribution):
         assert x.shape == z_tran.shape
 
         # inverse sigmoid
-        z = self._inverse_sigmoid(x) / self.alpha + self.centers
+        z = self._inverse_sigmoid(x) / self.alpha
         assert z.shape == z_tran.shape
 
         return z
@@ -86,7 +80,7 @@ class SigmoidNormal(BaseDistribution):
         :return:
         """
         out = torch.log((self.bounds[..., 1] - self.bounds[..., 0])) + torch.log(self.alpha) \
-              + log_d_sigmoid(self.alpha * (z - self.centers))
+              + log_d_sigmoid(self.alpha * z)
         return out
 
     def rsample(self, sample_shape=torch.Size()):
@@ -125,11 +119,10 @@ if __name__ == "__main__":
 
     # D = 1
     bounds = np.array([[1, 3]])
-    centers = np.array([2])
 
     mus = torch.zeros(1, dtype=torch.float64)
     log_sigmas = torch.zeros(1, dtype=torch.float64)
-    sn_dist = SigmoidNormal(mus=mus, log_sigmas=log_sigmas, bounds=bounds, centers=centers)
+    sn_dist = SigmoidNormal(mus=mus, log_sigmas=log_sigmas, bounds=bounds)
 
     # check sigmoid inversion
     z = torch.tensor(np.linspace(-5, 5, 20), dtype=torch.float64)  # (20,)
@@ -156,11 +149,10 @@ if __name__ == "__main__":
     # check log prob and pdf
     # D = 1
     bounds = np.array([[0, 1]])
-    centers = np.array([0]) # it should be mus
 
     mus = torch.zeros(1, dtype=torch.float64)
     log_sigmas = torch.zeros(1, dtype=torch.float64)
-    sn_dist = SigmoidNormal(mus=mus, log_sigmas=log_sigmas, bounds=bounds, centers=centers)
+    sn_dist = SigmoidNormal(mus=mus, log_sigmas=log_sigmas, bounds=bounds)
 
     T = 1000
     data = torch.tensor(np.linspace(0, 1, T)[:, None])
@@ -173,7 +165,7 @@ if __name__ == "__main__":
     D = 1
 
     bounds = np.array([[1,3]])
-    mus = torch.tensor([0], dtype=torch.float64)
+    mus = torch.tensor([2], dtype=torch.float64)
     log_sigmas = torch.tensor([0], dtype=torch.float64)
     sn_dist = SigmoidNormal(mus, log_sigmas, bounds)
     samples = sn_dist.sample((T,))
