@@ -39,7 +39,7 @@ class SigmoidNormal(BaseDistribution):
     @staticmethod
     def _inverse_sigmoid(x):
         # x = sigmoid(z) <=> z = sigmoid_inv(x)
-        # sigmoid_inv (x) = log sigmoid (x) - log (1 - sigmoid(x))
+        # sigmoid_inv (x) = log (x) - log (1 - x)
         return torch.log(x) - torch.log(torch.tensor(1) - x)
 
     def _scale_fn(self, z):
@@ -106,7 +106,14 @@ class SigmoidNormal(BaseDistribution):
         p = self.normal_dist
         log_p_z = p.log_prob(z)
 
-        out = log_p_z - self._log_d_scale_fn(z)
+        #out1 = log_p_z - self._log_d_scale_fn(z)
+
+        scale_data = (data - self.bounds[..., 0]) / (self.bounds[..., 1] - self.bounds[..., 0])
+
+        out = log_p_z - torch.log((self.bounds[..., 1] - self.bounds[..., 0])) - torch.log(self.alpha) \
+                - torch.log(scale_data) - torch.log(torch.tensor(1, dtype=scale_data.dtype) - scale_data)
+
+        #assert torch.allclose(out1, out)
 
         return out
 
@@ -117,6 +124,7 @@ class SigmoidNormal(BaseDistribution):
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
+    """
     # D = 1
     bounds = np.array([[1, 3]])
 
@@ -145,6 +153,7 @@ if __name__ == "__main__":
     sample_shape = (10, 5)
     samples = sn_dist.sample(sample_shape)
     assert samples.shape == sample_shape + sn_dist.mus.shape
+    """
 
     # check log prob and pdf
     # D = 1
@@ -154,12 +163,13 @@ if __name__ == "__main__":
     log_sigmas = torch.zeros(1, dtype=torch.float64)
     sn_dist = SigmoidNormal(mus=mus, log_sigmas=log_sigmas, bounds=bounds)
 
-    T = 1000
-    data = torch.tensor(np.linspace(0, 1, T)[:, None])
+    T = 100
+    data = torch.tensor(np.linspace(0.5, 0.9, T)[:, None])
     plt.plot(data.numpy(), sn_dist.pdf(data).numpy())
     plt.title("density curve")
     plt.show()
 
+    """
     # check sample
     T = 5000
     D = 1
@@ -176,5 +186,7 @@ if __name__ == "__main__":
     plt.title("histogram of sampled data")
 
     plt.show()
+    
+    """
 
 
