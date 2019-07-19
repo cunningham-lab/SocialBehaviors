@@ -1,5 +1,5 @@
 import numpy as np
-
+import torch
 
 class BaseObservations():
 
@@ -22,7 +22,15 @@ class BaseObservations():
         raise NotImplementedError
 
     def sample_x(self, z, xhist=None, return_np=True):
-        raise NotImplementedError
+        """
+        generate samples
+        """
+
+        with torch.no_grad():
+            x = self.rsample_x(z, xhist)
+        if return_np:
+            return x.numpy()
+        return x
 
     def permute(self, perm):
         raise NotImplementedError

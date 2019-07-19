@@ -100,17 +100,6 @@ class ARGaussianObservation(BaseObservations):
 
         return torch.cat((log_prob_init[None,], log_prob_ar))
 
-    def sample_x(self, z, xhist=None, return_np=True):
-        """
-        generate samples
-        """
-
-        with torch.no_grad():
-            x = self.rsample_x(z, xhist)
-        if return_np:
-            return x.numpy()
-        return x
-
     def rsample_x(self, z, xhist=None):
         """
         generate reparameterized samples

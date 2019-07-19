@@ -53,7 +53,9 @@ class ARSigmoidNormalObservation(BaseObservations):
             self.log_sigmas = torch.tensor(np.log(sigmas), dtype=torch.float64, requires_grad=train_sigma)
 
         if bounds is None:
-            self.bounds = torch.ones(self.D, 2)
+            # default bound for each dimension is [0,1]
+            self.bounds = torch.cat((torch.zeros(self.D, dtype=torch.float64)[:, None],
+                                     torch.ones(self.D, dtype=torch.float64)[:, None]), dim=1)
         else:
             self.bounds = check_and_convert_to_tensor(bounds, dtype=torch.float64)
             assert self.bounds.shape == (self.D, 2)
@@ -114,17 +116,6 @@ class ARSigmoidNormalObservation(BaseObservations):
         out = p.log_prob(data[:, None])  # (T, K, D)
         out = torch.sum(out, dim=-1)  # (T, K)
         return out
-
-    def sample_x(self, z, xhist=None, return_np=True):
-        """
-        generate samples
-        """
-
-        with torch.no_grad():
-            x = self.rsample_x(z, xhist)
-        if return_np:
-            return x.numpy()
-        return x
 
     def rsample_x(self, z, xhist=None):
         """
