@@ -7,29 +7,27 @@ from ssm_ptc.utils import random_rotation
 
 class LinearTransformation(BaseTransformation):
 
-    def __init__(self, K, d_in, d_out, As=None, use_bias=False, bs=None):
-        super(LinearTransformation, self).__init__(K, d_out)
+    def __init__(self, K, D, lags=1, As=None, use_bias=False, bs=None):
+        super(LinearTransformation, self).__init__(K, D)
 
-        self.lags = int(d_in / d_out)
+        self.lags = lags
 
         if As is None:
-            # self.As = 0.95*torch.randn(K, d_in, d_out, dtype=torch.float64, requires_grad=True)
-            #As = .95 * np.array([random_rotation(d_in) for _ in range(self.K)])
             As = .95 * np.array([
-                np.column_stack([random_rotation(self.d_out), np.zeros((self.d_out, (self.lags-1) * self.d_out))])
+                np.column_stack([random_rotation(self.D), np.zeros((self.D, (self.lags - 1) * self.D))])
             for _ in range(K)])
 
         self.As = torch.tensor(As, dtype=torch.float64, requires_grad=True)
-        assert self.As.shape == (self.K, d_out, d_out * self.lags)
+        assert self.As.shape == (self.K, D, D * self.lags)
 
         if use_bias:
             if bs is None:
-                bs = np.random.randn(self.K, self.d_out)
+                bs = np.random.randn(self.K, self.D)
             self.bs = torch.tensor(bs, dtype=torch.float64, requires_grad=True)
         else:
-            self.bs = torch.zeros(self.K, self.d_out, dtype=torch.float64)
+            self.bs = torch.zeros(self.K, self.D, dtype=torch.float64)
 
-        assert self.bs.shape == (self.K, self.d_out)
+        assert self.bs.shape == (self.K, self.D)
 
     @property
     def params(self):
@@ -42,50 +40,51 @@ class LinearTransformation(BaseTransformation):
     def transform(self, inputs):
         """
         Perform transformations on all possible zs
-        :param inputs: (T, d_out)
-        :return: (T-lags, K, d_out)
+        :param inputs: (T, D)
+        :return: (T-lags+1, K, D)
         """
         # TODO: test lags
 
-        K, d_in, d_out = self.As.shape
+        K, D, _ = self.As.shape
 
-        T, _ = inputs.shape # (T, d_in)
+        T, _ = inputs.shape # (T, D)
 
         out = 0
         for l in range(self.lags):
-            Als = self.As[:, l* d_out : (l+1) * d_out,:]  # (K, D, D)
-            lagged_data = inputs[l: T-self.lags+l]
-            assert lagged_data.shape == (T-self.lags, d_out)
-            lagged_data = lagged_data.unsqueeze(0) # (1, T-lags, D)
+            Als = self.As[:, :, l* D : (l+1) * D]  # (K, D, D)
+            lagged_data = inputs[l: T-self.lags+1+l]  # T-lags
+            assert lagged_data.shape == (T-self.lags+1, D)
+            lagged_data = lagged_data.unsqueeze(0) # (1, T-lags+1, D)
             out = out + torch.matmul(lagged_data, Als)
-            assert out.shape == (K, T-self.lags, d_out)
+            assert out.shape == (K, T-self.lags+1, D)
 
-        out = out.transpose(0,1)  # (T-lags, K, d_out)
+        out = out.transpose(0,1)  # (T-lags+1, K, D)
         out = out + self.bs
 
         return out
 
     def transform_condition_on_z(self, z, inputs):
         """
-        Perform transformation conditioning on z
+        Perform transformation conditioning on z,
         :param z: an integer
-        :param inputs: (T, d_in)
-        :return: (T-lags, d_out)
+        :param inputs: (lags, D)
+        :return: (D, )
         """
         # TODO: test lags
-        A = self.As[z]  # (d_in, d_out)
+        A = self.As[z]  # (D, D * lags)
 
-        d_in, d_out = A.shape
+        D, _ = A.shape
         T, _ = inputs.shape
 
         out = 0
         for l in range(self.lags):
-            Al = A[l*d_out : (l+1)*d_out]  # (D, D)
-            lagged_data = inputs[l: T-self.lags+l]  # (T-lags, D)
-            out = out + torch.matmul(lagged_data, Al)  # (T-lags, D)
+            Al = A[:,l*D : (l+1)*D]  # (D, D)
+            lagged_data = inputs[l]  # (D,)
+            assert lagged_data.shape == (D, )
+            out = out + torch.matmul(lagged_data, Al)  # (D, )
 
         out = out + self.bs[z]
-        assert out.shape == (T, d_out)
+        assert out.shape == (D, )
         return out
 
 

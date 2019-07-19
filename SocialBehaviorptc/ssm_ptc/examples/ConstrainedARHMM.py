@@ -23,7 +23,7 @@ T = 100
 As = [random_rotation(D) for _ in range(K)]
 bounds = np.array([[0, 20], [0,40]])
 
-true_tran = ConstrainedLinearTransformation(K=K, d_in=D, d_out=D, As=As, bounds=bounds)
+true_tran = ConstrainedLinearTransformation(K=K, d_in=D, D=D, As=As, bounds=bounds)
 true_observation = ARGaussianObservation(K=K, D=D, M=0, transformation=true_tran)
 true_model = HMM(K=K, D=D, M=0, observation=true_observation)
 

@@ -117,7 +117,6 @@ class HMM:
         P = self.transition_matrix.detach() # (K, K)
         for t in range(T_pre, T_pre + T):
             z[t] = npr.choice(K, p=P[z[t-1]])
-
             data[t] = self.observation.sample_x(z[t], data[:t], return_np=False)
 
         assert z.requires_grad is False

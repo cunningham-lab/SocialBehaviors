@@ -6,7 +6,7 @@ class BaseTransformation(object):
 
     def __init__(self, K, d_out):
         self.K = K
-        self.d_out = d_out # output dimension
+        self.D = d_out # output dimension
 
     @property
     def params(self):

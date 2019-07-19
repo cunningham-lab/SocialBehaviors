@@ -15,7 +15,7 @@ class ARGaussianObservation(BaseObservations):
     # TODO: subclassing ARObservation
     """
 
-    def __init__(self, K, D, M, transformation, mus_init=None, sigmas=None):
+    def __init__(self, K, D, M, transformation, mus_init=None, sigmas=None, lags=1):
         super(ARGaussianObservation, self).__init__(K, D, M)
 
         if mus_init is None:
@@ -33,12 +33,15 @@ class ARGaussianObservation(BaseObservations):
             assert sigmas.shape == (self.K, self.D)
             self.log_sigmas = torch.tensor(np.log(sigmas), dtype=torch.float64, requires_grad=True)
 
+        self.lags = lags
+
         if isinstance(transformation, str):
             if transformation == 'linear':
-                self.transformation = LinearTransformation(K=self.K, d_in=self.D, d_out=self.D)
+                self.transformation = LinearTransformation(K=self.K, D=self.D, lags=self.lags)
         else:
             assert isinstance(transformation, BaseTransformation)
             self.transformation = transformation
+            self.lags = self.transformation.lags
 
     @property
     def params(self):
@@ -63,13 +66,15 @@ class ARGaussianObservation(BaseObservations):
         :param data: (T,D)
         :return: mus: (T, K, D)
         """
+        # TODO: test lags
         T, D = data.shape
         assert D == self.D
 
-        mus_rest = self.transformation.transform(data[:-1])  # (T-1, K, D)
-        assert mus_rest.shape == (T-1, self.K, D)
+        mus_rest = self.transformation.transform(data[:-1])  # (T-1-lags+1, K, D)
+        assert mus_rest.shape == (T-1-self.lags+1, self.K, D)
 
-        mus = torch.cat((self.mus_init[None, ], mus_rest))
+        # add repeated lags
+        mus = torch.cat((self.mus_init * torch.ones(self.lags, self.K, self.D, dtype=torch.float64), mus_rest))
 
         assert mus.shape == (T, self.K, self.D)
         return mus
@@ -113,18 +118,15 @@ class ARGaussianObservation(BaseObservations):
         :param xhist: shape (T_pre, D)
         :return: x: shape (D,)
         """
-
+        # TODO: test lags
         # no previous x
-        if xhist is None or xhist.shape[0] == 0:
+        if xhist is None or xhist.shape[0] < self.lags:
             mu = self.mus_init[z]  # (D,)
             sigmas_z = torch.exp(self.log_sigmas_init[z])  # (D,)
         else:
             # sample from the autoregressive distribution
-            # currently consider lag = 1
             assert len(xhist.shape) == 2
-            x_pre = xhist[-1:]  # (1, D)
-            mu = self.transformation.transform_condition_on_z(z, x_pre)  # (1, D_out)
-            mu = torch.squeeze(mu, 0)  # (D, )
+            mu = self.transformation.transform_condition_on_z(z, xhist[-self.lags:])  # (D, )
             sigmas_z = torch.exp(self.log_sigmas[z])  # (D,)
 
         out = mu + sigmas_z * torch.randn(self.D, dtype=torch.float64)  # (self.D, )

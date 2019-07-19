@@ -17,8 +17,8 @@ class ARSigmoidNormalObservation(BaseObservations):
     A mixture of distributions
     """
 
-    def __init__(self, K, D, M, transformation, mus_init=None, sigmas=None, bounds=None, alpha=0.2, train_sigma=True,
-                 lags=1):
+    def __init__(self, K, D, M, transformation, lags=1, mus_init=None, sigmas=None,
+                 bounds=None, alpha=0.2, train_sigma=True):
         """
         x ~ N(mu, sigma)
         h_1 = sigmoid(h)
@@ -35,9 +35,11 @@ class ARSigmoidNormalObservation(BaseObservations):
         """
         super(ARSigmoidNormalObservation, self).__init__(K, D, M)
 
+        self.lags = lags
+
         if isinstance(transformation, str):
             if transformation == 'linear':
-                self.transformation = LinearTransformation(K=self.K, d_in=self.D, d_out=self.D)
+                self.transformation = LinearTransformation(K=self.K, D=self.D, lags=self.lags)
         else:
             assert isinstance(transformation, BaseTransformation)
             self.transformation = transformation
@@ -89,11 +91,11 @@ class ARSigmoidNormalObservation(BaseObservations):
         T, D = data.shape
         assert D == self.D
 
-        # TODO: add lags  (T-lags, K, D)
+        # TODO: test lags
         mus_rest = self.transformation.transform(data[:-1])  # (T-lags, K, D)
-        assert mus_rest.shape == (T-self.lags, self.K, D)
+        assert mus_rest.shape == (T-1-self.lags+1, self.K, D)
 
-        mus = torch.cat((self.mus_init[None, ], mus_rest))
+        mus = torch.cat((self.mus_init * torch.ones(self.lags, self.K, self.D, dtype=torch.float64), mus_rest))
 
         assert mus.shape == (T, self.K, self.D)
         return mus
@@ -131,18 +133,15 @@ class ARSigmoidNormalObservation(BaseObservations):
         :param xhist: shape (T_pre, D)
         :return: x: shape (D,)
         """
-
+        # TODO: test lags
         # no previous x
-        if xhist is None or xhist.shape[0] == 0:
+        if xhist is None or xhist.shape[0] < self.lags:
             mu = self.mus_init[z]  # (D,)
         else:
             # sample from the autoregressive distribution
-            # currently consider lag = 1
             assert len(xhist.shape) == 2
-            x_pre = xhist[-1:]  # (1, D)
-            mu = self.transformation.transform_condition_on_z(z, x_pre)  # (1, D_out)
-            assert mu.shape == (1, self.D)
-            mu = torch.squeeze(mu, 0)  # (D, )
+            mu = self.transformation.transform_condition_on_z(z, xhist[-self.lags:])  # (D, )
+            assert mu.shape == (self.D, )
 
         p = SigmoidNormal(mus=mu, log_sigmas=self.log_sigmas[z], bounds=self.bounds, alpha=self.alpha)
 

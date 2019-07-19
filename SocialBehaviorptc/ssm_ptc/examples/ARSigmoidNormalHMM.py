@@ -17,7 +17,7 @@ D = 2
 T = 100
 
 As = [random_rotation(D) for _ in range(K)]
-true_tran = LinearTransformation(K=K, d_in=D, d_out=D, As=As)
+true_tran = LinearTransformation(K=K, d_in=D, D=D, As=As)
 
 bounds = np.array([[0, 20], [-5, 25]])
 true_observation = ARSigmoidNormalObservation(K=K, D=D, M=0, transformation=true_tran, bounds=bounds)
@@ -29,7 +29,7 @@ z, data = true_model.sample(T, return_np=False)
 
 # Define a model to fit the data
 
-tran = LinearTransformation(K=K, d_in=D, d_out=D)
+tran = LinearTransformation(K=K, d_in=D, D=D)
 observation = ARSigmoidNormalObservation(K=K, D=D, M=0, transformation=tran, bounds=bounds)
 model = HMM(K=K, D=D, M=0, observation=observation)
 
