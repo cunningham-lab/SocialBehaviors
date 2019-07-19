@@ -82,7 +82,7 @@ def k_step_prediction(model, model_z, data, k=0, expectation=True, sample_size=1
 
 def check_and_convert_to_tensor(inputs, dtype=torch.float64):
     """
-    check if inputs type is either ndarray or tensor
+    check if inputs type is either ndarray or tensor (requires_grad=False)
     :param inputs:
     :param dtype: the torch.dtype that inputs should be converted to
     :return: converted tensor

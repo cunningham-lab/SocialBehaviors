@@ -66,7 +66,7 @@ class ARGaussianObservation(BaseObservations):
         :param data: (T,D)
         :return: mus: (T, K, D)
         """
-        # TODO: test lags
+
         T, D = data.shape
         assert D == self.D
 
