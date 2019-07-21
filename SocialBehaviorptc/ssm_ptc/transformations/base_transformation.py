@@ -4,9 +4,9 @@ from abc import ABC, abstractmethod
 # base class for transformation
 class BaseTransformation(object):
 
-    def __init__(self, K, d_out):
+    def __init__(self, K, D):
         self.K = K
-        self.D = d_out # output dimension
+        self.D = D # output dimension
 
     @property
     def params(self):

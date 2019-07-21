@@ -7,7 +7,7 @@ from ssm_ptc.utils import random_rotation
 
 class LinearTransformation(BaseTransformation):
 
-    def __init__(self, K, D, lags=1, As=None, use_bias=False, bs=None):
+    def __init__(self, K, D, lags=1, As=None, use_bias=True, bs=None):
         super(LinearTransformation, self).__init__(K, D)
 
         self.lags = lags
@@ -43,7 +43,6 @@ class LinearTransformation(BaseTransformation):
         :param inputs: (T, D)
         :return: (T-lags+1, K, D)
         """
-        # TODO: test lags
 
         K, D, _ = self.As.shape
 
@@ -70,7 +69,7 @@ class LinearTransformation(BaseTransformation):
         :param inputs: (lags, D)
         :return: (D, )
         """
-        # TODO: test lags
+
         A = self.As[z]  # (D, D * lags)
 
         D, _ = A.shape

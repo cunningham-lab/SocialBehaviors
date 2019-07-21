@@ -8,6 +8,7 @@ from ssm_ptc.observations.base_observation import BaseObservations
 from ssm_ptc.transformations.base_transformation import BaseTransformation
 from ssm_ptc.transformations.linear import LinearTransformation
 
+from ssm_ptc.utils import check_and_convert_to_tensor
 
 class ARGaussianObservation(BaseObservations):
     """
@@ -15,19 +16,19 @@ class ARGaussianObservation(BaseObservations):
     # TODO: subclassing ARObservation
     """
 
-    def __init__(self, K, D, M, transformation, mus_init=None, sigmas=None, lags=1):
+    def __init__(self, K, D, M, transformation, mus_init=None, sigmas=None, lags=1, train_sigma=True):
         super(ARGaussianObservation, self).__init__(K, D, M)
 
         if mus_init is None:
             self.mus_init = torch.zeros(self.K, self.D, dtype=torch.float64)
         else:
-            self.mus_init = torch.tensor(mus_init, dtype=torch.float64)
+            self.mus_init = check_and_convert_to_tensor(mus_init)
 
         # consider diagonal covariance
         self.log_sigmas_init = torch.tensor(np.log(5*np.ones((K, D))), dtype=torch.float64)
 
         if sigmas is None:
-            self.log_sigmas = torch.tensor(np.log(5*np.ones((K, D))), dtype=torch.float64, requires_grad=True)
+            self.log_sigmas = torch.tensor(np.log(5*np.ones((K, D))), dtype=torch.float64, requires_grad=train_sigma)
         else:
             # TODO: assert sigmas positive
             assert sigmas.shape == (self.K, self.D)

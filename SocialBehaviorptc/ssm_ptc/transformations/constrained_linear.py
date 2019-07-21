@@ -10,18 +10,14 @@ class ConstrainedLinearTransformation(LinearTransformation):
     Actually 1-layer MLP: one linear-transformation + scaled sigmoid
     """
 
-    def __init__(self, K, d_in, D, As=None, use_bias=False, bs=None, bounds=None):
-        super(ConstrainedLinearTransformation, self).__init__(K, d_in, D, As, use_bias, bs)
+    def __init__(self, K, D, bounds, lags=1, As=None, use_bias=True, bs=None, alpha=0.2):
+        super(ConstrainedLinearTransformation, self).__init__(K, D, lags, As, use_bias, bs)
 
-        if bounds is None:
-            self.bounds = None
-        else:
-            self.bounds = check_and_convert_to_tensor(bounds, dtype=torch.float64)
-            # for each dimension in D, there should be a lower bound and an upper bound
-            assert self.bounds.shape == (D, 2)
+        self.bounds = check_and_convert_to_tensor(bounds, dtype=torch.float64)
+        # for each dimension in D, there should be a lower bound and an upper bound
+        assert self.bounds.shape == (D, 2)
 
-            # currently consider the center as a fixed number
-            self.center = torch.mean(self.bounds, dim=1)  # (D, )
+        self.alpha = alpha
 
     def transform(self, inputs):
         """
@@ -49,10 +45,10 @@ class ConstrainedLinearTransformation(LinearTransformation):
         :return: outputs: (T, K, D) or (T, D)
         """
 
-        outputs = torch.nn.Sigmoid()(inputs - self.center)
+        outputs = torch.sigmoid(inputs)
         assert outputs.shape == inputs.shape
 
-        outputs = outputs * (self.bounds[:, 1] - self.bounds[:,0]) + self.bounds[:,0]
+        outputs = outputs * (self.bounds[..., 1] - self.bounds[...,0]) + self.bounds[...,0]
         assert outputs.shape == inputs.shape
         return outputs
 

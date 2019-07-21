@@ -38,6 +38,7 @@ class SigmoidNormal(BaseDistribution):
 
     @staticmethod
     def _inverse_sigmoid(x):
+        # logistic function
         # x = sigmoid(z) <=> z = sigmoid_inv(x)
         # sigmoid_inv (x) = log (x) - log (1 - x)
         return torch.log(x) - torch.log(torch.tensor(1) - x)

@@ -8,17 +8,17 @@ from ssm_ptc.observations.base_observation import BaseObservations
 from ssm_ptc.transformations.base_transformation import BaseTransformation
 from ssm_ptc.transformations.linear import LinearTransformation
 from ssm_ptc.distributions.base_distribution import BaseDistribution
-from ssm_ptc.distributions.sigmoidnormal import SigmoidNormal
+from ssm_ptc.distributions.truncatednormal import TruncatedNormal
 from ssm_ptc.utils import check_and_convert_to_tensor
 
 
-class ARSigmoidNormalObservation(BaseObservations):
+class ARTruncatedNormalObservation(BaseObservations):
     """
     A mixture of distributions
     """
 
     def __init__(self, K, D, M, transformation, lags=1, mus_init=None, sigmas=None,
-                 bounds=None, alpha=0.2, train_sigma=True):
+                 bounds=None, train_sigma=True):
         """
         x ~ N(mu, sigma)
         h_1 = sigmoid(h)
@@ -33,13 +33,14 @@ class ARSigmoidNormalObservation(BaseObservations):
         :param sigmas: (K, D) -- recover the diagonal covariance of shape (K,D,D)
         :param bounds: (D, 2) -- lower and upper bounds for each dimension of the observation
         """
-        super(ARSigmoidNormalObservation, self).__init__(K, D, M)
+        super(ARTruncatedNormalObservation, self).__init__(K, D, M)
 
-        self.lags = lags
+        # TODO: transformation should be constrained
 
         if isinstance(transformation, str):
             if transformation == 'linear':
-                self.transformation = LinearTransformation(K=self.K, D=self.D, lags=self.lags)
+                self.transformation = LinearTransformation(K=self.K, D=self.D, lags=lags)
+                self.lags = lags
         else:
             assert isinstance(transformation, BaseTransformation)
             self.transformation = transformation
@@ -66,8 +67,6 @@ class ARSigmoidNormalObservation(BaseObservations):
         else:
             self.mus_init = torch.tensor(mus_init, dtype=torch.float64, requires_grad=True)
 
-        self.alpha = alpha
-
     @property
     def params(self):
         return [self.mus_init, self.log_sigmas] + self.transformation.params
@@ -79,7 +78,8 @@ class ARSigmoidNormalObservation(BaseObservations):
         self.transformation.permute(perm)
 
     def _compute_mus_based_on(self, data):
-        # not tested. TODO: test this method
+        # not tested.
+        # TODO: test this method
         mus = self.transformation.transform(data)
         return data
 
@@ -109,19 +109,22 @@ class ARSigmoidNormalObservation(BaseObservations):
 
         mus = self._compute_mus_for(data)  # (T, K, D)
 
-        p = SigmoidNormal(mus=mus, log_sigmas=self.log_sigmas, bounds=self.bounds, alpha=self.alpha)
+        dist = TruncatedNormal(mus=mus, log_sigmas=self.log_sigmas, bounds=self.bounds)
 
-        out = p.log_prob(data[:, None])  # (T, K, D)
+        out = dist.log_prob(data[:, None])  # (T, K, D)
         out = torch.sum(out, dim=-1)  # (T, K)
         return out
 
-    def rsample_x(self, z, xhist=None):
+    def sample_x(self, z, xhist=None, return_np=False):
         """
-        generate reparameterized samples
-        :param z: shape ()
-        :param xhist: shape (T_pre, D)
-        :return: x: shape (D,)
+
+        :param z: ()
+        :param xhist: (T_pre, D)
+        :param return_np:
+        :return: x: shape (D, )
         """
+
+        # currently only support non-reparameterizable rejection sampling
 
         # no previous x
         if xhist is None or xhist.shape[0] < self.lags:
@@ -130,14 +133,24 @@ class ARSigmoidNormalObservation(BaseObservations):
             # sample from the autoregressive distribution
             assert len(xhist.shape) == 2
             mu = self.transformation.transform_condition_on_z(z, xhist[-self.lags:])  # (D, )
-            assert mu.shape == (self.D, )
+            assert mu.shape == (self.D,)
 
-        p = SigmoidNormal(mus=mu, log_sigmas=self.log_sigmas[z], bounds=self.bounds, alpha=self.alpha)
+        dist = TruncatedNormal(mus=mu, log_sigmas=self.log_sigmas[z], bounds=self.bounds)
 
-        out = p.sample()
-        assert out.shape == (self.D, )
+        samples = dist.sample()
+        return samples
 
-        return out
+    def rsample_x(self, z, xhist=None):
+        """
+        generate reparameterized samples
+        :param z: shape ()
+        :param xhist: shape (T_pre, D)
+        :return: x: shape (D,)
+        """
+       # TODO: add rejection sampling
+        raise NotImplementedError
+
+
 
 
 
