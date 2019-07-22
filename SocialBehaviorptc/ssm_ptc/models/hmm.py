@@ -8,11 +8,11 @@ import numpy.random as npr
 
 from ssm_ptc.observations.base_observation import BaseObservations
 from ssm_ptc.observations.ar_gaussian_observation import ARGaussianObservation
-
 from ssm_ptc.message_passing.primitives import viterbi
 from ssm_ptc.message_passing.normalizer import hmmnorm_cython
-
 from ssm_ptc.utils import check_and_convert_to_tensor
+
+from tqdm import trange
 
 
 class HMM:
@@ -86,8 +86,9 @@ class HMM:
         M = self.M
 
         # get dtype of the observations
-        dummy_data = self.observation.sample_x(0, np.empty(0,), return_np=False)
-        dtype = dummy_data.dtype
+        #dummy_data = self.observation.sample_x(0, np.empty(0,), return_np=False)
+        #dtype = dummy_data.dtype
+        dtype = torch.float64
 
         if prefix is None:
             # no prefix is given. Sample the initial state as the prefix
@@ -220,6 +221,41 @@ class HMM:
         if return_np:
             return xs.numpy()
         return xs
+
+    def fit(self, data, optimizer=None, method='adam', num_iters=1000, lr=0.001, lr_scheduler=None):
+        # TODO: test fit and test pbar
+
+        pbar = trange(num_iters)
+
+        if optimizer is None:
+            if method == 'adam':
+                optimizer = torch.optim.Adam(self.params, lr=lr)
+            elif method == 'sgd':
+                optimizer = torch.optim.SGD(self.params, lr=lr)
+            else:
+                raise ValueError("method must be chosen from adam and sgd.")
+
+        losses = []
+        for i in np.arange(num_iters):
+
+            optimizer.zero_grad()
+
+            loss = self.loss(data)
+            loss.backward()
+            optimizer.step()
+
+            loss = loss.detach().numpy()
+            losses.append(loss)
+
+            if i % 10 == 0:
+                pbar.set_description('iter {} loss {:.2f}'.format(i, loss))
+                pbar.update(10)
+
+        pbar.close()
+
+        return losses, optimizer
+
+
 
 
 
