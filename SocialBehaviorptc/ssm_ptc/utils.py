@@ -66,13 +66,13 @@ def k_step_prediction(model, model_z, data, k=0, expectation=True, sample_size=1
     x_predict_arr = []
     if k == 0:
         for t in range(data.shape[0]):
-            x_predict = model.observation.sample_x(model_z[t], data[:t])
+            x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True)
             x_predict_arr.append(x_predict)
     else:
         assert k>0
         # neglects t = 0 since there is no history
         for t in range(1, data.shape[0]-k):
-            zx_predict = model.sample(k, prefix=(model_z[t-1:t], data[t-1:t]))
+            zx_predict = model.sample(k, prefix=(model_z[t-1:t], data[t-1:t]), return_np=True)
             assert zx_predict[1].shape == (k, 4)
             x_predict = zx_predict[1][k-1]
             x_predict_arr.append(x_predict)

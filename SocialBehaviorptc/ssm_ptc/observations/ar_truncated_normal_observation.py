@@ -115,7 +115,7 @@ class ARTruncatedNormalObservation(BaseObservations):
         out = torch.sum(out, dim=-1)  # (T, K)
         return out
 
-    def sample_x(self, z, xhist=None, return_np=False):
+    def sample_x(self, z, xhist=None, return_np=True):
         """
 
         :param z: ()
@@ -138,6 +138,8 @@ class ARTruncatedNormalObservation(BaseObservations):
         dist = TruncatedNormal(mus=mu, log_sigmas=self.log_sigmas[z], bounds=self.bounds)
 
         samples = dist.sample()
+        if return_np:
+            return samples.numpy()
         return samples
 
     def rsample_x(self, z, xhist=None):
