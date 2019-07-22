@@ -71,11 +71,14 @@ class ARGaussianObservation(BaseObservations):
         T, D = data.shape
         assert D == self.D
 
-        mus_rest = self.transformation.transform(data[:-1])  # (T-1-lags+1, K, D)
-        assert mus_rest.shape == (T-1-self.lags+1, self.K, D)
+        if T < self.lags:
+            mus = self.mus_init * torch.ones(T, self.K, self.D, dtype=torch.float64)
+        else:
+            mus_rest = self.transformation.transform(data[:-1])  # (T-1-lags+1, K, D)
+            assert mus_rest.shape == (T-1-self.lags+1, self.K, D)
 
-        # add repeated lags
-        mus = torch.cat((self.mus_init * torch.ones(self.lags, self.K, self.D, dtype=torch.float64), mus_rest))
+            # add repeated lags
+            mus = torch.cat((self.mus_init * torch.ones(self.lags, self.K, self.D, dtype=torch.float64), mus_rest))
 
         assert mus.shape == (T, self.K, self.D)
         return mus

@@ -92,10 +92,13 @@ class ARSigmoidNormalObservation(BaseObservations):
         T, D = data.shape
         assert D == self.D
 
-        mus_rest = self.transformation.transform(data[:-1])  # (T-lags, K, D)
-        assert mus_rest.shape == (T-1-self.lags+1, self.K, D)
+        if T < self.lags:
+            mus = self.mus_init * torch.ones(T, self.K, self.D, dtype=torch.float64)
+        else:
+            mus_rest = self.transformation.transform(data[:-1])  # (T-lags, K, D)
+            assert mus_rest.shape == (T-1-self.lags+1, self.K, D)
 
-        mus = torch.cat((self.mus_init * torch.ones(self.lags, self.K, self.D, dtype=torch.float64), mus_rest))
+            mus = torch.cat((self.mus_init * torch.ones(self.lags, self.K, self.D, dtype=torch.float64), mus_rest))
 
         assert mus.shape == (T, self.K, self.D)
         return mus
