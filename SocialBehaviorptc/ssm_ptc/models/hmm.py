@@ -164,9 +164,15 @@ class HMM:
         return [self.pi0, self.Pi] + self.observation.params
 
     @property
-    def params_require_grad(self):
-        # TODO: add this
-        return 0
+    def trainable_params(self):
+        """
+        :return: the parameters that require grad. maybe helpful for optimization
+        """
+        out = []
+        for param in self.params:
+            if param.requires_grad:
+                out.append(param)
+        return out
 
     # numpy operation
     def most_likely_states(self, data):
@@ -186,10 +192,10 @@ class HMM:
     # return np
     def sample_condition_on_zs(self, zs, x0=None, return_np=True):
         """
-
-        :param zs:
+        Given a z sequence, generate samples condition on this sequence.
+        :param zs: (T, )
         :param x0: shape (D,)
-        :return:
+        :return: generated samples (T, D)
         """
 
         zs = check_and_convert_to_tensor(zs, dtype=torch.int)
@@ -197,7 +203,7 @@ class HMM:
 
         assert T > 0
 
-        # TODO: adjust to the case when lags > 1
+        # TODO: test lags
         if T == 1:
             if x0 is not None:
                 print("Nothing to sample")
@@ -206,10 +212,9 @@ class HMM:
                 return self.observation.sample_x(zs[0])
 
         if x0 is None:
-            x0 = self.observation.sample_x(zs[0])
+            x0 = self.observation.sample_x(zs[0], return_np=False)
         else:
             assert x0.shape == (self.D, )
-            x0 = check_and_convert_to_tensor(x0, dtype=torch.float64)
 
         xs = [x0]
         for t in np.arange(1, T):
@@ -223,7 +228,6 @@ class HMM:
         return xs
 
     def fit(self, data, optimizer=None, method='adam', num_iters=1000, lr=0.001, lr_scheduler=None):
-        # TODO: test fit and test pbar
 
         pbar = trange(num_iters)
 
