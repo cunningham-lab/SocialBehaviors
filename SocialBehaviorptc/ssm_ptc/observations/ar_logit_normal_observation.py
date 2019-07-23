@@ -8,16 +8,16 @@ from ssm_ptc.observations.base_observation import BaseObservations
 from ssm_ptc.transformations.base_transformation import BaseTransformation
 from ssm_ptc.transformations.linear import LinearTransformation
 from ssm_ptc.distributions.base_distribution import BaseDistribution
-from ssm_ptc.distributions.sigmoidnormal import SigmoidNormal
-from ssm_ptc.utils import check_and_convert_to_tensor
+from ssm_ptc.distributions.logitnormal import LogitNormal
+from ssm_ptc.utils import check_and_convert_to_tensor, get_np
 
 
-class ARSigmoidNormalObservation(BaseObservations):
+class ARLogitNormalObservation(BaseObservations):
     """
     A mixture of distributions
     """
 
-    def __init__(self, K, D, M, transformation, lags=1, mus_init=None, sigmas=None,
+    def __init__(self, K, D, M=0, transformation='linear', lags=1, mus_init=None, sigmas=None,
                  bounds=None, alpha=0.2, train_sigma=True):
         """
         x ~ N(mu, sigma)
@@ -33,7 +33,7 @@ class ARSigmoidNormalObservation(BaseObservations):
         :param sigmas: (K, D) -- recover the diagonal covariance of shape (K,D,D)
         :param bounds: (D, 2) -- lower and upper bounds for each dimension of the observation
         """
-        super(ARSigmoidNormalObservation, self).__init__(K, D, M)
+        super(ARLogitNormalObservation, self).__init__(K, D, M)
 
         self.lags = lags
 
@@ -70,14 +70,16 @@ class ARSigmoidNormalObservation(BaseObservations):
 
     @property
     def params(self):
-        return [self.mus_init, self.log_sigmas] + self.transformation.params
+        return (self.mus_init, self.log_sigmas) + self.transformation.params
         #return [self.mus_init] + self.transformation.params
 
     @params.setter
     def params(self, values):
-        self.mus_init = values[0]
-        self.log_sigmas = values[1]
-        self.transformation = values[2:]
+        self.mus_init = torch.tensor(get_np(values[0]), dtype=self.mus_init.dtype,
+                                     requires_grad=self.mus_init.requires_grad)
+        self.log_sigmas = torch.tensor(get_np(values[1]),
+                                       dtype=self.log_sigmas.dtype, requires_grad=self.log_sigmas.requires_grad)
+        self.transformation.params = values[2:]
 
     def permute(self, perm):
         self.mus_init = self.mus_init[perm]
@@ -118,7 +120,7 @@ class ARSigmoidNormalObservation(BaseObservations):
 
         mus = self._compute_mus_for(data)  # (T, K, D)
 
-        p = SigmoidNormal(mus=mus, log_sigmas=self.log_sigmas, bounds=self.bounds, alpha=self.alpha)
+        p = LogitNormal(mus=mus, log_sigmas=self.log_sigmas, bounds=self.bounds, alpha=self.alpha)
 
         out = p.log_prob(data[:, None])  # (T, K, D)
         out = torch.sum(out, dim=-1)  # (T, K)
@@ -141,7 +143,7 @@ class ARSigmoidNormalObservation(BaseObservations):
             mu = self.transformation.transform_condition_on_z(z, xhist[-self.lags:])  # (D, )
             assert mu.shape == (self.D, )
 
-        p = SigmoidNormal(mus=mu, log_sigmas=self.log_sigmas[z], bounds=self.bounds, alpha=self.alpha)
+        p = LogitNormal(mus=mu, log_sigmas=self.log_sigmas[z], bounds=self.bounds, alpha=self.alpha)
 
         out = p.sample()
         assert out.shape == (self.D, )

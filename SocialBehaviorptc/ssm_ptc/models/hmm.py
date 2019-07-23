@@ -6,8 +6,12 @@ import torch
 import numpy as np
 import numpy.random as npr
 
+from ssm_ptc.transitions.base_transition import BaseTransition
+from ssm_ptc.transitions.stationary_transition import StationaryTransition
 from ssm_ptc.observations.base_observation import BaseObservations
 from ssm_ptc.observations.ar_gaussian_observation import ARGaussianObservation
+from ssm_ptc.observations.ar_logit_normal_observation import ARLogitNormalObservation
+from ssm_ptc.observations.ar_truncated_normal_observation import ARTruncatedNormalObservation
 from ssm_ptc.message_passing.primitives import viterbi
 from ssm_ptc.message_passing.normalizer import hmmnorm_cython
 from ssm_ptc.utils import check_and_convert_to_tensor, get_np
@@ -17,7 +21,7 @@ from tqdm import trange
 
 class HMM:
 
-    def __init__(self, K, D, M=0, observation="gaussian", pi0=None, Pi=None):
+    def __init__(self, K, D, M=0, transition='stationary', observation="gaussian", pi0=None, Pi=None, bounds=None, lags=1):
         """
 
         :param K: number of hidden states
@@ -37,35 +41,47 @@ class HMM:
             self.pi0 = torch.ones(self.K, dtype=torch.float64, requires_grad=True)
         else:
             self.pi0 = check_and_convert_to_tensor(pi0, dtype=torch.float64)
-        if Pi is None:
-            Pi = 2 * np.eye(K) + .05 * npr.rand(K, K)
-            self.Pi = torch.tensor(Pi, dtype=torch.float64, requires_grad=True)
+
+        if isinstance(transition, str):
+            if transition == 'stationary':
+                self.transition = StationaryTransition(self.K, self.D, self.M, Pi=Pi)
+        elif isinstance(transition, BaseTransition):
+            self.transition = transition
         else:
-            self.Pi = check_and_convert_to_tensor(Pi, dtype=torch.float64)
+            raise ValueError("Invalid transition type.")
 
         if isinstance(observation, str):
             if observation == "gaussian":
-                self.observation = ARGaussianObservation(self.K, self.D, self.M, transformation='linear')
+                self.observation = ARGaussianObservation(self.K, self.D, self.M, transformation='linear', lags=lags)
+            elif observation == "logitnormal":
+                assert bounds is not None
+                self.observation = ARLogitNormalObservation(self.K, self.D, self.M, bounds=bounds, lags=lags)
+            elif observation == "truncatednormal":
+                assert bounds is not None
+                self.observation = ARTruncatedNormalObservation(self.K, self.D, self.M, bounds=bounds, lags=lags)
+            else:
+                raise ValueError("Please select from 'gaussian', 'logitnormal' and 'truncatednormal'.")
         elif isinstance(observation, BaseObservations):
             self.observation = observation
         else:
-            raise Exception("Invalid observation type.")
+            raise ValueError("Invalid observation type.")
 
     @property
     def init_dist(self):
         return torch.nn.Softmax(dim=0)(self.pi0)
 
-    @property
-    def transition_matrix(self):
-        return torch.nn.Softmax(dim=1)(self.Pi)
-
     def sample_z(self, T):
         # sample the time-invariant markov chain only
+
+        # TODO: may want to expand to other cases
+        assert isinstance(self.transition, StationaryTransition), \
+            "Sampling the makov chain only supports for stationary transition"
+
         z = torch.empty(T, dtype=torch.int)
         pi0 = self.init_dist.detach()
         z[0] = npr.choice(self.K, p=pi0)
 
-        P = self.transition_matrix.detach()  # (K, K)
+        P = self.transition.transition_matrix([],[]).detach()  # (K, K)
         for t in range(1, T):
             z[t] = npr.choice(self.K, p=P[z[t - 1]])
         return z
@@ -115,10 +131,18 @@ class HMM:
             assert z.shape == (T_pre + T, )
             data = torch.cat((x_pre, torch.empty((T, D), dtype=dtype)))
 
-        P = self.transition_matrix.detach() # (K, K)
-        for t in range(T_pre, T_pre + T):
-            z[t] = npr.choice(K, p=P[z[t-1]])
-            data[t] = self.observation.sample_x(z[t], data[:t], return_np=False)
+        if isinstance(self.transition, StationaryTransition):
+            P = self.transition.transition_matrix([],[]).detach() # (K, K)
+            for t in range(T_pre, T_pre + T):
+                z[t] = npr.choice(K, p=P[z[t-1]])
+                data[t] = self.observation.sample_x(z[t], data[:t], return_np=False)
+        else:
+            for t in range(T_pre, T_pre + T):
+                # TODO: add input
+                input = np.zeros(T)
+                P = self.transition.transition_matrix(data[t-1:t+1], input[t-1:t+1]).detach()
+                z[t] = npr.choice(K, p=P[z[t-1]])
+                data[t] = self.observation.sample_x(z[t], data[:t], return_np=False)
 
         assert z.requires_grad is False
         assert data.requires_grad is False
@@ -145,12 +169,18 @@ class HMM:
 
         T = data.shape[0]
         log_pi0 = torch.nn.LogSoftmax(dim=0)(self.pi0)  # (K, )
-        log_P = torch.nn.LogSoftmax(dim=1)(self.Pi)  # (K, K)
 
-        if T == 1:
-            log_Ps = log_P[None,][:0]
+        # TODO: add other transition cases
+        if isinstance(self.transition, StationaryTransition):
+            Pi = self.transition.stationary_transition_matrix
+            log_P = torch.nn.LogSoftmax(dim=1)(Pi)  # (K, K)
+
+            if T == 1:
+                log_Ps = log_P[None,][:0]
+            else:
+                log_Ps = log_P[None,].repeat(T-1, 1, 1)  # (T-1, K, K)
         else:
-            log_Ps = log_P[None,].repeat(T-1, 1, 1)  # (T-1, K, K)
+            raise NotImplementedError
 
         ll = self.observation.log_prob(data)  # (T, K)
 
@@ -161,27 +191,32 @@ class HMM:
         """
         :return: pi0, Pi, mus_init, log_sigmas, As, bs ...
         """
-        return [self.pi0, self.Pi] + self.observation.params
+        return (self.pi0, ), self.transition.params, self.observation.params
 
     @params.setter
     def params(self, values):
         """only change values, keep requires_grad property"""
-        # TODO: test this method
-        assert type(values) == list
+        assert type(values) == tuple
 
-        self.pi0 = values[0]
-        self.Pi = values[1]
-        self.observation.params = values[2:]
+        self.pi0 = torch.tensor(get_np(values[0][0]), dtype=self.pi0.dtype, requires_grad=self.pi0.requires_grad)
+        self.transition.params = values[1]
+        self.observation.params = values[2]
+
+    @property
+    def params_unpack(self):
+        return self.params[0] + self.params[1] + self.params[2]
 
     @property
     def trainable_params(self):
         """
         :return: the parameters that require grad. maybe helpful for optimization
         """
+        params_unpack = self.params_unpack
+
         out = []
-        for param in self.params:
-            if param.requires_grad:
-                out.append(param)
+        for p in params_unpack:
+            if p.requires_grad:
+                out.append(p)
         return out
 
     # numpy operation
@@ -189,14 +224,21 @@ class HMM:
         data = check_and_convert_to_tensor(data)
 
         log_pi0 = torch.nn.LogSoftmax(dim=0)(self.pi0).detach().numpy()  # (K, )
-        log_Ps = torch.nn.LogSoftmax(dim=1)(self.Pi).detach().numpy()  # (K, K)
+
+        if isinstance(self.transition, StationaryTransition):
+            Pi = self.transition.stationary_transition_matrix
+            log_Ps = torch.nn.LogSoftmax(dim=1)(Pi).detach().numpy()  # (K, K)
+            log_Ps = log_Ps[None,]
+        else:
+            # TODO: support other transition cases
+            pass
 
         log_likes = self.observation.log_prob(data).detach().numpy()
-        return viterbi(log_pi0, log_Ps[None,], log_likes)
+        return viterbi(log_pi0, log_Ps, log_likes)
 
     def permute(self, perm):
         self.pi0 = self.pi0[perm]
-        self.Pi = self.Pi[np.ix_(perm, perm)]
+        self.transition.permute(perm)
         self.observation.permute(perm)
 
     # return np
@@ -209,6 +251,7 @@ class HMM:
         """
 
         zs = check_and_convert_to_tensor(zs, dtype=torch.int)
+        x0 = check_and_convert_to_tensor(x0, dtype=torch.float64)
         T = zs.shape[0]
 
         assert T > 0
@@ -243,9 +286,9 @@ class HMM:
 
         if optimizer is None:
             if method == 'adam':
-                optimizer = torch.optim.Adam(self.params, lr=lr)
+                optimizer = torch.optim.Adam(self.trainable_params, lr=lr)
             elif method == 'sgd':
-                optimizer = torch.optim.SGD(self.params, lr=lr)
+                optimizer = torch.optim.SGD(self.trainable_params, lr=lr)
             else:
                 raise ValueError("method must be chosen from adam and sgd.")
 

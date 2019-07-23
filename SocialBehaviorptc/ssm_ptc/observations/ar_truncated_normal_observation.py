@@ -9,7 +9,7 @@ from ssm_ptc.transformations.base_transformation import BaseTransformation
 from ssm_ptc.transformations.linear import LinearTransformation
 from ssm_ptc.distributions.base_distribution import BaseDistribution
 from ssm_ptc.distributions.truncatednormal import TruncatedNormal
-from ssm_ptc.utils import check_and_convert_to_tensor
+from ssm_ptc.utils import check_and_convert_to_tensor, get_np
 
 
 class ARTruncatedNormalObservation(BaseObservations):
@@ -17,7 +17,7 @@ class ARTruncatedNormalObservation(BaseObservations):
     A mixture of distributions
     """
 
-    def __init__(self, K, D, M, transformation, lags=1, mus_init=None, sigmas=None,
+    def __init__(self, K, D, M=0, transformation='linear', lags=1, mus_init=None, sigmas=None,
                  bounds=None, train_sigma=True):
         """
         x ~ N(mu, sigma)
@@ -69,13 +69,15 @@ class ARTruncatedNormalObservation(BaseObservations):
 
     @property
     def params(self):
-        return [self.mus_init, self.log_sigmas] + self.transformation.params
+        return (self.mus_init, self.log_sigmas) + self.transformation.params
         #return [self.mus_init] + self.transformation.params
 
     @params.setter
     def params(self, values):
-        self.mus_init = values[0]
-        self.log_sigmas = values[1]
+        self.mus_init = torch.tensor(get_np(values[0]), dtype=self.mus_init.dtype,
+                                     requires_grad=self.mus_init.requires_grad)
+        self.log_sigmas = torch.tensor(get_np(values[1]), dtype=self.log_sigmas.dtype,
+                                              requires_grad=self.log_sigmas.requires_grad)
         self.transformation.params = values[2:]
 
     def permute(self, perm):

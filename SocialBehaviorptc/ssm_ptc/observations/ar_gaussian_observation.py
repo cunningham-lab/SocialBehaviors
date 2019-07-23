@@ -8,7 +8,7 @@ from ssm_ptc.observations.base_observation import BaseObservations
 from ssm_ptc.transformations.base_transformation import BaseTransformation
 from ssm_ptc.transformations.linear import LinearTransformation
 
-from ssm_ptc.utils import check_and_convert_to_tensor
+from ssm_ptc.utils import check_and_convert_to_tensor, get_np
 
 class ARGaussianObservation(BaseObservations):
     """
@@ -16,7 +16,7 @@ class ARGaussianObservation(BaseObservations):
     # TODO: subclassing ARObservation
     """
 
-    def __init__(self, K, D, M, transformation, mus_init=None, sigmas=None, lags=1, train_sigma=True):
+    def __init__(self, K, D, M=0, transformation='linear', mus_init=None, sigmas=None, lags=1, train_sigma=True):
         super(ARGaussianObservation, self).__init__(K, D, M)
 
         if mus_init is None:
@@ -47,11 +47,12 @@ class ARGaussianObservation(BaseObservations):
     @property
     def params(self):
         # do not train initial parameters
-        return [self.log_sigmas] + self.transformation.params
+        return (self.log_sigmas, ) + self.transformation.params
 
     @params.setter
     def params(self, values):
-        self.log_sigmas = values[0]
+        self.log_sigmas = torch.tensor(get_np(values[0]), dtype=self.log_sigmas.dtype,
+                                       requires_grad=self.log_sigmas.requires_grad)
         self.transformation.params = values[1:]
 
     def permute(self, perm):

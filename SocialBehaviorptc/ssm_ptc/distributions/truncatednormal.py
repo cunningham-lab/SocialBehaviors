@@ -55,6 +55,9 @@ class TruncatedNormal(BaseDistribution):
         aa = (self.bounds[...,0].numpy() - loc) / scale  # (D, )
         if sample_shape == ():
             samples = truncnorm.rvs(a=aa, b=bb, loc=loc, scale=scale)
+            # some adhoc way to fix the infinity in sample
+            samples[samples == -np.inf] = self.bounds[...,1].numpy()[samples == -np.inf]
+            samples[samples == np.inf] = self.bounds[...,0].numpy()[samples == np.inf]
         else:
             samples = truncnorm.rvs(a=aa, b=bb, loc=loc, scale=scale, size=sample_shape)
 
@@ -70,11 +73,6 @@ class TruncatedNormal(BaseDistribution):
         sigma = torch.exp(self.log_sigmas)
         bb = self.bounds[..., 1] - self.mus
         aa = self.bounds[..., 0] - self.mus
-        out1 = normal_log_pdf((data-self.mus)/sigma)
-        out2 = normal_cdf(bb/sigma)
-        out3 = normal_cdf(aa/sigma)
-        out4 = out2 - out3
-        out5 = torch.log(out4)
         out = normal_log_pdf((data-self.mus)/sigma + 1e-15) - self.log_sigmas - \
               torch.log(normal_cdf(bb/sigma) - normal_cdf(aa/sigma) + 1e-15)
         return out

@@ -14,14 +14,14 @@ def log_d_sigmoid(x):
     return torch.log(torch.sigmoid(x)) + torch.log(torch.tensor(1, dtype=x.dtype) - torch.sigmoid(x))
 
 
-class SigmoidNormal(BaseDistribution):
+class LogitNormal(BaseDistribution):
     r"""
     Creates a sigmoid-normal distribution parameterized by a mean vector, a covariance matrix and bounds
     Normal -> scaled sigmoid
     """
 
     def __init__(self, mus, log_sigmas, bounds, alpha=1.0):
-        super(SigmoidNormal, self).__init__()
+        super(LogitNormal, self).__init__()
 
         self.mus = mus
         self.log_sigmas = log_sigmas
@@ -162,7 +162,7 @@ if __name__ == "__main__":
 
     mus = torch.zeros(1, dtype=torch.float64)
     log_sigmas = torch.zeros(1, dtype=torch.float64)
-    sn_dist = SigmoidNormal(mus=mus, log_sigmas=log_sigmas, bounds=bounds)
+    sn_dist = LogitNormal(mus=mus, log_sigmas=log_sigmas, bounds=bounds)
 
     T = 100
     data = torch.tensor(np.linspace(0.5, 0.9, T)[:, None])
