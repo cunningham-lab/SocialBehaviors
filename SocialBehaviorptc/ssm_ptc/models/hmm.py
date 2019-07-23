@@ -8,6 +8,7 @@ import numpy.random as npr
 
 from ssm_ptc.transitions.base_transition import BaseTransition
 from ssm_ptc.transitions.stationary_transition import StationaryTransition
+from ssm_ptc.transitions.sticky_transition import InputDrivenTransition
 from ssm_ptc.observations.base_observation import BaseObservations
 from ssm_ptc.observations.ar_gaussian_observation import ARGaussianObservation
 from ssm_ptc.observations.ar_logit_normal_observation import ARLogitNormalObservation
@@ -23,7 +24,7 @@ class HMM:
 
     def __init__(self, K, D, M=0, transition='stationary', observation="gaussian", pi0=None, Pi=None, bounds=None, lags=1):
         """
-
+        # TODO: add observation kwargs
         :param K: number of hidden states
         :param D: dimension of observations
         :param M: dimension of inputs
@@ -45,6 +46,10 @@ class HMM:
         if isinstance(transition, str):
             if transition == 'stationary':
                 self.transition = StationaryTransition(self.K, self.D, self.M, Pi=Pi)
+            elif transition == 'inputdriven':
+                self.transition = InputDrivenTransition(self.K, self.D, self.M, Pi=Pi)
+            else:
+                raise ValueError("Please select from 'stationary' and 'inputdriven'.")
         elif isinstance(transition, BaseTransition):
             self.transition = transition
         else:
@@ -81,12 +86,12 @@ class HMM:
         pi0 = self.init_dist.detach()
         z[0] = npr.choice(self.K, p=pi0)
 
-        P = self.transition.transition_matrix([],[]).detach()  # (K, K)
+        P = self.transition.stationary_transition_matrix.detach()  # (K, K)
         for t in range(1, T):
             z[t] = npr.choice(self.K, p=P[z[t - 1]])
         return z
 
-    def sample(self, T, prefix=None, return_np=True):
+    def sample(self, T, prefix=None, input=None, return_np=True):
         """
         Sample synthetic data form from thhe model.
         :param T: int, the number of time steps to sample
@@ -97,13 +102,17 @@ class HMM:
         z_sample: shape (T,)
         x_sample: shape (T, D)
         """
+
+        if isinstance(self.transition, InputDrivenTransition) and input is None:
+            raise ValueError("Please provide input.")
+
+        if input is not None:
+            input = check_and_convert_to_tensor(input)
+
         K = self.K
         D = self.D
         M = self.M
 
-        # get dtype of the observations
-        #dummy_data = self.observation.sample_x(0, np.empty(0,), return_np=False)
-        #dtype = dummy_data.dtype
         dtype = torch.float64
 
         if prefix is None:
@@ -132,15 +141,17 @@ class HMM:
             data = torch.cat((x_pre, torch.empty((T, D), dtype=dtype)))
 
         if isinstance(self.transition, StationaryTransition):
-            P = self.transition.transition_matrix([],[]).detach() # (K, K)
+            P = self.transition.stationary_transition_matrix.detach() # (K, K)
             for t in range(T_pre, T_pre + T):
                 z[t] = npr.choice(K, p=P[z[t-1]])
                 data[t] = self.observation.sample_x(z[t], data[:t], return_np=False)
         else:
             for t in range(T_pre, T_pre + T):
-                # TODO: add input
-                input = np.zeros(T)
                 P = self.transition.transition_matrix(data[t-1:t+1], input[t-1:t+1]).detach()
+                assert P.shape == (1, self.K, self.K)
+                P = torch.squeeze(P)
+                assert P.shape == (self.K, self.K)
+
                 z[t] = npr.choice(K, p=P[z[t-1]])
                 data[t] = self.observation.sample_x(z[t], data[:t], return_np=False)
 
@@ -156,31 +167,39 @@ class HMM:
                 return z[T_pre:].numpy(), data[T_pre:].numpy()
             return z[T_pre:], data[T_pre:]
 
-    def loss(self, data):
-        return -1. * self.log_likelihood(data)
+    def loss(self, data, input=None):
+        return -1. * self.log_likelihood(data, input)
 
-    def log_likelihood(self, data):
+    def log_likelihood(self, data, input=None):
         """
 
         :param data : x, shape (T, D)
         :return: log p(x)
         """
+        if isinstance(self.transition, InputDrivenTransition) and input is None:
+            raise ValueError("Please provide input.")
+
+        if input is not None:
+            input = check_and_convert_to_tensor(input)
+
         data = check_and_convert_to_tensor(data, torch.float64)
 
         T = data.shape[0]
         log_pi0 = torch.nn.LogSoftmax(dim=0)(self.pi0)  # (K, )
 
-        # TODO: add other transition cases
         if isinstance(self.transition, StationaryTransition):
-            Pi = self.transition.stationary_transition_matrix
-            log_P = torch.nn.LogSoftmax(dim=1)(Pi)  # (K, K)
+            log_P = self.transition.log_stationary_transition_matrix
 
+            assert log_P.shape == (self.K, self.K)
             if T == 1:
                 log_Ps = log_P[None,][:0]
             else:
                 log_Ps = log_P[None,].repeat(T-1, 1, 1)  # (T-1, K, K)
         else:
-            raise NotImplementedError
+            # TODO: test this
+            Ps = self.transition.transition_matrix(data, input)
+            log_Ps = torch.log(Ps)
+            assert log_Ps.shape == (T-1, self.K, self.K)
 
         ll = self.observation.log_prob(data)  # (T, K)
 
@@ -220,18 +239,27 @@ class HMM:
         return out
 
     # numpy operation
-    def most_likely_states(self, data):
-        data = check_and_convert_to_tensor(data)
+    def most_likely_states(self, data, input=None):
+        if isinstance(self.transition, InputDrivenTransition) and input is None:
+            raise ValueError("Please provide input.")
 
-        log_pi0 = torch.nn.LogSoftmax(dim=0)(self.pi0).detach().numpy()  # (K, )
+        if input is not None:
+            input = check_and_convert_to_tensor(input)
+
+        data = check_and_convert_to_tensor(data)
+        T = data.shape[0]
+
+        log_pi0 = self.init_dist.detach().numpy()  # (K, )
 
         if isinstance(self.transition, StationaryTransition):
-            Pi = self.transition.stationary_transition_matrix
-            log_Ps = torch.nn.LogSoftmax(dim=1)(Pi).detach().numpy()  # (K, K)
+            log_Ps = self.transition.log_stationary_transition_matrix
+            log_Ps = log_Ps.detach().numpy()  # (K, K)
             log_Ps = log_Ps[None,]
         else:
-            # TODO: support other transition cases
-            pass
+            # TODO: test this
+            log_Ps = self.transition.transition_matrix(data, input, log=True)
+            log_Ps = log_Ps.detach().numpy()
+            assert log_Ps.shape == (T - 1, self.K, self.K)
 
         log_likes = self.observation.log_prob(data).detach().numpy()
         return viterbi(log_pi0, log_Ps, log_likes)
@@ -280,7 +308,12 @@ class HMM:
             return xs.numpy()
         return xs
 
-    def fit(self, data, optimizer=None, method='adam', num_iters=1000, lr=0.001, lr_scheduler=None):
+    def fit(self, data, input=None, optimizer=None, method='adam', num_iters=1000, lr=0.001, lr_scheduler=None):
+
+        if isinstance(self.transition, InputDrivenTransition) and input is None:
+            raise ValueError("Please provide input.")
+        if input is not None:
+            intput = check_and_convert_to_tensor(input)
 
         pbar = trange(num_iters)
 
@@ -297,7 +330,7 @@ class HMM:
 
             optimizer.zero_grad()
 
-            loss = self.loss(data)
+            loss = self.loss(data, input)
             loss.backward()
             optimizer.step()
 

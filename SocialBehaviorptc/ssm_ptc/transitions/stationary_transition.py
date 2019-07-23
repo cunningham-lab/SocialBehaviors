@@ -13,9 +13,11 @@ class StationaryTransition(BaseTransition):
 
         if Pi is None:
             Pi = 2 * np.eye(K) + .05 * npr.rand(K, K)
-            self.Pi = torch.tensor(Pi, dtype=torch.float64, requires_grad=True)
         else:
-            self.Pi = check_and_convert_to_tensor(Pi, dtype=torch.float64)
+            assert isinstance(Pi, np.ndarray)
+            assert Pi.shape == (K, K)
+
+        self.Pi = torch.tensor(Pi, dtype=torch.float64, requires_grad=True)
 
 
     @property
@@ -30,7 +32,14 @@ class StationaryTransition(BaseTransition):
     def stationary_transition_matrix(self):
         return torch.nn.Softmax(dim=1)(self.Pi)
 
-    def transition_matrix(self, data, input):
+    @property
+    def log_stationary_transition_matrix(self):
+        return torch.nn.LogSoftmax(dim=1)(self.Pi)
+
+    def transition_matrix(self, data, input, log=False):
+        if log:
+            return torch.nn.LogSoftmax(dim=1)(self.Pi)
+
         return torch.nn.Softmax(dim=1)(self.Pi)
 
     def permute(self, perm):

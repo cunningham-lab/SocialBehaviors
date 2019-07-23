@@ -1,4 +1,4 @@
-
+import torch
 
 class BaseTransition():
 
@@ -13,9 +13,9 @@ class BaseTransition():
     def params(self, values):
         raise NotImplementedError
 
-    @property
-    def transition_matrix(self, data, input):
+    def transition_matrix(self, data, input, log=False):
         raise NotImplementedError
 
     def permute(self, perm):
         raise NotImplementedError
+
