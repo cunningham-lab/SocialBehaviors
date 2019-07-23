@@ -54,7 +54,9 @@ class TruncatedNormal(BaseDistribution):
         bb = (self.bounds[...,1].numpy() - loc) / scale  # (D, )
         aa = (self.bounds[...,0].numpy() - loc) / scale  # (D, )
         if sample_shape == ():
-            samples = truncnorm.rvs(a=aa, b=bb, loc=loc, scale=scale)
+            D = bb.shape[0]
+            samples = truncnorm.rvs(a=aa, b=bb, loc=loc, scale=scale, size=(D))
+
             # some adhoc way to fix the infinity in sample
             samples[samples == -np.inf] = self.bounds[...,1].numpy()[samples == -np.inf]
             samples[samples == np.inf] = self.bounds[...,0].numpy()[samples == np.inf]
