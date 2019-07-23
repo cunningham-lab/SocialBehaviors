@@ -12,6 +12,10 @@ class BaseTransformation(object):
     def params(self):
         raise NotImplementedError
 
+    @params.setter
+    def params(self, values):
+        raise NotImplementedError
+
     @abstractmethod
     def transform(self, inputs):
         pass

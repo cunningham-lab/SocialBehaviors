@@ -33,6 +33,11 @@ class LinearTransformation(BaseTransformation):
     def params(self):
         return [self.As, self.bs]
 
+    @params.setter
+    def params(self, values):
+        self.As = values[0]
+        self.bs = values[1]
+
     def permute(self, perm):
         self.As = self.As[perm]
         self.bs =self.bs[perm]

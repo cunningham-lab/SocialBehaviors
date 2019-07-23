@@ -10,7 +10,7 @@ from ssm_ptc.observations.base_observation import BaseObservations
 from ssm_ptc.observations.ar_gaussian_observation import ARGaussianObservation
 from ssm_ptc.message_passing.primitives import viterbi
 from ssm_ptc.message_passing.normalizer import hmmnorm_cython
-from ssm_ptc.utils import check_and_convert_to_tensor
+from ssm_ptc.utils import check_and_convert_to_tensor, get_np
 
 from tqdm import trange
 
@@ -162,6 +162,16 @@ class HMM:
         :return: pi0, Pi, mus_init, log_sigmas, As, bs ...
         """
         return [self.pi0, self.Pi] + self.observation.params
+
+    @params.setter
+    def params(self, values):
+        """only change values, keep requires_grad property"""
+        # TODO: test this method
+        assert type(values) == list
+
+        self.pi0 = values[0]
+        self.Pi = values[1]
+        self.observation.params = values[2:]
 
     @property
     def trainable_params(self):

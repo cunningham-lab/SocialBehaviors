@@ -15,7 +15,7 @@ class BaseObservations():
         raise NotImplementedError
 
     @params.setter
-    def params(self, value):
+    def params(self, values):
         raise NotImplementedError
 
     def log_prob(self, data):
@@ -31,6 +31,9 @@ class BaseObservations():
         if return_np:
             return x.numpy()
         return x
+
+    def rsample_x(self, z, xhist):
+        raise NotImplementedError
 
     def permute(self, perm):
         raise NotImplementedError

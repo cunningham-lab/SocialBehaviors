@@ -49,6 +49,11 @@ class ARGaussianObservation(BaseObservations):
         # do not train initial parameters
         return [self.log_sigmas] + self.transformation.params
 
+    @params.setter
+    def params(self, values):
+        self.log_sigmas = values[0]
+        self.transformation.params = values[1:]
+
     def permute(self, perm):
         self.mus_init = self.mus_init[perm]
         self.log_sigmas = self.log_sigmas[perm]

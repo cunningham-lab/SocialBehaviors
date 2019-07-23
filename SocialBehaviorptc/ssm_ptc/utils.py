@@ -92,4 +92,15 @@ def check_and_convert_to_tensor(inputs, dtype=torch.float64):
     elif isinstance(inputs, torch.Tensor):
         return inputs
     else:
-        raise ValueError("inputs must be an ndarray or tensor.")
+        raise ValueError("Inputs must be an ndarray or tensor.")
+
+
+def get_np(input):
+    if isinstance(input, np.ndarray):
+        return np
+    elif isinstance(input, torch.Tensor):
+        if input.requires_grad:
+           return input.detach().numpy()
+        else:
+            return input.numpy()
+    raise ValueError("Inputs must be an ndarray or tensor.")

@@ -72,6 +72,12 @@ class ARTruncatedNormalObservation(BaseObservations):
         return [self.mus_init, self.log_sigmas] + self.transformation.params
         #return [self.mus_init] + self.transformation.params
 
+    @params.setter
+    def params(self, values):
+        self.mus_init = values[0]
+        self.log_sigmas = values[1]
+        self.transformation.params = values[2:]
+
     def permute(self, perm):
         self.mus_init = self.mus_init[perm]
         self.log_sigmas = self.log_sigmas[perm]
