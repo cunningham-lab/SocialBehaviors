@@ -15,7 +15,7 @@ from ssm_ptc.observations.ar_logit_normal_observation import ARLogitNormalObserv
 from ssm_ptc.observations.ar_truncated_normal_observation import ARTruncatedNormalObservation
 from ssm_ptc.message_passing.primitives import viterbi
 from ssm_ptc.message_passing.normalizer import hmmnorm_cython
-from ssm_ptc.utils import check_and_convert_to_tensor, get_np
+from ssm_ptc.utils import check_and_convert_to_tensor, set_param
 
 from tqdm import trange
 
@@ -219,7 +219,7 @@ class HMM:
         """only change values, keep requires_grad property"""
         assert type(values) == tuple
 
-        self.pi0 = torch.tensor(get_np(values[0][0]), dtype=self.pi0.dtype, requires_grad=self.pi0.requires_grad)
+        self.pi0 = set_param(self.pi0, values[0])
         self.transition.params = values[1]
         self.observation.params = values[2]
 

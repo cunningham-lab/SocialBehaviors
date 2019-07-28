@@ -3,7 +3,7 @@ import numpy as np
 import numpy.random as npr
 
 from ssm_ptc.transitions.base_transition import BaseTransition
-from ssm_ptc.utils import check_and_convert_to_tensor, get_np
+from ssm_ptc.utils import set_param
 
 
 def dirichlet_logpdf(ps, alpha):
@@ -37,11 +37,11 @@ class StickyTransition(BaseTransition):
 
     @property
     def params(self):
-        return (self.Pi, )
+        return self.Pi,
 
     @params.setter
     def params(self, values):
-        self.Pi = torch.tensor(get_np(values[0]), dtype=self.Pi.dtype, requires_grad=self.Pi.requires_grad)
+        self.Pi = set_param(self.Pi, values[0])
 
     def log_prior(self):
         K = self.K
@@ -85,8 +85,8 @@ class InputDrivenTransition(StickyTransition):
 
     @params.setter
     def params(self, values):
-        self.Pi = torch.tensor(get_np(values[0]), dtype=self.Pi.dtype, requires_grad=self.Pi.requires_grad)
-        self.Ws = torch.tensor(get_np(values[1]), dtype=self.Pi.dtype, requires_grad=self.Ws.requires_grad)
+        self.Pi = set_param(self.Pi, values[0])
+        self.Ws = set_param(self.Ws, values[1])
 
     def permute(self, perm):
         self.Pi = self.Pi[np.ix_(perm, perm)]

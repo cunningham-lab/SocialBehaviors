@@ -3,7 +3,7 @@ import numpy as np
 import numpy.random as npr
 
 from ssm_ptc.transitions.base_transition import BaseTransition
-from ssm_ptc.utils import check_and_convert_to_tensor, get_np
+from ssm_ptc.utils import set_param
 
 
 class StationaryTransition(BaseTransition):
@@ -22,11 +22,11 @@ class StationaryTransition(BaseTransition):
 
     @property
     def params(self):
-        return (self.Pi, )
+        return self.Pi,
 
     @params.setter
     def params(self, values):
-        self.Pi = torch.tensor(get_np(values[0]), dtype=self.Pi.dtype, requires_grad=self.Pi.requires_grad)
+        self.Pi = set_param(self.Pi, values[0])
 
     @property
     def stationary_transition_matrix(self):
