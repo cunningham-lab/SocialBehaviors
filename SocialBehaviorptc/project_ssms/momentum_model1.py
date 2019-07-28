@@ -50,7 +50,10 @@ model = HMM(K=K, D=D, M=0, observation=observation)
 
 # precompute features
 
-out = model.log_likelihood(data)
+momentum_vecs = model.observation.transformation._compute_momentum_vecs(data[:-1])
+features = model.observation.transformation._compute_features(data[:-1])
+
+out = model.log_likelihood(data, momentum_vecs=momentum_vecs, features=features)
 
 print(out)
 

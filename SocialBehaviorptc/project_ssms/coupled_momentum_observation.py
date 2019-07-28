@@ -58,7 +58,7 @@ class CoupledMomemtumTransformation(BaseTransition):
         self.Ws = set_param(self.Ws, values[2])
         self.bs = set_param(self.bs, values[3])
 
-    def _compute_momentum_vec(self, inputs):
+    def _compute_momentum_vecs(self, inputs):
         # compute normalized momentum vec
         momentum_vec_a = get_momentum(inputs[:, 0:2], lags=self.lags)  # (T, 2)
         momentum_vec_b = get_momentum(inputs[:, 2:4], lags=self.lags)  # (T, 2)
@@ -66,27 +66,15 @@ class CoupledMomemtumTransformation(BaseTransition):
         return momentum_vec
 
 
-    def _compute_features(self, inputs, features=None):
-        if features is None:
-            # compute features
-            features_a = self.feature_funcs(inputs[..., :2], inputs[..., 2:])
-            features_b = self.feature_funcs(inputs[..., 2:], inputs[..., :2])
+    def _compute_features(self, inputs):
 
-        else:
-            features_a, features_b = features
+        # compute features
+        features_a = self.feature_funcs(inputs[..., :2], inputs[..., 2:])
+        features_b = self.feature_funcs(inputs[..., 2:], inputs[..., :2])
 
-        # want: (K, 2, Df) x (T, Df) --> (T, K, 2)
-        # actual: (K, 2, Df) x (T, 1, Df, 1) -- (T, K, 2, 1)
-        features_transformed_a = torch.matmul(self.Ws[:, :2], features_a[:, None, :, None])
-        features_transformed_b = torch.matmul(self.Ws[:, 2:], features_b[:, None, :, None])
+        return features_a, features_b
 
-        features_transformed = torch.cat((features_transformed_a, features_transformed_b), dim=2)
-        features_transformed = torch.squeeze(features_transformed, dim=-1) + self.bs
-
-        # features_transformed.shape = (T, self.K, self.D)
-        return features_transformed
-
-    def transform(self, inputs, momentum_vec=None, features=None):
+    def transform(self, inputs, momentum_vecs=None, features=None):
         """
         Perform the following transformation:
             x^a_t \sim x^a_{t-1} + sigmoid(\alpha_a) \frac{m_t}{lags} + sigmoid(\beta_a) ||Wf(x^a_t-1, x^b_t-1)+b||
@@ -100,14 +88,29 @@ class CoupledMomemtumTransformation(BaseTransition):
 
         T = inputs.shape[0]
 
-        if momentum_vec is None:
-           momentum_vec = self._compute_momentum_vec(inputs)
-        assert momentum_vec.shape == (T, 4)
+        if momentum_vecs is None:
+           momentum_vecs = self._compute_momentum_vecs(inputs)
+        assert momentum_vecs.shape == (T, 4)
 
-        features_transformed = self._compute_features(inputs, features)
+        if features is None:
+            features_a, features_b =self._compute_features(inputs)
+        else:
+            features_a, features_b = features
+
+        assert features_a.shape == (T, self.Df)
+        assert features_b.shape == (T, self.Df)
+
+        # want: (K, 2, Df) x (T, Df) --> (T, K, 2)
+        # actual: (K, 2, Df) x (T, 1, Df, 1) -- (T, K, 2, 1)
+        features_transformed_a = torch.matmul(self.Ws[:, :2], features_a[:, None, :, None])
+        features_transformed_b = torch.matmul(self.Ws[:, 2:], features_b[:, None, :, None])
+
+        features_transformed = torch.cat((features_transformed_a, features_transformed_b), dim=2)
+        features_transformed = torch.squeeze(features_transformed, dim=-1) + self.bs
+
         assert features_transformed.shape == (T, self.K, self.D)
 
-        out1 = torch.sigmoid(self.alpha) * momentum_vec[:, None, ]  # (T, K, D)
+        out1 = torch.sigmoid(self.alpha) * momentum_vecs[:, None, ]  # (T, K, D)
         assert out1.shape == (T, self.K, self.D)
 
         # (K, D) * (T, K, D) --> (T, K, D)
@@ -168,7 +171,7 @@ class CoupledMomentumObservation(BaseObservations):
         else:
             self.mus_init = torch.tensor(mus_init, dtype=torch.float64, requires_grad=True)
 
-    def _compute_mus_for(self, data, momentum_vec=None, features=None):
+    def _compute_mus_for(self, data, momentum_vecs=None, features=None):
         """
         compute the mean vector for each observation (using the previous observation, or mus_init)
         :param data: (T,D)
@@ -180,7 +183,7 @@ class CoupledMomentumObservation(BaseObservations):
         if T == 1:
             mus = self.mus_init[None, ]
         else:
-            mus_rest = self.transformation.transform(data[:-1], momentum_vec=momentum_vec, features=features)
+            mus_rest = self.transformation.transform(data[:-1], momentum_vecs=momentum_vecs, features=features)
             assert mus_rest.shape == (T-1, self.K, self.D)
 
             mus = torch.cat((self.mus_init[None,], mus_rest), dim=0)
@@ -188,8 +191,8 @@ class CoupledMomentumObservation(BaseObservations):
         assert mus.shape == (T, self.K, self.D)
         return mus
 
-    def log_prob(self, data, momentum_vec=None, features=None):
-        mus = self._compute_mus_for(data, momentum_vec=momentum_vec, features=features)  # (T, K, D)
+    def log_prob(self, data, momentum_vecs=None, features=None):
+        mus = self._compute_mus_for(data, momentum_vecs=momentum_vecs, features=features)  # (T, K, D)
 
         dist = TruncatedNormal(mus=mus, log_sigmas=self.log_sigmas, bounds=self.bounds)
 

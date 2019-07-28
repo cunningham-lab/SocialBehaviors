@@ -6,21 +6,45 @@ from ssm_ptc.utils import check_and_convert_to_tensor
 
 def fit_line(xs, ys, return_b=False):
     """
-
-    :param xs: (batch_size, lags)
-    :param ys: (batch_size, lags)
+    :param xs: (lags, )
+    :param ys: (lags, )
     :param return_b: whether or not to return the intercept
     :return:
     """
 
     "least square with verticle offsetds"
     "y = ax + b, slope -- a, y-interpect -- b"
-    xbar = torch.mean(xs, dim=-1)  # (batch_size, )
-    ybar = torch.mean(ys, dim=-1)  # (batch_size, )
-    a = torch.sum((xs - xbar) * (ys - ybar)) / torch.sum((xs - xbar) ** 2)
-    b = ybar - a * xbar
+    xbar = torch.mean(xs, dim=-1)  # (lags, )
+    ybar = torch.mean(ys, dim=-1)  # (lags, )
+    a = torch.sum((xs - xbar) * (ys - ybar)) / torch.sum((xs - xbar) ** 2)  # (lags, )
     if not return_b:
         return a
+    b = ybar - a * xbar
+    return a, b
+
+
+def fit_line_in_batch(batch_xs, batch_ys, return_b=False):
+    """
+
+    :param batch_xs: (batch_size, lags)
+    :param batch_ys: (batch_size, lags)
+    :param return_b: whether or not to return the intercept
+    :return:
+    """
+
+    "least square with verticle offsetds"
+    "y = ax + b, slope -- a, y-interpect -- b"
+
+    bs = batch_xs.shape[0]
+
+    xbar = torch.mean(batch_xs, dim=-1, keepdim=True)  # (batch_size, 1)
+    ybar = torch.mean(batch_ys, dim=-1, keepdim=True)  # (batch_size, 1)
+    a = torch.sum((batch_xs - xbar) * (batch_ys - ybar), dim=-1) / torch.sum((batch_xs - xbar) ** 2, dim=-1)  # (batch_size, )
+    assert a.shape == (bs, )
+
+    if not return_b:
+        return a
+    b = ybar - a * xbar  # (batch_size, )
     return a, b
 
 
@@ -61,22 +85,29 @@ def get_momentum(data, lags):
 
     T = data.shape[0]
 
+    vecs_init = torch.tensor([[0.0, 0.0]], dtype=torch.float64)
+
     if T == 1:
         # no momentum to accumulate
-        return np.array([0.0])
+        return vecs_init
 
-    normalized_momentum_vectors = [torch.tensor([0.0, 0.0], dtype=torch.float64)]
     if T < lags:
+        vecs = [vecs_init[0]]
         for t in range(2, T):
             # actual lags = t
             xs, ys = data[0:t, 0], data[0:t, 1]
             slope = fit_line(xs, ys)
 
-            vec = torch.tensor([(xs[-1] - xs[0]) / t,  slope * (xs[-1] - xs[0]) / t])
+            vec = torch.tensor([(xs[-1] - xs[0]) / t, slope * (xs[-1] - xs[0]) / t])
 
-            normalized_momentum_vectors.append(vec)
+            vecs.append(vec)
+
+        vecs = torch.stack(vecs, dim=0)
 
     else:
+        # [2, lags)
+        vecs_1 = []
+
         for t in range(2, lags):
             # actual lags = t
             xs, ys = data[0:t, 0], data[0:t, 1]
@@ -84,18 +115,23 @@ def get_momentum(data, lags):
 
             vec = torch.tensor([(xs[-1] - xs[0]) / t, slope * (xs[-1] - xs[0]) / t])
 
-            normalized_momentum_vectors.append(vec)
+            vecs_1.append(vec)
 
-        for t in range(lags, T + 1):
-            xs, ys = data[t - lags:t, 0], data[t - lags:t, 1]
-            slope = fit_line(xs, ys)
+        vecs_1 = torch.stack(vecs_1, dim=0)  #  (batch_size, 2)
 
-            vec = torch.tensor([(xs[-1] - xs[0]) / lags,  slope * (xs[-1] - xs[0]) / lags])
+        # [lags, T+1): can processed in batch
+        batch_xs = torch.stack([data[t-lags:t, 0] for t in range(lags, T+1)])
+        batch_ys = torch.stack([data[t-lags:t, 1] for t in range(lags, T+1)])
 
-            normalized_momentum_vectors.append(vec)
+        slopes = fit_line_in_batch(batch_xs, batch_ys, return_b=False)  # (batch_size, )
 
-    assert len(normalized_momentum_vectors) == T
+        starts = (batch_xs[..., -1] - batch_xs[..., 0]) / lags  # (batch_size, )
+        ends = slopes * starts  # (batch_size, )
 
-    out = torch.stack(normalized_momentum_vectors, dim=0)
+        vecs_2 = torch.stack((starts, ends), dim=-1)  # (batch_size, 2)
 
-    return out
+        vecs = torch.cat((vecs_init, vecs_1, vecs_2), dim=0)
+
+    assert vecs.shape == (T, 2)
+
+    return vecs
