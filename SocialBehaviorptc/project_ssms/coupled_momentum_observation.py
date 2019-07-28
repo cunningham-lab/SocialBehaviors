@@ -1,0 +1,207 @@
+from ssm_ptc.transitions.base_transition import BaseTransition
+from ssm_ptc.observations.base_observation import BaseObservations
+from ssm_ptc.observations.ar_truncated_normal_observation import ARTruncatedNormalObservation
+from ssm_ptc.distributions.truncatednormal import TruncatedNormal
+from ssm_ptc.utils import check_and_convert_to_tensor, set_param
+
+from project_ssms.utils import get_momentum
+
+import torch
+import numpy as np
+
+
+def normalize(f, norm=1):
+    # normalize across last dimension
+    if norm==1:
+        f = f / torch.sum(f, dim=-1, keepdim=True)
+    elif norm == 2:
+        f = f / torch.norm(f, dim=-1, keepdim=True)
+    return f
+
+
+class CoupledMomemtumTransformation(BaseTransition):
+    """
+    transformation:
+    x^a_t \sim x^a_{t-1} + v * sigmoid(\alpha_a) \frac{m_t}{lags} + sigmoid(\beta_a) ||Wf(x^a_t-1, x^b_t-1)+b||
+    x^b_t \sim x^b_{t-1} + v * sigmoid(\alpha_b) \frac{m_t}{lags} + sigmoid(\beta_b) ||Wf(x^b_t-1, x^a_t-1)+b||
+
+
+    feature computation
+    training mode: receive precomputed feature input
+    sampling mode: compute the feature based on previous observation
+    """
+    def __init__(self, K, D=4, Df=0, lags=2, feature_funcs=None, max_v=np.array([6, 6, 6, 6])):
+        super(CoupledMomemtumTransformation, self).__init__(K, D)
+        assert D == 4
+        self.Df = Df
+
+        self.lags = lags
+        self.feature_funcs = feature_funcs
+
+        self.max_v = check_and_convert_to_tensor(max_v)
+        assert max_v.shape == (self.D, )
+
+        self.alpha = torch.rand(self.K, self.D, dtype=torch.float64, requires_grad=True)
+        self.beta = torch.rand(self.K, self.D, dtype=torch.float64, requires_grad=True)
+
+        self.Ws = torch.rand(self.K, self.D, self.Df, dtype=torch.float64, requires_grad=True)
+        self.bs = torch.zeros(self.K, self.D, dtype=torch.float64, requires_grad=True)
+
+    @property
+    def params(self):
+        return self.alpha, self.beta, self.Ws, self.bs
+
+    @params.setter
+    def params(self, values):
+        self.alpha = set_param(self.alpha, values[0])
+        self.beta = set_param(self.beta, values[1])
+        self.Ws = set_param(self.Ws, values[2])
+        self.bs = set_param(self.bs, values[3])
+
+    def _compute_momentum_vec(self, inputs):
+        # compute normalized momentum vec
+        momentum_vec_a = get_momentum(inputs[:, 0:2], lags=self.lags)  # (T, 2)
+        momentum_vec_b = get_momentum(inputs[:, 2:4], lags=self.lags)  # (T, 2)
+        momentum_vec = torch.cat([momentum_vec_a, momentum_vec_b], dim=1)  # (T, 4)
+        return momentum_vec
+
+
+    def _compute_features(self, inputs, features=None):
+        if features is None:
+            # compute features
+            features_a = self.feature_funcs(inputs[..., :2], inputs[..., 2:])
+            features_b = self.feature_funcs(inputs[..., 2:], inputs[..., :2])
+
+        else:
+            features_a, features_b = features
+
+        # want: (K, 2, Df) x (T, Df) --> (T, K, 2)
+        # actual: (K, 2, Df) x (T, 1, Df, 1) -- (T, K, 2, 1)
+        features_transformed_a = torch.matmul(self.Ws[:, :2], features_a[:, None, :, None])
+        features_transformed_b = torch.matmul(self.Ws[:, 2:], features_b[:, None, :, None])
+
+        features_transformed = torch.cat((features_transformed_a, features_transformed_b), dim=2)
+        features_transformed = torch.squeeze(features_transformed, dim=-1) + self.bs
+
+        # features_transformed.shape = (T, self.K, self.D)
+        return features_transformed
+
+    def transform(self, inputs, momentum_vec=None, features=None):
+        """
+        Perform the following transformation:
+            x^a_t \sim x^a_{t-1} + sigmoid(\alpha_a) \frac{m_t}{lags} + sigmoid(\beta_a) ||Wf(x^a_t-1, x^b_t-1)+b||
+            x^b_t \sim x^b_{t-1} + sigmoid(\alpha_b) \frac{m_t}{lags} + sigmoid(\beta_b) ||Wf(x^b_t-1, x^a_t-1)+b||
+
+        :param inputs: (T, 4)
+        :param momentum_vec: （T, 4), has been normalized by lags
+        :param features: (features_a, features_b)
+        :return: outputs: (T, K, 4)
+        """
+
+        T = inputs.shape[0]
+
+        if momentum_vec is None:
+           momentum_vec = self._compute_momentum_vec(inputs)
+        assert momentum_vec.shape == (T, 4)
+
+        features_transformed = self._compute_features(inputs, features)
+        assert features_transformed.shape == (T, self.K, self.D)
+
+        out1 = torch.sigmoid(self.alpha) * momentum_vec[:, None, ]  # (T, K, D)
+        assert out1.shape == (T, self.K, self.D)
+
+        # (K, D) * (T, K, D) --> (T, K, D)
+        # instead of normalize, maybe applying a sigmoid?
+        # or treat momentum as features
+        out2 = torch.sigmoid(self.beta) * normalize(features_transformed)
+
+        out = inputs[:, None, ] + self.max_v * (out1 + out2)
+
+        assert out.shape == (T, self.K, self.D)
+        return out
+
+
+#  TODO: set training mode and test (sampling) mode
+class CoupledMomentumObservation(BaseObservations):
+    """
+    Consider a coupled momentum model:
+
+    transformation:
+    x^a_t \sim x^a_{t-1} + \alpha_a \frac{m_t}{lags} + \beta_a f(x^a_t, x^b_t)
+    x^b_t \sim x^b_{t-1} + \alpha_b \frac{m_t}{lags} + \beta_b f(x^b_t, x^a_t)
+
+    constrained observation:
+    ar_truncated_normal_observation
+
+    feature computation
+    training mode: receive precomputed feature input
+    sampling mode: compute the feature based on previous observation
+
+    """
+    def __init__(self, K, D, M=0, lags=50, Df=1, feature_func=None, mus_init=None, sigmas=None,
+                 bounds=None, train_sigma=True):
+        super(CoupledMomentumObservation, self).__init__(K, D, M)
+
+        assert lags > 1
+
+        self.lags = lags
+        self.transformation = CoupledMomemtumTransformation(K, D, Df, lags=self.lags, feature_funcs=feature_func)
+
+        # consider diagonal covariance
+        if sigmas is None:
+            self.log_sigmas = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, requires_grad=train_sigma)
+        else:
+            # TODO: assert sigmas positive
+            assert sigmas.shape == (self.K, self.D)
+            self.log_sigmas = torch.tensor(np.log(sigmas), dtype=torch.float64, requires_grad=train_sigma)
+
+        if bounds is None:
+            # default bound for each dimension is [0,1]
+            self.bounds = torch.cat((torch.zeros(self.D, dtype=torch.float64)[:, None],
+                                     torch.ones(self.D, dtype=torch.float64)[:, None]), dim=1)
+        else:
+            self.bounds = check_and_convert_to_tensor(bounds, dtype=torch.float64)
+            assert self.bounds.shape == (self.D, 2)
+
+        if mus_init is None:
+            self.mus_init = torch.eye(self.K, self.D, dtype=torch.float64, requires_grad=True)
+        else:
+            self.mus_init = torch.tensor(mus_init, dtype=torch.float64, requires_grad=True)
+
+    def _compute_mus_for(self, data, momentum_vec=None, features=None):
+        """
+        compute the mean vector for each observation (using the previous observation, or mus_init)
+        :param data: (T,D)
+        :return: mus: (T, K, D)
+        """
+        T, D = data.shape
+        assert D == self.D
+
+        if T == 1:
+            mus = self.mus_init[None, ]
+        else:
+            mus_rest = self.transformation.transform(data[:-1], momentum_vec=momentum_vec, features=features)
+            assert mus_rest.shape == (T-1, self.K, self.D)
+
+            mus = torch.cat((self.mus_init[None,], mus_rest), dim=0)
+
+        assert mus.shape == (T, self.K, self.D)
+        return mus
+
+    def log_prob(self, data, momentum_vec=None, features=None):
+        mus = self._compute_mus_for(data, momentum_vec=momentum_vec, features=features)  # (T, K, D)
+
+        dist = TruncatedNormal(mus=mus, log_sigmas=self.log_sigmas, bounds=self.bounds)
+
+        out = dist.log_prob(data[:, None])  # (T, K, D)
+        out = torch.sum(out, dim=-1)  # (T, K)
+        return out
+
+    def sample_x(self, z, xhist=None, return_np=True):
+        pass
+
+    def rsample_x(self, z, xhist):
+        raise NotImplementedError
+
+
+

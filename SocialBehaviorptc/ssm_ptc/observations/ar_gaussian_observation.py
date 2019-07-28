@@ -89,7 +89,7 @@ class ARGaussianObservation(BaseObservations):
         assert mus.shape == (T, self.K, self.D)
         return mus
 
-    def log_prob(self, data):
+    def log_prob(self, data, **kwargs):
         """
 
         :param data: shape (T, D)

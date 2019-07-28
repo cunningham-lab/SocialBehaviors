@@ -31,7 +31,7 @@ class LinearTransformation(BaseTransformation):
 
     @property
     def params(self):
-        return (self.As, self.bs)
+        return self.As, self.bs
 
     @params.setter
     def params(self, values):

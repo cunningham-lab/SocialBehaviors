@@ -18,7 +18,7 @@ class BaseObservations():
     def params(self, values):
         raise NotImplementedError
 
-    def log_prob(self, data):
+    def log_prob(self, data, **kwargs):
         raise NotImplementedError
 
     def sample_x(self, z, xhist=None, return_np=True):

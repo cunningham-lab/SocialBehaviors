@@ -22,7 +22,8 @@ from tqdm import trange
 
 class HMM:
 
-    def __init__(self, K, D, M=0, transition='stationary', observation="gaussian", pi0=None, Pi=None, bounds=None, lags=1):
+    def __init__(self, K, D, M=0, transition='stationary', observation="gaussian", pi0=None, Pi=None,
+                 observation_kwargs=None):
         """
         # TODO: add observation kwargs
         :param K: number of hidden states
@@ -56,14 +57,15 @@ class HMM:
             raise ValueError("Invalid transition type.")
 
         if isinstance(observation, str):
+            observation = observation.lower()
+
+            observation_kwargs = observation_kwargs or {}
             if observation == "gaussian":
-                self.observation = ARGaussianObservation(self.K, self.D, self.M, transformation='linear', lags=lags)
+                self.observation = ARGaussianObservation(self.K, self.D, self.M, transformation='linear', **observation_kwargs)
             elif observation == "logitnormal":
-                assert bounds is not None
-                self.observation = ARLogitNormalObservation(self.K, self.D, self.M, bounds=bounds, lags=lags)
+                self.observation = ARLogitNormalObservation(self.K, self.D, self.M, **observation_kwargs)
             elif observation == "truncatednormal":
-                assert bounds is not None
-                self.observation = ARTruncatedNormalObservation(self.K, self.D, self.M, bounds=bounds, lags=lags)
+                self.observation = ARTruncatedNormalObservation(self.K, self.D, self.M, **observation_kwargs)
             else:
                 raise ValueError("Please select from 'gaussian', 'logitnormal' and 'truncatednormal'.")
         elif isinstance(observation, BaseObservations):
@@ -170,7 +172,7 @@ class HMM:
     def loss(self, data, input=None):
         return -1. * self.log_likelihood(data, input)
 
-    def log_likelihood(self, data, input=None):
+    def log_likelihood(self, data, input=None, **observation_kwargs):
         """
 
         :param data : x, shape (T, D)
@@ -201,7 +203,7 @@ class HMM:
             log_Ps = torch.log(Ps)
             assert log_Ps.shape == (T-1, self.K, self.K)
 
-        ll = self.observation.log_prob(data)  # (T, K)
+        ll = self.observation.log_prob(data, **observation_kwargs)  # (T, K)
 
         return hmmnorm_cython(log_pi0, log_Ps, ll)
 

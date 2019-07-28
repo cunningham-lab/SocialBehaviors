@@ -54,9 +54,10 @@ class ARLogitNormalObservation(BaseObservations):
             self.log_sigmas = torch.tensor(np.log(sigmas), dtype=torch.float64, requires_grad=train_sigma)
 
         if bounds is None:
+            raise ValueError("Please provide bounds.")
             # default bound for each dimension is [0,1]
-            self.bounds = torch.cat((torch.zeros(self.D, dtype=torch.float64)[:, None],
-                                     torch.ones(self.D, dtype=torch.float64)[:, None]), dim=1)
+            #self.bounds = torch.cat((torch.zeros(self.D, dtype=torch.float64)[:, None],
+             #                        torch.ones(self.D, dtype=torch.float64)[:, None]), dim=1)
         else:
             self.bounds = check_and_convert_to_tensor(bounds, dtype=torch.float64)
             assert self.bounds.shape == (self.D, 2)
@@ -111,7 +112,7 @@ class ARLogitNormalObservation(BaseObservations):
         assert mus.shape == (T, self.K, self.D)
         return mus
 
-    def log_prob(self, data):
+    def log_prob(self, data, **kwargs):
         """
 
         :param data: shape (T, D)
