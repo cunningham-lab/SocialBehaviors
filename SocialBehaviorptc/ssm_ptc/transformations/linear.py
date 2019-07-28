@@ -2,7 +2,7 @@ import torch
 import numpy as np
 
 from ssm_ptc.transformations.base_transformation import BaseTransformation
-from ssm_ptc.utils import random_rotation, get_np
+from ssm_ptc.utils import random_rotation, set_param
 
 
 class LinearTransformation(BaseTransformation):
@@ -35,12 +35,12 @@ class LinearTransformation(BaseTransformation):
 
     @params.setter
     def params(self, values):
-        self.As = torch.tensor(get_np(values[0]), dtype=self.As.dtype, requires_grad=self.As.requires_grad)
-        self.bs = torch.tensor(get_np(values[1]), dtype=self.bs.dtype, requires_grad=self.bs.requires_grad)
+        self.As = set_param(self.As, values[0])
+        self.bs = set_param(self.bs, values[1])
 
     def permute(self, perm):
         self.As = self.As[perm]
-        self.bs =self.bs[perm]
+        self.bs = self.bs[perm]
 
     def transform(self, inputs):
         """

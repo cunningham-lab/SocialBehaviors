@@ -169,10 +169,10 @@ class HMM:
                 return z[T_pre:].numpy(), data[T_pre:].numpy()
             return z[T_pre:], data[T_pre:]
 
-    def loss(self, data, input=None):
-        return -1. * self.log_likelihood(data, input)
+    def loss(self, data, input=None, **transformation_kwargs):
+        return -1. * self.log_likelihood(data, input, **transformation_kwargs)
 
-    def log_likelihood(self, data, input=None, **observation_kwargs):
+    def log_likelihood(self, data, input=None, **transformation_kwargs):
         """
 
         :param data : x, shape (T, D)
@@ -203,7 +203,7 @@ class HMM:
             log_Ps = torch.log(Ps)
             assert log_Ps.shape == (T-1, self.K, self.K)
 
-        ll = self.observation.log_prob(data, **observation_kwargs)  # (T, K)
+        ll = self.observation.log_prob(data, **transformation_kwargs)  # (T, K)
 
         return hmmnorm_cython(log_pi0, log_Ps, ll)
 
@@ -310,12 +310,12 @@ class HMM:
             return xs.numpy()
         return xs
 
-    def fit(self, data, input=None, optimizer=None, method='adam', num_iters=1000, lr=0.001, lr_scheduler=None):
+    def fit(self, data, input=None, optimizer=None, method='adam', num_iters=1000, lr=0.001, **transformation_kwargs):
 
         if isinstance(self.transition, InputDrivenTransition) and input is None:
             raise ValueError("Please provide input.")
         if input is not None:
-            intput = check_and_convert_to_tensor(input)
+            input = check_and_convert_to_tensor(input)
 
         pbar = trange(num_iters)
 
@@ -332,7 +332,7 @@ class HMM:
 
             optimizer.zero_grad()
 
-            loss = self.loss(data, input)
+            loss = self.loss(data, input, **transformation_kwargs)
             loss.backward()
             optimizer.step()
 

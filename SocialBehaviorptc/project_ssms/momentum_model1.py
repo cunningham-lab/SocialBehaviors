@@ -32,6 +32,7 @@ data = torch.tensor(traj0, dtype=torch.float64)
 arena_xmax = 320
 arena_ymax = 380
 
+
 ####################### Models ##########################
 
 bounds = np.array([[10, arena_xmax + 10], [-10, arena_ymax + 10], [10, arena_xmax + 10],
@@ -39,7 +40,7 @@ bounds = np.array([[10, arena_xmax + 10], [-10, arena_ymax + 10], [10, arena_xma
 
 K = 4
 D = 4
-lags = 50
+lags = 20
 Df = 10
 T = 36000
 
@@ -55,7 +56,16 @@ features = model.observation.transformation._compute_features(data[:-1])
 
 out = model.log_likelihood(data, momentum_vecs=momentum_vecs, features=features)
 
-print(out)
+
+##################### training ############################
+
+num_iters = 10
+losses, opt = model.fit(data, num_iters=num_iters, lr=0.001, momentum_vecs=momentum_vecs, features=features)
+
+
+##################### sampling ############################
+
+sample_z, sample_x = model.sample(30)
 
 
 

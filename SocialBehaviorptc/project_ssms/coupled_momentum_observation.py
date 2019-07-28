@@ -1,10 +1,10 @@
-from ssm_ptc.transitions.base_transition import BaseTransition
+from ssm_ptc.transformations.base_transformation import BaseTransformation
 from ssm_ptc.observations.base_observation import BaseObservations
 from ssm_ptc.observations.ar_truncated_normal_observation import ARTruncatedNormalObservation
 from ssm_ptc.distributions.truncatednormal import TruncatedNormal
 from ssm_ptc.utils import check_and_convert_to_tensor, set_param
 
-from project_ssms.utils import get_momentum
+from project_ssms.momentum_utils import get_momentum_in_batch, get_momentum
 
 import torch
 import numpy as np
@@ -19,7 +19,7 @@ def normalize(f, norm=1):
     return f
 
 
-class CoupledMomemtumTransformation(BaseTransition):
+class CoupledMomemtumTransformation(BaseTransformation):
     """
     transformation:
     x^a_t \sim x^a_{t-1} + v * sigmoid(\alpha_a) \frac{m_t}{lags} + sigmoid(\beta_a) ||Wf(x^a_t-1, x^b_t-1)+b||
@@ -58,13 +58,18 @@ class CoupledMomemtumTransformation(BaseTransition):
         self.Ws = set_param(self.Ws, values[2])
         self.bs = set_param(self.bs, values[3])
 
+    def permute(self, perm):
+        self.alpha = self.alpha[perm]
+        self.beta = self.beta[perm]
+        self.Ws = self.Ws[perm]
+        self.bs = self.bs[perm]
+
     def _compute_momentum_vecs(self, inputs):
         # compute normalized momentum vec
-        momentum_vec_a = get_momentum(inputs[:, 0:2], lags=self.lags)  # (T, 2)
-        momentum_vec_b = get_momentum(inputs[:, 2:4], lags=self.lags)  # (T, 2)
+        momentum_vec_a = get_momentum_in_batch(inputs[:, 0:2], lags=self.lags)  # (T, 2)
+        momentum_vec_b = get_momentum_in_batch(inputs[:, 2:4], lags=self.lags)  # (T, 2)
         momentum_vec = torch.cat([momentum_vec_a, momentum_vec_b], dim=1)  # (T, 4)
         return momentum_vec
-
 
     def _compute_features(self, inputs):
 
@@ -106,6 +111,7 @@ class CoupledMomemtumTransformation(BaseTransition):
         features_transformed_b = torch.matmul(self.Ws[:, 2:], features_b[:, None, :, None])
 
         features_transformed = torch.cat((features_transformed_a, features_transformed_b), dim=2)
+        #  (T, K, 4, 1)
         features_transformed = torch.squeeze(features_transformed, dim=-1) + self.bs
 
         assert features_transformed.shape == (T, self.K, self.D)
@@ -121,6 +127,43 @@ class CoupledMomemtumTransformation(BaseTransition):
         out = inputs[:, None, ] + self.max_v * (out1 + out2)
 
         assert out.shape == (T, self.K, self.D)
+        return out
+
+    def transform_condition_on_z(self, z, inputs):
+        """
+        Perform transformation for given z
+        :param z: an integer
+        :param inputs: (T_pre, D)
+        :return: x: (D, )
+        """
+        momentum_vec_a = get_momentum(inputs[:, 0:2], lags=self.lags)  # (2, )
+        momentum_vec_b = get_momentum(inputs[:, 2:4], lags=self.lags)  # (2, )
+        momentum_vec = torch.cat([momentum_vec_a, momentum_vec_b], dim=0)  # (4, )
+        assert momentum_vec.shape == (4, )
+
+        features_a, features_b = self._compute_features(inputs[-1:])
+        assert features_a.shape == (1, self.Df)
+        assert features_b.shape == (1, self.Df)
+        features_a = torch.squeeze(features_a, dim=0)
+        features_b = torch.squeeze(features_b, dim=0)
+
+        # (2, Df) * (Df, 1)  -> (2, 1)
+        features_transformed_a = torch.matmul(self.Ws[z, :2], features_a[:, None])
+        features_transformed_b = torch.matmul(self.Ws[z, 2:], features_b[:, None])
+        assert features_transformed_a.shape == (2, 1)
+        assert features_transformed_b.shape == (2, 1)
+
+        features_transformed = torch.cat((features_transformed_a, features_transformed_b), dim=0)
+        features_transformed = torch.squeeze(features_transformed, dim=-1) + self.bs[z]
+        assert features_transformed.shape == (4, )
+
+        # (D, ) * (D,) --> (D, )
+        out1 = torch.sigmoid(self.alpha[z]) * momentum_vec
+        #  (D, ) * (D, ) --> (D, )
+        out2 = torch.sigmoid(self.beta[z]) * normalize(features_transformed)
+
+        out = inputs[-1] + self.max_v * (out1 + out2)
+        assert out.shape == (4, )
         return out
 
 
@@ -171,6 +214,16 @@ class CoupledMomentumObservation(BaseObservations):
         else:
             self.mus_init = torch.tensor(mus_init, dtype=torch.float64, requires_grad=True)
 
+    @property
+    def params(self):
+        return (self.mus_init, self.log_sigmas) + self.transformation.params
+
+    @params.setter
+    def params(self, values):
+        self.mus_init = set_param(self.mus_init, values[0])
+        self.log_sigmas = set_param(self.log_sigmas, values[1])
+        self.transformation.params = values[2:]
+
     def _compute_mus_for(self, data, momentum_vecs=None, features=None):
         """
         compute the mean vector for each observation (using the previous observation, or mus_init)
@@ -201,7 +254,35 @@ class CoupledMomentumObservation(BaseObservations):
         return out
 
     def sample_x(self, z, xhist=None, return_np=True):
-        pass
+        """
+
+        :param z: ()
+        :param xhist: (T_pre, D)
+        :param return_np:
+        :return: x, shape (D, )
+        """
+
+        # currently only support non-reparameterizable rejection sampling
+
+        # no previous x
+        if xhist is None or xhist.shape[0] == 0:
+            mu = self.mus_init[z]  # (D,)
+        else:
+            # sample from the autoregressive distribution
+
+            T_pre = xhist.shape[0]
+            if T_pre < self.lags:
+                mu = self.transformation.transform_condition_on_z(z, xhist)  # (D, )
+            else:
+                mu = self.transformation.transform_condition_on_z(z, xhist[-self.lags:])  # (D, )
+            assert mu.shape == (self.D,)
+
+        dist = TruncatedNormal(mus=mu, log_sigmas=self.log_sigmas[z], bounds=self.bounds)
+
+        samples = dist.sample()
+        if return_np:
+            return samples.numpy()
+        return samples
 
     def rsample_x(self, z, xhist):
         raise NotImplementedError

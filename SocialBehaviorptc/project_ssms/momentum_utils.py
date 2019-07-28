@@ -1,8 +1,6 @@
 import torch
 import numpy as np
 
-from ssm_ptc.utils import check_and_convert_to_tensor
-
 
 def fit_line(xs, ys, return_b=False):
     """
@@ -76,10 +74,8 @@ def filter_traj_by_speed(traj, q1, q2, t1=None, t2=None):
     return filtered_traj
 
 
-def get_momentum(data, lags):
+def get_momentum_in_batch(data, lags):
     """Compute normalized momentum vector for 2D trajectories, where "normalized" means "normalized by lags". """
-
-    data = check_and_convert_to_tensor(data)
 
     assert data.shape[1] == 2
 
@@ -93,13 +89,11 @@ def get_momentum(data, lags):
 
     if T < lags:
         vecs = [vecs_init[0]]
-        for t in range(2, T):
+        for t in range(2, T+1):
             # actual lags = t
             xs, ys = data[0:t, 0], data[0:t, 1]
             slope = fit_line(xs, ys)
-
             vec = torch.tensor([(xs[-1] - xs[0]) / t, slope * (xs[-1] - xs[0]) / t])
-
             vecs.append(vec)
 
         vecs = torch.stack(vecs, dim=0)
@@ -135,3 +129,33 @@ def get_momentum(data, lags):
     assert vecs.shape == (T, 2)
 
     return vecs
+
+
+def get_momentum(data, lags):
+    """Compute a single normalized momentum vector based on the past trajectories """
+
+    assert data.shape[1] == 2
+
+    T = data.shape[0]
+
+    if T == 1:
+        # no momentum to accumulate
+        return torch.tensor([0.0, 0.0], dtype=torch.float64)
+
+    if T < lags:
+        xs, ys = data[:, 0], data[:, 1]
+        slope = fit_line(xs, ys)
+        vec = torch.tensor([(xs[-1] - xs[0]) / T, slope * (xs[-1] - xs[0]) / T])
+
+    else:
+        xs, ys = data[T-lags:, 0], data[T-lags:, 1]
+        slope = fit_line(xs, ys)
+
+        vec = torch.tensor([(xs[-1] - xs[0]) / lags, slope * (xs[-1] - xs[0]) / lags])
+
+    assert vec.shape == (2, )
+
+    return vec
+
+
+
