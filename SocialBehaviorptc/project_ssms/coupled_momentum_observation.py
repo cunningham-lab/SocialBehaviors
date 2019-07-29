@@ -22,7 +22,7 @@ def normalize(f, norm=1):
 class CoupledMomemtumTransformation(BaseTransformation):
     """
     transformation:
-    x^a_t \sim x^a_{t-1} + v * sigmoid(\alpha_a) \frac{m_t}{lags} + v * sigmoid(Wf(x^a_t-1, x^b_t-1)+b)
+    x^a_t \sim x^a_{t-1} + acc_factor * sigmoid(\alpha_a) \frac{m_t}{lags} + v * sigmoid(Wf(x^a_t-1, x^b_t-1)+b)
     x^b_t \sim x^b_{t-1} + v * sigmoid(\alpha_b) \frac{m_t}{lags} + v * sigmoid(Wf(x^b_t-1, x^a_t-1)+b)
 
 
@@ -30,7 +30,7 @@ class CoupledMomemtumTransformation(BaseTransformation):
     training mode: receive precomputed feature input
     sampling mode: compute the feature based on previous observation
     """
-    def __init__(self, K, D=4, Df=0, lags=2, feature_funcs=None, max_v=np.array([6, 6, 6, 6])):
+    def __init__(self, K, D=4, Df=0, lags=2, feature_funcs=None, max_v=np.array([6, 6, 6, 6]), acc_factor=2):
         super(CoupledMomemtumTransformation, self).__init__(K, D)
         assert D == 4
         self.Df = Df
@@ -40,6 +40,8 @@ class CoupledMomemtumTransformation(BaseTransformation):
 
         self.max_v = check_and_convert_to_tensor(max_v)
         assert max_v.shape == (self.D, )
+
+        self.acc_factor = acc_factor
 
         self.alpha = torch.rand(self.K, self.D, dtype=torch.float64, requires_grad=True)
 
@@ -120,7 +122,7 @@ class CoupledMomemtumTransformation(BaseTransformation):
         # or treat momentum as features
         out2 = torch.sigmoid(features_transformed)
 
-        out = inputs[:, None, ] + self.max_v * (out1 + out2)
+        out = inputs[:, None, ] + self.acc_factor * out1 + self.max_v * out2
 
         assert out.shape == (T, self.K, self.D)
         return out
@@ -168,7 +170,7 @@ class CoupledMomemtumTransformation(BaseTransformation):
         # (D,)
         out2 = torch.sigmoid(features_transformed)
 
-        out = inputs[-1] + self.max_v * (out1 + out2)
+        out = inputs[-1] + self.acc_factor * out1 + self.max_v * out2
         assert out.shape == (4, )
         return out
 

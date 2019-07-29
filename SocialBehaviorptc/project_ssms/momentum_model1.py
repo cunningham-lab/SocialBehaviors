@@ -2,6 +2,7 @@ import torch
 import numpy as np
 
 from project_ssms.coupled_momentum_observation import CoupledMomentumObservation
+from project_ssms.momentum_utils import filter_traj_by_speed
 from project_ssms.feature_funcs import feature_func_single
 
 from ssm_ptc.models.hmm import HMM
@@ -27,21 +28,29 @@ trajectories = np.concatenate(rendered_data,axis=0)  # (T*30, 4)
 
 traj0 = rendered_data[0]
 
-data = torch.tensor(traj0, dtype=torch.float64)
+f_traj = filter_traj_by_speed(traj0, q1=0.99, q2=0.99)
+
+data = torch.tensor(f_traj, dtype=torch.float64)
 
 
+arena_xmin = 10
 arena_xmax = 320
-arena_ymax = 380
+
+arena_ymin = -10
+arena_ymax = 390
 
 
 ####################### Models ##########################
 
-bounds = np.array([[10, arena_xmax + 10], [-10, arena_ymax + 10], [10, arena_xmax + 10],
-                   [-10, arena_ymax + 10]])
+bounds = np.array([[arena_xmin - 5, arena_xmax + 5], [arena_ymin - 5, arena_ymax + 5],
+                   [arena_xmin - 5, arena_xmax + 5], [arena_ymin - 5, arena_ymax + 5]])
+
+max_v = np.array([6.0, 6.0, 6.0, 6.0])
+
 
 K = 4
 D = 4
-lags = 20
+lags = 50
 Df = 10
 T = 36000
 
@@ -55,7 +64,6 @@ model = HMM(K=K, D=D, M=0, observation=observation)
 momentum_vecs = model.observation.transformation._compute_momentum_vecs(data[:-1])
 features = model.observation.transformation._compute_features(data[:-1])
 
-print(momentum_vecs.shape)
 
 out = model.log_likelihood(data, momentum_vecs=momentum_vecs, features=features)
 print(out)
