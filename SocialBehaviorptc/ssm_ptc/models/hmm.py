@@ -327,7 +327,6 @@ class HMM:
             else:
                 raise ValueError("method must be chosen from adam and sgd.")
 
-
         losses = []
         for i in np.arange(num_iters):
 

@@ -25,7 +25,7 @@ class ARGaussianObservation(BaseObservations):
             self.mus_init = check_and_convert_to_tensor(mus_init)
 
         # consider diagonal covariance
-        self.log_sigmas_init = torch.tensor(np.log(5*np.ones((K, D))), dtype=torch.float64)
+        self.log_sigmas_init = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64)
 
         if sigmas is None:
             self.log_sigmas = torch.tensor(np.log(5*np.ones((K, D))), dtype=torch.float64, requires_grad=train_sigma)
@@ -99,8 +99,11 @@ class ARGaussianObservation(BaseObservations):
         T = mus.shape[0]
 
         p_init = Normal(mus[0], torch.exp(self.log_sigmas_init))  # mus[0] (K, D)
-        log_prob_init = p_init.log_prob(data[0])  # data[0] (D). log_prob_init: (K, D)
+        log_prob_init = p_init.log_prob(data[0])  # data[0] (D, ). log_prob_init: (K, D)
         log_prob_init = torch.sum(log_prob_init, dim=-1)  # (K, )
+
+        if T == 1:
+            return log_prob_init[None,]
 
         p = Normal(mus[1:], torch.exp(self.log_sigmas))
 

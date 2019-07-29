@@ -63,25 +63,25 @@ class ARLogitNormalObservation(BaseObservations):
             assert self.bounds.shape == (self.D, 2)
 
         if mus_init is None:
-            self.mus_init = torch.eye(self.K, self.D, dtype=torch.float64, requires_grad=True)
+            self.mus_init = torch.eye(self.K, self.D, dtype=torch.float64)
         else:
-            self.mus_init = torch.tensor(mus_init, dtype=torch.float64, requires_grad=True)
+            self.mus_init = torch.tensor(mus_init, dtype=torch.float64)
+
+        # consider diagonal covariance
+        self.log_sigmas_init = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64)
 
         self.alpha = alpha
 
     @property
     def params(self):
-        return (self.mus_init, self.log_sigmas) + self.transformation.params
-        #return [self.mus_init] + self.transformation.params
+        return (self.log_sigmas, ) + self.transformation.params
 
     @params.setter
     def params(self, values):
-        self.mus_init = set_param(self.mus_init, values[0])
-        self.log_sigmas = set_param(self.log_sigmas, values[1])
-        self.transformation.params = values[2:]
+        self.log_sigmas = set_param(self.log_sigmas, values[0])
+        self.transformation.params = values[1:]
 
     def permute(self, perm):
-        self.mus_init = self.mus_init[perm]
         self.log_sigmas = self.log_sigmas[perm]
         self.transformation.permute(perm)
 
@@ -118,12 +118,21 @@ class ARLogitNormalObservation(BaseObservations):
         """
 
         mus = self._compute_mus_for(data)  # (T, K, D)
+        T = data.shape[0]
+
+        p_init = LogitNormal(mus=mus[0], log_sigmas=self.log_sigmas_init, bounds=self.bounds, alpha=self.alpha)
+        log_prob_init = p_init.log_prob(data[0])  # data[0] (D, ). log_prob_init: (K, D)
+        log_prob_init = torch.sum(log_prob_init, dim=-1)  # (K, )
+
+        if T == 1:
+            return log_prob_init[None, ]
 
         p = LogitNormal(mus=mus, log_sigmas=self.log_sigmas, bounds=self.bounds, alpha=self.alpha)
 
-        out = p.log_prob(data[:, None])  # (T, K, D)
-        out = torch.sum(out, dim=-1)  # (T, K)
-        return out
+        log_prob_ar = p.log_prob(data[1:, None])  # (T-1, K, D)
+        log_prob_ar = torch.sum(log_prob_ar, dim=-1)  # (T-1, K)
+
+        return torch.cat((log_prob_init[None,], log_prob_ar))
 
     def rsample_x(self, z, xhist=None):
         """
