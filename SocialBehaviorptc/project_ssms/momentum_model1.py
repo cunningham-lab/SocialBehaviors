@@ -59,6 +59,18 @@ observation = CoupledMomentumObservation(K=K, D=D, M=0, lags=lags, Df=Df, featur
 
 model = HMM(K=K, D=D, M=0, observation=observation)
 
+"""
+##################### test params ########################
+
+obs2 = CoupledMomentumObservation(K=K, D=D, M=0, lags=lags, Df=Df, feature_func=feature_func_single, bounds=bounds)
+model2 = HMM(K=K, D=D, M=0, observation=obs2)
+
+model2.params = model.params
+for p1, p2 in zip(model.params_unpack, model2.params_unpack):
+    assert torch.all(torch.eq(p1, p2))
+
+"""
+
 # precompute features
 
 momentum_vecs = model.observation.transformation._compute_momentum_vecs(data[:-1])
@@ -84,11 +96,4 @@ sample_z, sample_x = model.sample(30)
 z = model.most_likely_states(data, momentum_vecs=momentum_vecs, features=features)
 
 x_predict = k_step_prediction_for_coupled_momentum_model(model, z, data, momentum_vecs=momentum_vecs, features=features)
-
-
-
-
-
-
-
 

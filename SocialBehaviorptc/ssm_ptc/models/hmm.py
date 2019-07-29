@@ -219,7 +219,7 @@ class HMM:
         """only change values, keep requires_grad property"""
         assert type(values) == tuple
 
-        self.pi0 = set_param(self.pi0, values[0])
+        self.pi0 = set_param(self.pi0, values[0][0])
         self.transition.params = values[1]
         self.observation.params = values[2]
 
@@ -326,6 +326,7 @@ class HMM:
                 optimizer = torch.optim.SGD(self.trainable_params, lr=lr)
             else:
                 raise ValueError("method must be chosen from adam and sgd.")
+
 
         losses = []
         for i in np.arange(num_iters):

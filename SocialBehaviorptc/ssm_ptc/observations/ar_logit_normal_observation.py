@@ -77,7 +77,7 @@ class ARLogitNormalObservation(BaseObservations):
     @params.setter
     def params(self, values):
         self.mus_init = set_param(self.mus_init, values[0])
-        self.log_sigmas = set_param(self.log_sigmas, values[0])
+        self.log_sigmas = set_param(self.log_sigmas, values[1])
         self.transformation.params = values[2:]
 
     def permute(self, perm):

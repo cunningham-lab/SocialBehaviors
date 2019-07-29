@@ -85,7 +85,7 @@ def k_step_prediction(model, model_z, data, k=0, expectation=True, sample_size=1
 def k_step_prediction_for_coupled_momentum_model(model, model_z, data, momentum_vecs=None, features=None):
     data = check_and_convert_to_tensor(data)
 
-    if momentum_vecs is None:
+    if momentum_vecs is None or features is None:
         return k_step_prediction(model, model_z, data, k=0)
     else:
         x_predict_arr = []

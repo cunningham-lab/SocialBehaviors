@@ -200,7 +200,7 @@ class CoupledMomentumObservation(BaseObservations):
 
         self.lags = lags
         self.transformation = CoupledMomemtumTransformation(K, D, Df, lags=self.lags,
-                                                            feature_funcs=feature_func, 
+                                                            feature_funcs=feature_func,
                                                             max_v=max_v, acc_factor=acc_factor)
 
         # consider diagonal covariance

@@ -1,5 +1,5 @@
 from ssm_ptc.models.hmm import HMM
-from ssm_ptc.observations.ar_sigmoid_normal_observation import ARSigmoidNormalObservation
+from ssm_ptc.observations.ar_logit_normal_observation import ARLogitNormalObservation
 from ssm_ptc.transformations.linear import LinearTransformation
 from ssm_ptc.utils import find_permutation, random_rotation, k_step_prediction
 
@@ -20,7 +20,7 @@ As = [random_rotation(D) for _ in range(K)]
 true_tran = LinearTransformation(K=K, d_in=D, D=D, As=As)
 
 bounds = np.array([[0, 20], [-5, 25]])
-true_observation = ARSigmoidNormalObservation(K=K, D=D, M=0, transformation=true_tran, bounds=bounds)
+true_observation = ARLogitNormalObservation(K=K, D=D, M=0, transformation=true_tran, bounds=bounds)
 
 true_model = HMM(K=K, D=D, M=0, observation=true_observation)
 
@@ -30,7 +30,7 @@ z, data = true_model.sample(T, return_np=False)
 # Define a model to fit the data
 
 tran = LinearTransformation(K=K, d_in=D, D=D)
-observation = ARSigmoidNormalObservation(K=K, D=D, M=0, transformation=tran, bounds=bounds)
+observation = ARLogitNormalObservation(K=K, D=D, M=0, transformation=tran, bounds=bounds)
 model = HMM(K=K, D=D, M=0, observation=observation)
 
 # Model fitting
