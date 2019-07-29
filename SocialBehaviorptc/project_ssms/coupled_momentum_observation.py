@@ -22,8 +22,8 @@ def normalize(f, norm=1):
 class CoupledMomemtumTransformation(BaseTransformation):
     """
     transformation:
-    x^a_t \sim x^a_{t-1} + v * sigmoid(\alpha_a) \frac{m_t}{lags} + sigmoid(\beta_a) ||Wf(x^a_t-1, x^b_t-1)+b||
-    x^b_t \sim x^b_{t-1} + v * sigmoid(\alpha_b) \frac{m_t}{lags} + sigmoid(\beta_b) ||Wf(x^b_t-1, x^a_t-1)+b||
+    x^a_t \sim x^a_{t-1} + v * sigmoid(\alpha_a) \frac{m_t}{lags} + v * sigmoid(Wf(x^a_t-1, x^b_t-1)+b)
+    x^b_t \sim x^b_{t-1} + v * sigmoid(\alpha_b) \frac{m_t}{lags} + v * sigmoid(Wf(x^b_t-1, x^a_t-1)+b)
 
 
     feature computation
@@ -42,25 +42,22 @@ class CoupledMomemtumTransformation(BaseTransformation):
         assert max_v.shape == (self.D, )
 
         self.alpha = torch.rand(self.K, self.D, dtype=torch.float64, requires_grad=True)
-        self.beta = torch.rand(self.K, self.D, dtype=torch.float64, requires_grad=True)
 
         self.Ws = torch.rand(self.K, self.D, self.Df, dtype=torch.float64, requires_grad=True)
         self.bs = torch.zeros(self.K, self.D, dtype=torch.float64, requires_grad=True)
 
     @property
     def params(self):
-        return self.alpha, self.beta, self.Ws, self.bs
+        return self.alpha, self.Ws, self.bs
 
     @params.setter
     def params(self, values):
         self.alpha = set_param(self.alpha, values[0])
-        self.beta = set_param(self.beta, values[1])
-        self.Ws = set_param(self.Ws, values[2])
-        self.bs = set_param(self.bs, values[3])
+        self.Ws = set_param(self.Ws, values[1])
+        self.bs = set_param(self.bs, values[2])
 
     def permute(self, perm):
         self.alpha = self.alpha[perm]
-        self.beta = self.beta[perm]
         self.Ws = self.Ws[perm]
         self.bs = self.bs[perm]
 
@@ -82,8 +79,8 @@ class CoupledMomemtumTransformation(BaseTransformation):
     def transform(self, inputs, momentum_vecs=None, features=None):
         """
         Perform the following transformation:
-            x^a_t \sim x^a_{t-1} + sigmoid(\alpha_a) \frac{m_t}{lags} + sigmoid(\beta_a) ||Wf(x^a_t-1, x^b_t-1)+b||
-            x^b_t \sim x^b_{t-1} + sigmoid(\alpha_b) \frac{m_t}{lags} + sigmoid(\beta_b) ||Wf(x^b_t-1, x^a_t-1)+b||
+            x^a_t \sim x^a_{t-1} + sigmoid(\alpha_a) \frac{m_t}{lags} + sigmoid(Wf(x^a_t-1, x^b_t-1)+b)
+            x^b_t \sim x^b_{t-1} + sigmoid(\alpha_b) \frac{m_t}{lags} + sigmoid(Wf(x^b_t-1, x^a_t-1)+b)
 
         :param inputs: (T, 4)
         :param momentum_vec: （T, 4), has been normalized by lags
@@ -98,7 +95,7 @@ class CoupledMomemtumTransformation(BaseTransformation):
         assert momentum_vecs.shape == (T, 4)
 
         if features is None:
-            features_a, features_b =self._compute_features(inputs)
+            features_a, features_b = self._compute_features(inputs)
         else:
             features_a, features_b = features
 
@@ -119,33 +116,42 @@ class CoupledMomemtumTransformation(BaseTransformation):
         out1 = torch.sigmoid(self.alpha) * momentum_vecs[:, None, ]  # (T, K, D)
         assert out1.shape == (T, self.K, self.D)
 
-        # (K, D) * (T, K, D) --> (T, K, D)
         # instead of normalize, maybe applying a sigmoid?
         # or treat momentum as features
-        out2 = torch.sigmoid(self.beta) * normalize(features_transformed)
+        out2 = torch.sigmoid(features_transformed)
 
         out = inputs[:, None, ] + self.max_v * (out1 + out2)
 
         assert out.shape == (T, self.K, self.D)
         return out
 
-    def transform_condition_on_z(self, z, inputs):
+    def transform_condition_on_z(self, z, inputs, **kwargs):
         """
         Perform transformation for given z
         :param z: an integer
         :param inputs: (T_pre, D)
         :return: x: (D, )
         """
-        momentum_vec_a = get_momentum(inputs[:, 0:2], lags=self.lags)  # (2, )
-        momentum_vec_b = get_momentum(inputs[:, 2:4], lags=self.lags)  # (2, )
-        momentum_vec = torch.cat([momentum_vec_a, momentum_vec_b], dim=0)  # (4, )
+
+        momentum_vec = kwargs.get("momentum_vec", None)
+        features = kwargs.get("features", None)
+
+        if momentum_vec is None:
+
+            momentum_vec_a = get_momentum(inputs[:, 0:2], lags=self.lags)  # (2, )
+            momentum_vec_b = get_momentum(inputs[:, 2:4], lags=self.lags)  # (2, )
+            momentum_vec = torch.cat([momentum_vec_a, momentum_vec_b], dim=0)  # (4, )
         assert momentum_vec.shape == (4, )
 
-        features_a, features_b = self._compute_features(inputs[-1:])
-        assert features_a.shape == (1, self.Df)
-        assert features_b.shape == (1, self.Df)
-        features_a = torch.squeeze(features_a, dim=0)
-        features_b = torch.squeeze(features_b, dim=0)
+        if features is None:
+
+            features_a, features_b = self._compute_features(inputs[-1:])
+            assert features_a.shape == (1, self.Df)
+            assert features_b.shape == (1, self.Df)
+            features_a = torch.squeeze(features_a, dim=0)
+            features_b = torch.squeeze(features_b, dim=0)
+        else:
+            features_a, features_b = features
 
         # (2, Df) * (Df, 1)  -> (2, 1)
         features_transformed_a = torch.matmul(self.Ws[z, :2], features_a[:, None])
@@ -159,8 +165,8 @@ class CoupledMomemtumTransformation(BaseTransformation):
 
         # (D, ) * (D,) --> (D, )
         out1 = torch.sigmoid(self.alpha[z]) * momentum_vec
-        #  (D, ) * (D, ) --> (D, )
-        out2 = torch.sigmoid(self.beta[z]) * normalize(features_transformed)
+        # (D,)
+        out2 = torch.sigmoid(features_transformed)
 
         out = inputs[-1] + self.max_v * (out1 + out2)
         assert out.shape == (4, )
@@ -173,8 +179,8 @@ class CoupledMomentumObservation(BaseObservations):
     Consider a coupled momentum model:
 
     transformation:
-    x^a_t \sim x^a_{t-1} + \alpha_a \frac{m_t}{lags} + \beta_a f(x^a_t, x^b_t)
-    x^b_t \sim x^b_{t-1} + \alpha_b \frac{m_t}{lags} + \beta_b f(x^b_t, x^a_t)
+    x^a_t \sim x^a_{t-1} + v * sigmoid(\alpha_a) \frac{m_t}{lags} + v * sigmoid(Wf(x^a_t-1, x^b_t-1)+b)
+    x^b_t \sim x^b_{t-1} + v * sigmoid(\alpha_b) \frac{m_t}{lags} + v * sigmoid(Wf(x^b_t-1, x^a_t-1)+b)
 
     constrained observation:
     ar_truncated_normal_observation
@@ -185,13 +191,14 @@ class CoupledMomentumObservation(BaseObservations):
 
     """
     def __init__(self, K, D, M=0, lags=50, Df=1, feature_func=None, mus_init=None, sigmas=None,
-                 bounds=None, train_sigma=True):
+                 bounds=None, max_v=np.array([6, 6, 6, 6]), train_sigma=True):
         super(CoupledMomentumObservation, self).__init__(K, D, M)
 
         assert lags > 1
 
         self.lags = lags
-        self.transformation = CoupledMomemtumTransformation(K, D, Df, lags=self.lags, feature_funcs=feature_func)
+        self.transformation = CoupledMomemtumTransformation(K, D, Df, lags=self.lags,
+                                                            feature_funcs=feature_func, max_v=max_v)
 
         # consider diagonal covariance
         if sigmas is None:
@@ -202,9 +209,10 @@ class CoupledMomentumObservation(BaseObservations):
             self.log_sigmas = torch.tensor(np.log(sigmas), dtype=torch.float64, requires_grad=train_sigma)
 
         if bounds is None:
+            raise ValueError("Please provide bounds.")
             # default bound for each dimension is [0,1]
-            self.bounds = torch.cat((torch.zeros(self.D, dtype=torch.float64)[:, None],
-                                     torch.ones(self.D, dtype=torch.float64)[:, None]), dim=1)
+            #self.bounds = torch.cat((torch.zeros(self.D, dtype=torch.float64)[:, None],
+             #                        torch.ones(self.D, dtype=torch.float64)[:, None]), dim=1)
         else:
             self.bounds = check_and_convert_to_tensor(bounds, dtype=torch.float64)
             assert self.bounds.shape == (self.D, 2)
@@ -253,7 +261,7 @@ class CoupledMomentumObservation(BaseObservations):
         out = torch.sum(out, dim=-1)  # (T, K)
         return out
 
-    def sample_x(self, z, xhist=None, return_np=True):
+    def sample_x(self, z, xhist=None, return_np=True, **kwargs):
         """
 
         :param z: ()
@@ -272,9 +280,9 @@ class CoupledMomentumObservation(BaseObservations):
 
             T_pre = xhist.shape[0]
             if T_pre < self.lags:
-                mu = self.transformation.transform_condition_on_z(z, xhist)  # (D, )
+                mu = self.transformation.transform_condition_on_z(z, xhist, **kwargs)  # (D, )
             else:
-                mu = self.transformation.transform_condition_on_z(z, xhist[-self.lags:])  # (D, )
+                mu = self.transformation.transform_condition_on_z(z, xhist[-self.lags:], **kwargs)  # (D, )
             assert mu.shape == (self.D,)
 
         dist = TruncatedNormal(mus=mu, log_sigmas=self.log_sigmas[z], bounds=self.bounds)

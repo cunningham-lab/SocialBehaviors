@@ -5,6 +5,7 @@ compute_state_overlap, find_permutation, random_rotation are copied from https:/
 import torch
 import numpy as np
 from scipy.optimize import linear_sum_assignment, minimize
+
 import time, sys
 
 
@@ -72,12 +73,31 @@ def k_step_prediction(model, model_z, data, k=0, expectation=True, sample_size=1
         assert k>0
         # neglects t = 0 since there is no history
         for t in range(1, data.shape[0]-k):
+            # TODO: fix k-step prediction sample size
             zx_predict = model.sample(k, prefix=(model_z[t-1:t], data[t-1:t]), return_np=True)
             assert zx_predict[1].shape == (k, 4)
             x_predict = zx_predict[1][k-1]
             x_predict_arr.append(x_predict)
     x_predict_arr = np.array(x_predict_arr)
     return x_predict_arr
+
+
+def k_step_prediction_for_coupled_momentum_model(model, model_z, data, momentum_vecs=None, features=None):
+    data = check_and_convert_to_tensor(data)
+
+    if momentum_vecs is None:
+        return k_step_prediction(model, model_z, data, k=0)
+    else:
+        x_predict_arr = []
+        x_predict = model.observation.sample_x(model_z[0], data[:0], return_np=True)
+        x_predict_arr.append(x_predict)
+        for t in range(1, data.shape[0]):
+            x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True,
+                                                   momentum_vec=momentum_vecs[t-1],
+                                                   features=(features[0][t-1], features[1][t-1]))
+            x_predict_arr.append(x_predict)
+        x_predict_arr = np.array(x_predict_arr)
+        return x_predict_arr
 
 
 def check_and_convert_to_tensor(inputs, dtype=torch.float64):

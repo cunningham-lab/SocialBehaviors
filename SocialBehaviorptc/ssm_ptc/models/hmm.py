@@ -241,7 +241,7 @@ class HMM:
         return out
 
     # numpy operation
-    def most_likely_states(self, data, input=None):
+    def most_likely_states(self, data, input=None, **transformation_kwargs):
         if isinstance(self.transition, InputDrivenTransition) and input is None:
             raise ValueError("Please provide input.")
 
@@ -263,7 +263,7 @@ class HMM:
             log_Ps = log_Ps.detach().numpy()
             assert log_Ps.shape == (T - 1, self.K, self.K)
 
-        log_likes = self.observation.log_prob(data).detach().numpy()
+        log_likes = self.observation.log_prob(data, **transformation_kwargs).detach().numpy()
         return viterbi(log_pi0, log_Ps, log_likes)
 
     def permute(self, perm):

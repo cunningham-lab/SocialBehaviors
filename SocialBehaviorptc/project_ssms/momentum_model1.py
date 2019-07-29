@@ -5,6 +5,7 @@ from project_ssms.coupled_momentum_observation import CoupledMomentumObservation
 from project_ssms.feature_funcs import feature_func_single
 
 from ssm_ptc.models.hmm import HMM
+from ssm_ptc.utils import k_step_prediction_for_coupled_momentum_model
 
 import joblib
 
@@ -45,7 +46,7 @@ Df = 10
 T = 36000
 
 
-observation = CoupledMomentumObservation(K=K, D=D, M=0, lags=lags, Df=Df, feature_func=feature_func_single)
+observation = CoupledMomentumObservation(K=K, D=D, M=0, lags=lags, Df=Df, feature_func=feature_func_single, bounds=bounds)
 
 model = HMM(K=K, D=D, M=0, observation=observation)
 
@@ -54,7 +55,10 @@ model = HMM(K=K, D=D, M=0, observation=observation)
 momentum_vecs = model.observation.transformation._compute_momentum_vecs(data[:-1])
 features = model.observation.transformation._compute_features(data[:-1])
 
+print(momentum_vecs.shape)
+
 out = model.log_likelihood(data, momentum_vecs=momentum_vecs, features=features)
+print(out)
 
 
 ##################### training ############################
@@ -66,6 +70,14 @@ losses, opt = model.fit(data, num_iters=num_iters, lr=0.001, momentum_vecs=momen
 ##################### sampling ############################
 
 sample_z, sample_x = model.sample(30)
+
+#################### inference ###########################
+
+z = model.most_likely_states(data, momentum_vecs=momentum_vecs, features=features)
+
+x_predict = k_step_prediction_for_coupled_momentum_model(model, z, data, momentum_vecs=momentum_vecs, features=features)
+
+
 
 
 
