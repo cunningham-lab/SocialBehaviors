@@ -193,14 +193,15 @@ class CoupledMomentumObservation(BaseObservations):
 
     """
     def __init__(self, K, D, M=0, lags=50, Df=1, feature_func=None, mus_init=None, sigmas=None,
-                 bounds=None, max_v=np.array([6, 6, 6, 6]), train_sigma=True):
+                 bounds=None, max_v=np.array([6, 6, 6, 6]), acc_factor=2, train_sigma=True):
         super(CoupledMomentumObservation, self).__init__(K, D, M)
 
         assert lags > 1
 
         self.lags = lags
         self.transformation = CoupledMomemtumTransformation(K, D, Df, lags=self.lags,
-                                                            feature_funcs=feature_func, max_v=max_v)
+                                                            feature_funcs=feature_func, 
+                                                            max_v=max_v, acc_factor=acc_factor)
 
         # consider diagonal covariance
         if sigmas is None:
