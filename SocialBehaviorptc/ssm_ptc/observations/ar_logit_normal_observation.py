@@ -82,6 +82,8 @@ class ARLogitNormalObservation(BaseObservations):
         self.transformation.params = values[1:]
 
     def permute(self, perm):
+        self.mus_init = self.mus_init[perm]
+        self.log_sigmas_init = self.log_sigmas_init[perm]
         self.log_sigmas = self.log_sigmas[perm]
         self.transformation.permute(perm)
 
@@ -127,7 +129,7 @@ class ARLogitNormalObservation(BaseObservations):
         if T == 1:
             return log_prob_init[None, ]
 
-        p = LogitNormal(mus=mus, log_sigmas=self.log_sigmas, bounds=self.bounds, alpha=self.alpha)
+        p = LogitNormal(mus=mus[1:], log_sigmas=self.log_sigmas, bounds=self.bounds, alpha=self.alpha)
 
         log_prob_ar = p.log_prob(data[1:, None])  # (T-1, K, D)
         log_prob_ar = torch.sum(log_prob_ar, dim=-1)  # (T-1, K)

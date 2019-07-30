@@ -79,6 +79,8 @@ class ARTruncatedNormalObservation(BaseObservations):
         self.transformation.params = values[1:]
 
     def permute(self, perm):
+        self.mus_init = self.mus_init[perm]
+        self.log_sigmas_init = self.log_sigmas_init[perm]
         self.log_sigmas = self.log_sigmas[perm]
         self.transformation.permute(perm)
 
@@ -125,10 +127,10 @@ class ARTruncatedNormalObservation(BaseObservations):
         if T == 1:
             return log_prob_init[None,]
 
-        dist = TruncatedNormal(mus=mus, log_sigmas=self.log_sigmas, bounds=self.bounds)
+        dist = TruncatedNormal(mus=mus[1:], log_sigmas=self.log_sigmas, bounds=self.bounds)
 
-        log_prob_ar = dist.log_prob(data[:, None])  # (T, K, D)
-        log_prob_ar = torch.sum(log_prob_ar, dim=-1)  # (T, K)
+        log_prob_ar = dist.log_prob(data[1:, None])  # (T-1, K, D)
+        log_prob_ar = torch.sum(log_prob_ar, dim=-1)  # (T-1, K)
 
         return torch.cat((log_prob_init[None,], log_prob_ar))
 

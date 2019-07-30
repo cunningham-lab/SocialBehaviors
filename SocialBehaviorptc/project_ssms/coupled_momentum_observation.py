@@ -213,27 +213,31 @@ class CoupledMomentumObservation(BaseObservations):
 
         if bounds is None:
             raise ValueError("Please provide bounds.")
-            # default bound for each dimension is [0,1]
-            #self.bounds = torch.cat((torch.zeros(self.D, dtype=torch.float64)[:, None],
-             #                        torch.ones(self.D, dtype=torch.float64)[:, None]), dim=1)
         else:
             self.bounds = check_and_convert_to_tensor(bounds, dtype=torch.float64)
             assert self.bounds.shape == (self.D, 2)
 
         if mus_init is None:
-            self.mus_init = torch.eye(self.K, self.D, dtype=torch.float64, requires_grad=True)
+            self.mus_init = torch.eye(self.K, self.D, dtype=torch.float64)
         else:
-            self.mus_init = torch.tensor(mus_init, dtype=torch.float64, requires_grad=True)
+            self.mus_init = torch.tensor(mus_init, dtype=torch.float64)
+
+        self.log_sigmas_init = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64)
 
     @property
     def params(self):
-        return (self.mus_init, self.log_sigmas) + self.transformation.params
+        return (self.log_sigmas, ) + self.transformation.params
 
     @params.setter
     def params(self, values):
-        self.mus_init = set_param(self.mus_init, values[0])
-        self.log_sigmas = set_param(self.log_sigmas, values[1])
-        self.transformation.params = values[2:]
+        self.log_sigmas = set_param(self.log_sigmas, values[0])
+        self.transformation.params = values[1:]
+
+    def permute(self, perm):
+        self.mus_init = self.mus_init[perm]
+        self.log_sigmas_init = self.log_sigmas_init[perm]
+        self.log_sigmas = self.log_sigmas[perm]
+        self.transformation.permute(perm)
 
     def _compute_mus_for(self, data, momentum_vecs=None, features=None):
         """

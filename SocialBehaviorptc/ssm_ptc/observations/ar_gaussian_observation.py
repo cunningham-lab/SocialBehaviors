@@ -56,6 +56,7 @@ class ARGaussianObservation(BaseObservations):
 
     def permute(self, perm):
         self.mus_init = self.mus_init[perm]
+        self.log_sigmas_init = self.log_sigmas_init[perm]
         self.log_sigmas = self.log_sigmas[perm]
         self.transformation.permute(perm)
 
