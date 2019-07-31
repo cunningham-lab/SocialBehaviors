@@ -25,7 +25,6 @@ class HMM:
     def __init__(self, K, D, M=0, transition='stationary', observation="gaussian", pi0=None, Pi=None,
                  observation_kwargs=None):
         """
-        # TODO: add observation kwargs
         :param K: number of hidden states
         :param D: dimension of observations
         :param M: dimension of inputs
@@ -95,7 +94,7 @@ class HMM:
 
     def sample(self, T, prefix=None, input=None, return_np=True):
         """
-        Sample synthetic data form from thhe model.
+        Sample synthetic data form from the model.
         :param T: int, the number of time steps to sample
         :param prefix: (z_pre, x_pre), preceding hidden states and observations.
         z_pre: shape (T_pre,)
@@ -136,6 +135,9 @@ class HMM:
             assert len(z_pre.shape) == 1
             T_pre = z_pre.shape[0]
             assert x_pre.shape == (T_pre, self.D)
+
+            z_pre = check_and_convert_to_tensor(z_pre, dtype=torch.int)
+            x_pre = check_and_convert_to_tensor(x_pre, dtype=dtype)
 
             # construct the states and data
             z = torch.cat((z_pre, torch.empty(T, dtype=torch.int)))
@@ -277,16 +279,16 @@ class HMM:
         Given a z sequence, generate samples condition on this sequence.
         :param zs: (T, )
         :param x0: shape (D,)
+        :param return_np: return np.ndarray or torch.tensor
         :return: generated samples (T, D)
         """
 
         zs = check_and_convert_to_tensor(zs, dtype=torch.int)
-        x0 = check_and_convert_to_tensor(x0, dtype=torch.float64)
         T = zs.shape[0]
 
         assert T > 0
 
-        # TODO: test lags
+        # TODO: test momentum_lags
         if T == 1:
             if x0 is not None:
                 print("Nothing to sample")
@@ -297,6 +299,7 @@ class HMM:
         if x0 is None:
             x0 = self.observation.sample_x(zs[0], return_np=False)
         else:
+            x0 = check_and_convert_to_tensor(x0, dtype=torch.float64)
             assert x0.shape == (self.D, )
 
         xs = [x0]

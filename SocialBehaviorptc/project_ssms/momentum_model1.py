@@ -2,11 +2,12 @@ import torch
 import numpy as np
 
 from project_ssms.coupled_momentum_observation import CoupledMomentumObservation
+from project_ssms.coupled_momentum_observation import CoupledMomemtumTransformation
 from project_ssms.momentum_utils import filter_traj_by_speed
 from project_ssms.feature_funcs import feature_func_single
 
 from ssm_ptc.models.hmm import HMM
-from ssm_ptc.utils import k_step_prediction_for_coupled_momentum_model
+from ssm_ptc.utils import k_step_prediction_for_coupled_momentum_model, k_step_prediction
 
 import joblib
 
@@ -50,19 +51,19 @@ max_v = np.array([6.0, 6.0, 6.0, 6.0])
 
 K = 4
 D = 4
-lags = 50
+momentum_lags = 50
 Df = 10
 T = 36000
 
 
-observation = CoupledMomentumObservation(K=K, D=D, M=0, lags=lags, Df=Df, feature_func=feature_func_single, bounds=bounds)
+observation = CoupledMomentumObservation(K=K, D=D, M=0, momentum_lags=momentum_lags, Df=Df, feature_func=feature_func_single, bounds=bounds)
 
 model = HMM(K=K, D=D, M=0, observation=observation)
 
 """
 ##################### test params ########################
 
-obs2 = CoupledMomentumObservation(K=K, D=D, M=0, lags=lags, Df=Df, feature_func=feature_func_single, bounds=bounds)
+obs2 = CoupledMomentumObservation(K=K, D=D, M=0, momentum_lags=momentum_lags, Df=Df, feature_func=feature_func_single, bounds=bounds)
 model2 = HMM(K=K, D=D, M=0, observation=obs2)
 
 model2.params = model.params
@@ -73,8 +74,8 @@ for p1, p2 in zip(model.params_unpack, model2.params_unpack):
 
 # precompute features
 
-momentum_vecs = model.observation.transformation._compute_momentum_vecs(data[:-1])
-features = model.observation.transformation._compute_features(data[:-1])
+momentum_vecs = CoupledMomemtumTransformation._compute_momentum_vecs(data[:-1], lags=momentum_lags)
+features = CoupledMomemtumTransformation._compute_features(feature_funcs=feature_func_single, inputs=data[:-1])
 
 
 out = model.log_likelihood(data, momentum_vecs=momentum_vecs, features=features)
@@ -88,12 +89,14 @@ losses, opt = model.fit(data, num_iters=num_iters, lr=0.001, momentum_vecs=momen
 
 
 ##################### sampling ############################
-
+print("start sampling")
 sample_z, sample_x = model.sample(30)
 
 #################### inference ###########################
-
+print("inferiring most likely states...")
 z = model.most_likely_states(data, momentum_vecs=momentum_vecs, features=features)
 
+print("k step prediction")
 x_predict = k_step_prediction_for_coupled_momentum_model(model, z, data, momentum_vecs=momentum_vecs, features=features)
-
+#x_predict = k_step_prediction(model, z, data, 10)
+# TODO: need to revise the k-step prediction, specifically the way to calculate the momentum
