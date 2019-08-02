@@ -23,9 +23,9 @@ class CoupledMomentumInteractionTransformation(BaseTransformation):
     """
     transformation:
     x^a_t \sim x^a_{t-1} + momentum_factor * sigmoid(\alpha_a) \frac{m_t}{momentum_lags}
-                    + interaction_factor * sigmoid(beta_a) o_t^a + + v_max * sigmoid(W_a x+b_a)
+                    + interaction_factor * sigmoid(beta_a) o_t^a + + v_max * sigmoid(x W_a +b_a)
     x^a_t \sim x^a_{t-1} + momentum_factor * sigmoid(\alpha_b) \frac{m_t}{momentum_lags}
-                    + interaction_factor * sigmoid(beta_b) o_t^b + + v_max * sigmoid(W_b x+b_b)
+                    + interaction_factor * sigmoid(beta_b) o_t^b + + v_max * sigmoid(x W_b +b_b)
 
     constants: momentum_factor=2, interaction_factor=2, momentum_lags=30, v_max=[6,6,6,6]
     variables: alpha, beta, W, b
@@ -100,7 +100,6 @@ class CoupledMomentumInteractionTransformation(BaseTransformation):
         vecs = torch.cat((vecs_a, -vecs_a), dim=-1)
         assert vecs.shape == inputs.shape
         return vecs
-
 
     def transform(self, inputs, momentum_vecs=None, interaction_vecs=None):
         """

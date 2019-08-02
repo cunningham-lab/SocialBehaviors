@@ -19,7 +19,7 @@ def normalize(f, norm=1):
     return f
 
 
-class CoupledMomemtumFeatureTransformation(BaseTransformation):
+class CoupledMomentumFeatureTransformation(BaseTransformation):
     """
     transformation:
     x^a_t \sim x^a_{t-1} + acc_factor * sigmoid(\alpha_a) \frac{m_t}{momentum_lags} + v * sigmoid(Wf(x^a_t-1, x^b_t-1)+b)
@@ -32,7 +32,7 @@ class CoupledMomemtumFeatureTransformation(BaseTransformation):
     """
     def __init__(self, K, D=4, Df=0, momentum_lags=2, momentum_weights=None,
                  feature_funcs=None, max_v=np.array([6, 6, 6, 6]), acc_factor=2):
-        super(CoupledMomemtumFeatureTransformation, self).__init__(K, D)
+        super(CoupledMomentumFeatureTransformation, self).__init__(K, D)
         assert D == 4
         self.Df = Df
 
@@ -43,6 +43,9 @@ class CoupledMomemtumFeatureTransformation(BaseTransformation):
             self.momentum_weights = torch.ones(momentum_lags, dtype=torch.float64)
         else:
             self.momentum_weights = check_and_convert_to_tensor(momentum_weights)
+
+        if feature_funcs is None:
+            raise ValueError("Must provide feature funcs.")
         self.feature_funcs = feature_funcs
 
         self.max_v = check_and_convert_to_tensor(max_v)
@@ -216,7 +219,7 @@ class CoupledMomentumFeatureObservation(BaseObservations):
             raise ValueError("Must provide momentum lags.")
         assert self.momentum_lags > 1
 
-        self.transformation = CoupledMomemtumFeatureTransformation(K=K, D=D, **transformation_kwargs)
+        self.transformation = CoupledMomentumFeatureTransformation(K=K, D=D, **transformation_kwargs)
 
         # consider diagonal covariance
         if sigmas is None:
