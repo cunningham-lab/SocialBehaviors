@@ -1,11 +1,9 @@
 import torch
 import numpy as np
 
-from project_ssms.coupled_momentum_feature_observation import CoupledMomentumFeatureObservation, \
-    CoupledMomentumFeatureTransformation
+from project_ssms.coupled_momentum_observation import CoupledMomentumObservation, CoupledMomentumTransformation
 from project_ssms.momentum_utils import filter_traj_by_speed
-from project_ssms.feature_funcs import feature_func_single
-from project_ssms.utils import k_step_prediction_for_coupled_momentum_feature_model
+from project_ssms.utils import k_step_prediction_for_coupled_momentum_model
 
 from ssm_ptc.models.hmm import HMM
 from ssm_ptc.utils import k_step_prediction
@@ -57,8 +55,8 @@ Df = 10
 T = 36000
 
 
-observation = CoupledMomentumFeatureObservation(K=K, D=D, M=0, bounds=bounds, momentum_lags=momentum_lags,
-                                                Df=Df, feature_funcs=feature_func_single)
+observation = CoupledMomentumObservation(K=K, D=D, M=0, momentum_lags=momentum_lags,
+                                                Df=Df, bounds=bounds)
 
 model = HMM(K=K, D=D, M=0, observation=observation)
 
@@ -76,18 +74,17 @@ for p1, p2 in zip(model.params_unpack, model2.params_unpack):
 
 # precompute features
 
-momentum_vecs = CoupledMomentumFeatureTransformation._compute_momentum_vecs(data[:-1], lags=momentum_lags)
-features = CoupledMomentumFeatureTransformation._compute_features(feature_funcs=feature_func_single, inputs=data[:-1])
+momentum_vecs = CoupledMomentumTransformation._compute_momentum_vecs(data[:-1], lags=momentum_lags)
 
 
-out = model.log_likelihood(data, momentum_vecs=momentum_vecs, features=features)
+out = model.log_likelihood(data, momentum_vecs=momentum_vecs)
 print(out)
 
 
 ##################### training ############################
 
 num_iters = 10
-losses, opt = model.fit(data, num_iters=num_iters, lr=0.001, momentum_vecs=momentum_vecs, features=features)
+losses, opt = model.fit(data, num_iters=num_iters, lr=0.001, momentum_vecs=momentum_vecs)
 
 
 ##################### sampling ############################
@@ -99,7 +96,6 @@ print("inferiring most likely states...")
 z = model.most_likely_states(data, momentum_vecs=momentum_vecs)
 
 print("k step prediction")
-x_predict = k_step_prediction_for_coupled_momentum_feature_model(model, z, data,
-                                                                 momentum_vecs=momentum_vecs, features=features)
+x_predict = k_step_prediction_for_coupled_momentum_model(model, z, data, momentum_vecs=momentum_vecs)
 #x_predict = k_step_prediction(model, z, data, 10)
 # TODO: need to revise the k-step prediction, specifically the way to calculate the momentum
