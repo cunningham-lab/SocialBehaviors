@@ -46,7 +46,7 @@ class LinearTransformation(BaseTransformation):
         """
         Perform transformations on all possible zs
         :param inputs: (T, D)
-        :return: (T-momentum_lags+1, K, D)
+        :return: (T-lags+1, K, D)
         """
 
         K, D, _ = self.As.shape
@@ -56,13 +56,13 @@ class LinearTransformation(BaseTransformation):
         out = 0
         for l in range(self.lags):
             Als = self.As[:, :, l* D : (l+1) * D]  # (K, D, D)
-            lagged_data = inputs[l: T-self.lags+1+l]  # T-momentum_lags
+            lagged_data = inputs[l: T-self.lags+1+l]  # T-lags
             assert lagged_data.shape == (T-self.lags+1, D)
-            lagged_data = lagged_data.unsqueeze(0) # (1, T-momentum_lags+1, D)
+            lagged_data = lagged_data.unsqueeze(0) # (1, T-lags+1, D)
             out = out + torch.matmul(lagged_data, Als)
             assert out.shape == (K, T-self.lags+1, D)
 
-        out = out.transpose(0,1)  # (T-momentum_lags+1, K, D)
+        out = out.transpose(0,1)  # (T-lags+1, K, D)
         out = out + self.bs
 
         return out
@@ -71,11 +71,11 @@ class LinearTransformation(BaseTransformation):
         """
         Perform transformation conditioning on z,
         :param z: an integer
-        :param inputs: (momentum_lags, D)
+        :param inputs: (lags, D)
         :return: (D, )
         """
 
-        A = self.As[z]  # (D, D * momentum_lags)
+        A = self.As[z]  # (D, D * lags)
 
         D, _ = A.shape
         T, _ = inputs.shape
