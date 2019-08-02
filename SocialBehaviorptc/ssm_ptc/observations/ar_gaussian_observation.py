@@ -80,10 +80,10 @@ class ARGaussianObservation(BaseObservations):
         if T < self.lags:
             mus = self.mus_init * torch.ones(T, self.K, self.D, dtype=torch.float64)
         else:
-            mus_rest = self.transformation.transform(data[:-1])  # (T-1-lags+1, K, D)
+            mus_rest = self.transformation.transform(data[:-1])  # (T-1-momentum_lags+1, K, D)
             assert mus_rest.shape == (T-1-self.lags+1, self.K, D)
 
-            # add repeated lags
+            # add repeated momentum_lags
             mus = torch.cat((self.mus_init * torch.ones(self.lags, self.K, self.D, dtype=torch.float64), mus_rest))
 
         assert mus.shape == (T, self.K, self.D)
@@ -120,7 +120,7 @@ class ARGaussianObservation(BaseObservations):
         :param xhist: shape (T_pre, D)
         :return: x: shape (D,)
         """
-        # TODO: test lags
+        # TODO: test momentum_lags
         # no previous x
         if xhist is None or xhist.shape[0] < self.lags:
             mu = self.mus_init[z]  # (D,)

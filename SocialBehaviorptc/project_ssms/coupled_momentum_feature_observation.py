@@ -19,7 +19,7 @@ def normalize(f, norm=1):
     return f
 
 
-class CoupledMomemtumTransformation(BaseTransformation):
+class CoupledMomemtumFeatureTransformation(BaseTransformation):
     """
     transformation:
     x^a_t \sim x^a_{t-1} + acc_factor * sigmoid(\alpha_a) \frac{m_t}{momentum_lags} + v * sigmoid(Wf(x^a_t-1, x^b_t-1)+b)
@@ -32,7 +32,7 @@ class CoupledMomemtumTransformation(BaseTransformation):
     """
     def __init__(self, K, D=4, Df=0, momentum_lags=2, momentum_weights=None,
                  feature_funcs=None, max_v=np.array([6, 6, 6, 6]), acc_factor=2):
-        super(CoupledMomemtumTransformation, self).__init__(K, D)
+        super(CoupledMomemtumFeatureTransformation, self).__init__(K, D)
         assert D == 4
         self.Df = Df
 
@@ -191,8 +191,7 @@ class CoupledMomemtumTransformation(BaseTransformation):
         return out
 
 
-#  TODO: set training mode and test (sampling) mode
-class CoupledMomentumObservation(BaseObservations):
+class CoupledMomentumFeatureObservation(BaseObservations):
     """
     Consider a coupled momentum model:
 
@@ -208,18 +207,16 @@ class CoupledMomentumObservation(BaseObservations):
     sampling mode: compute the feature based on previous observation
 
     """
-    def __init__(self, K, D, M=0, momentum_lags=50, momentum_weights=None, Df=1, feature_func=None, mus_init=None, sigmas=None,
-                 bounds=None, max_v=np.array([6, 6, 6, 6]), acc_factor=2, train_sigma=True):
-        super(CoupledMomentumObservation, self).__init__(K, D, M)
+    def __init__(self, K, D, M=0, mus_init=None, sigmas=None,
+                 bounds=None, train_sigma=True, **transformation_kwargs):
+        super(CoupledMomentumFeatureObservation, self).__init__(K, D, M)
 
-        assert momentum_lags > 1
+        self.momentum_lags = transformation_kwargs.get("momentum_lags", None)
+        if self.momentum_lags is None:
+            raise ValueError("Must provide momentum lags.")
+        assert self.momentum_lags > 1
 
-        self.momentum_lags = momentum_lags
-        self.transformation = CoupledMomemtumTransformation(K, D, Df=Df,
-                                                            momentum_lags=self.momentum_lags,
-                                                            momentum_weights=momentum_weights,
-                                                            feature_funcs=feature_func,
-                                                            max_v=max_v, acc_factor=acc_factor)
+        self.transformation = CoupledMomemtumFeatureTransformation(K=K, D=D, **transformation_kwargs)
 
         # consider diagonal covariance
         if sigmas is None:

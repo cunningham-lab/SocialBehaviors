@@ -1,8 +1,8 @@
 import torch
 import numpy as np
 
-from project_ssms.coupled_momentum_observation import CoupledMomentumObservation
-from project_ssms.coupled_momentum_observation import CoupledMomemtumTransformation
+from project_ssms.coupled_momentum_feature_observation import CoupledMomentumFeatureObservation
+from project_ssms.coupled_momentum_feature_observation import CoupledMomemtumFeatureTransformation
 from project_ssms.momentum_utils import filter_traj_by_speed
 from project_ssms.feature_funcs import feature_func_single
 
@@ -56,7 +56,7 @@ Df = 10
 T = 36000
 
 
-observation = CoupledMomentumObservation(K=K, D=D, M=0, momentum_lags=momentum_lags, Df=Df, feature_func=feature_func_single, bounds=bounds)
+observation = CoupledMomentumFeatureObservation(K=K, D=D, M=0, momentum_lags=momentum_lags, Df=Df, feature_func=feature_func_single, bounds=bounds)
 
 model = HMM(K=K, D=D, M=0, observation=observation)
 
@@ -74,8 +74,8 @@ for p1, p2 in zip(model.params_unpack, model2.params_unpack):
 
 # precompute features
 
-momentum_vecs = CoupledMomemtumTransformation._compute_momentum_vecs(data[:-1], lags=momentum_lags)
-features = CoupledMomemtumTransformation._compute_features(feature_funcs=feature_func_single, inputs=data[:-1])
+momentum_vecs = CoupledMomemtumFeatureTransformation._compute_momentum_vecs(data[:-1], lags=momentum_lags)
+features = CoupledMomemtumFeatureTransformation._compute_features(feature_funcs=feature_func_single, inputs=data[:-1])
 
 
 out = model.log_likelihood(data, momentum_vecs=momentum_vecs, features=features)

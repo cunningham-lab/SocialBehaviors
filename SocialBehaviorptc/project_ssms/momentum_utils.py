@@ -136,7 +136,8 @@ def filter_traj_by_speed(traj, q1, q2, t1=None, t2=None):
 
 
 def get_momentum_in_batch(data, lags, weights):
-    """Compute normalized momentum vector for 2D trajectories, where "normalized" means "normalized by momentum_lags". """
+    """Compute normalized momentum vector for 2D trajectories,
+     where "normalized" means "normalized by momentum_lags". """
 
     assert data.shape[1] == 2
     assert weights.shape == (lags, )

@@ -100,6 +100,26 @@ def k_step_prediction_for_coupled_momentum_model(model, model_z, data, momentum_
         return x_predict_arr
 
 
+def k_step_prediction_for_coupled_momentum_interatcion_model(model, model_z, data, momentum_vecs=None,
+                                                             interaction_vecs=None):
+    data = check_and_convert_to_tensor(data)
+
+    if momentum_vecs is None or interaction_vecs is None:
+        return k_step_prediction(model, model_z, data)
+    else:
+        x_predict_arr = []
+        x_predict = model.observation.sample_x(model_z[0], data[:0], return_np=True)
+        x_predict_arr.append(x_predict)
+        for t in range(1, data.shape[0]):
+            x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True,
+                                                   momentum_vec=momentum_vecs[t - 1],
+                                                   interaction_vec=interaction_vecs[t - 1])
+            x_predict_arr.append(x_predict)
+
+        x_predict_arr = np.array(x_predict_arr)
+        return x_predict_arr
+
+
 def check_and_convert_to_tensor(inputs, dtype=torch.float64):
     """
     check if inputs type is either ndarray or tensor (requires_grad=False)
