@@ -1,8 +1,8 @@
 import torch
 import numpy as np
 
-from project_ssms.coupled_momentum_interaction_observation2 import CoupledMomentumInteractionObservation, \
-    CoupledMomentumInteractionTransformation
+from project_ssms.momentum_interaction_observation2 import MomentumInteractionObservation, \
+    MomentumInteractionTransformation
 from project_ssms.momentum_utils import filter_traj_by_speed
 from project_ssms.feature_funcs import feature_func_single
 
@@ -58,9 +58,9 @@ momentum_weights = np.arange(0.55, 2.05, 0.05)
 T = 36000
 
 
-observation = CoupledMomentumInteractionObservation(K=K, D=D, bounds=bounds,
-                                                    momentum_lags=momentum_lags, momentum_weights=momentum_weights,
-                                                    max_v=max_v)
+observation = MomentumInteractionObservation(K=K, D=D, bounds=bounds,
+                                             momentum_lags=momentum_lags, momentum_weights=momentum_weights,
+                                             max_v=max_v)
 
 model = HMM(K=K, D=D, M=0, observation=observation)
 
@@ -78,8 +78,8 @@ for p1, p2 in zip(model.params_unpack, model2.params_unpack):
 
 # precompute features
 
-momentum_vecs = CoupledMomentumInteractionTransformation._compute_momentum_vecs(data[:-1], lags=momentum_lags)
-interaction_vecs = CoupledMomentumInteractionTransformation._compute_direction_vecs(data[:-1])
+momentum_vecs = MomentumInteractionTransformation._compute_momentum_vecs(data[:-1], lags=momentum_lags)
+interaction_vecs = MomentumInteractionTransformation._compute_direction_vecs(data[:-1])
 
 
 out = model.log_likelihood(data, momentum_vecs=momentum_vecs, interaction_vecs=interaction_vecs)

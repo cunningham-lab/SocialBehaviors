@@ -15,7 +15,7 @@ from ssm_ptc.observations.ar_logit_normal_observation import ARLogitNormalObserv
 from ssm_ptc.observations.ar_truncated_normal_observation import ARTruncatedNormalObservation
 from ssm_ptc.message_passing.primitives import viterbi
 from ssm_ptc.message_passing.normalizer import hmmnorm_cython
-from ssm_ptc.utils import check_and_convert_to_tensor, set_param
+from ssm_ptc.utils import check_and_convert_to_tensor, set_param, ensure_args_are_lists_of_tensors
 
 from tqdm import trange
 
@@ -71,6 +71,11 @@ class HMM:
             self.observation = observation
         else:
             raise ValueError("Invalid observation type.")
+
+    @ensure_args_are_lists_of_tensors
+    def initialize(self, datas, inputs=None):
+        self.transition.initialize(datas, inputs)
+        self.observation.initialize(datas, inputs)
 
     @property
     def init_dist(self):
@@ -171,43 +176,59 @@ class HMM:
                 return z[T_pre:].numpy(), data[T_pre:].numpy()
             return z[T_pre:], data[T_pre:]
 
-    def loss(self, data, input=None, **transformation_kwargs):
-        return -1. * self.log_likelihood(data, input, **transformation_kwargs)
+    def loss(self, data, input=None, **memory_kwargs):
+        return -1. * self.log_likelihood(data, input, **memory_kwargs)
 
-    def log_likelihood(self, data, input=None, **transformation_kwargs):
+    @ensure_args_are_lists_of_tensors
+    def log_likelihood(self, datas, inputs=None, **memory_kwargs):
         """
 
-        :param data : x, shape (T, D)
+        :param datas : x, [(T_1, D), (T_2, D), ..., (T_batch_size, D)]
+        :param inputs: [None, None, ..., None] or [(T_1, M), (T_2, M), ..., (T_batch_size, M)]
+        :param memory_kwargs: {} or  {m1s: [], m2s: []}, where each value is a list of length batch_size
         :return: log p(x)
         """
-        if isinstance(self.transition, InputDrivenTransition) and input is None:
+        if isinstance(self.transition, InputDrivenTransition) and inputs is None:
             raise ValueError("Please provide input.")
 
-        if input is not None:
-            input = check_and_convert_to_tensor(input)
+        batch_size = len(datas)
 
-        data = check_and_convert_to_tensor(data, torch.float64)
+        list_of_memory_kwargs = [{} for _ in range(batch_size)]
+        if memory_kwargs != {}:
 
-        T = data.shape[0]
-        log_pi0 = torch.nn.LogSoftmax(dim=0)(self.pi0)  # (K, )
+            for key, val in memory_kwargs.items():
+                val = [val] if not isinstance(val, list) else val
+                assert len(val) == batch_size, key + " must be a list of length {}".format(batch_size)
 
-        if isinstance(self.transition, StationaryTransition):
-            log_P = self.transition.log_stationary_transition_matrix
+                for i in range(batch_size):
+                    list_of_memory_kwargs[i][key] = val[i]
 
-            assert log_P.shape == (self.K, self.K)
-            if T == 1:
-                log_Ps = log_P[None,][:0]
+        ll = 0
+        for data, input, m_kwargs in zip(datas, inputs, list_of_memory_kwargs):
+            data = check_and_convert_to_tensor(data, torch.float64)
+
+            T = data.shape[0]
+            log_pi0 = torch.nn.LogSoftmax(dim=0)(self.pi0)  # (K, )
+
+            if isinstance(self.transition, StationaryTransition):
+                log_P = self.transition.log_stationary_transition_matrix
+
+                assert log_P.shape == (self.K, self.K)
+                if T == 1:
+                    log_Ps = log_P[None,][:0]
+                else:
+                    log_Ps = log_P[None,].repeat(T-1, 1, 1)  # (T-1, K, K)
             else:
-                log_Ps = log_P[None,].repeat(T-1, 1, 1)  # (T-1, K, K)
-        else:
-            # TODO: test this
-            Ps = self.transition.transition_matrix(data, input)
-            log_Ps = torch.log(Ps)
-            assert log_Ps.shape == (T-1, self.K, self.K)
+                # TODO: test this
+                Ps = self.transition.transition_matrix(data, input)
+                log_Ps = torch.log(Ps)
+                assert log_Ps.shape == (T-1, self.K, self.K)
 
-        ll = self.observation.log_prob(data, **transformation_kwargs)  # (T, K)
+            log_likes = self.observation.log_prob(data, **m_kwargs)  # (T, K)
 
-        return hmmnorm_cython(log_pi0, log_Ps, ll)
+            ll = ll + hmmnorm_cython(log_pi0, log_Ps, log_likes)
+
+        return ll
 
     @property
     def params(self):
@@ -243,7 +264,7 @@ class HMM:
         return out
 
     # numpy operation
-    def most_likely_states(self, data, input=None, **transformation_kwargs):
+    def most_likely_states(self, data, input=None, **momentum_kwargs):
         if isinstance(self.transition, InputDrivenTransition) and input is None:
             raise ValueError("Please provide input.")
 
@@ -265,7 +286,7 @@ class HMM:
             log_Ps = log_Ps.detach().numpy()
             assert log_Ps.shape == (T - 1, self.K, self.K)
 
-        log_likes = self.observation.log_prob(data, **transformation_kwargs).detach().numpy()
+        log_likes = self.observation.log_prob(data, **momentum_kwargs).detach().numpy()
         return viterbi(log_pi0, log_Ps, log_likes)
 
     def permute(self, perm):
@@ -313,12 +334,12 @@ class HMM:
             return xs.numpy()
         return xs
 
-    def fit(self, data, input=None, optimizer=None, method='adam', num_iters=1000, lr=0.001, **transformation_kwargs):
+    @ensure_args_are_lists_of_tensors
+    def fit(self, datas, inputs=None, optimizer=None, method='adam', num_iters=1000, lr=0.001, **memory_kwargs):
 
-        if isinstance(self.transition, InputDrivenTransition) and input is None:
+        # TODO: need to modify this
+        if isinstance(self.transition, InputDrivenTransition) and inputs is None:
             raise ValueError("Please provide input.")
-        if input is not None:
-            input = check_and_convert_to_tensor(input)
 
         pbar = trange(num_iters)
 
@@ -335,7 +356,7 @@ class HMM:
 
             optimizer.zero_grad()
 
-            loss = self.loss(data, input, **transformation_kwargs)
+            loss = self.loss(datas, inputs, **memory_kwargs)
             loss.backward()
             optimizer.step()
 

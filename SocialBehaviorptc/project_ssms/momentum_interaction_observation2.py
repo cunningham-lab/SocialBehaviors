@@ -19,7 +19,7 @@ def normalize(f, norm=1):
     return f
 
 
-class CoupledMomentumInteractionTransformation(BaseTransformation):
+class MomentumInteractionTransformation(BaseTransformation):
     """
     transformation:
     x^a_t \sim x^a_{t-1} + momentum_factor * sigmoid(\alpha_a) \frac{m_t}{momentum_lags}
@@ -37,7 +37,7 @@ class CoupledMomentumInteractionTransformation(BaseTransformation):
 
     def __init__(self, K, D=4, momentum_lags=30, momentum_weights=None,
                  max_v=np.array([6, 6, 6, 6]), m_factor=2, i_factor=2):
-        super(CoupledMomentumInteractionTransformation, self).__init__(K, D)
+        super(MomentumInteractionTransformation, self).__init__(K, D)
         assert D == 4
 
         self.momentum_lags = momentum_lags
@@ -186,7 +186,7 @@ class CoupledMomentumInteractionTransformation(BaseTransformation):
         return out
 
 
-class CoupledMomentumInteractionObservation(BaseObservations):
+class MomentumInteractionObservation(BaseObservations):
     """
     Consider a coupled momentum model:
 
@@ -204,13 +204,13 @@ class CoupledMomentumInteractionObservation(BaseObservations):
     """
 
     def __init__(self, K, D, M=0, bounds=None, mus_init=None, sigmas=None, train_sigma=True, **transition_kwargs):
-        super(CoupledMomentumInteractionObservation, self).__init__(K, D, M)
+        super(MomentumInteractionObservation, self).__init__(K, D, M)
 
         self.momentum_lags = transition_kwargs.get("momentum_lags", None)
         if self.momentum_lags is None:
             raise ValueError("Must provide momentum lags.")
 
-        self.transformation = CoupledMomentumInteractionTransformation(K, D, **transition_kwargs)
+        self.transformation = MomentumInteractionTransformation(K, D, **transition_kwargs)
 
         # consider diagonal covariance
         if sigmas is None:

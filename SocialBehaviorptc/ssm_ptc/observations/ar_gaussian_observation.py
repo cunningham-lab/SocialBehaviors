@@ -8,7 +8,7 @@ from ssm_ptc.observations.base_observation import BaseObservations
 from ssm_ptc.transformations.base_transformation import BaseTransformation
 from ssm_ptc.transformations.linear import LinearTransformation
 
-from ssm_ptc.utils import check_and_convert_to_tensor, set_param
+from ssm_ptc.utils import check_and_convert_to_tensor, set_param, ensure_args_are_lists_of_tensors
 
 class ARGaussianObservation(BaseObservations):
     """

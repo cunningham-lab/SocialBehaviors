@@ -3,7 +3,7 @@ import numpy as np
 import numpy.random as npr
 
 from ssm_ptc.transitions.base_transition import BaseTransition
-from ssm_ptc.utils import set_param
+from ssm_ptc.utils import set_param, ensure_args_are_lists_of_tensors
 
 
 def dirichlet_logpdf(ps, alpha):
@@ -43,6 +43,7 @@ class StickyTransition(BaseTransition):
     def params(self, values):
         self.Pi = set_param(self.Pi, values[0])
 
+    # TODO: add log prior to log probability
     def log_prior(self):
         K = self.K
 
@@ -122,6 +123,10 @@ class InputDrivenTransition(StickyTransition):
             out = torch.nn.Softmax(dim=-1)(Pi)
         assert out.shape == (T-1, self.K, self.K)
         return out
+
+    @ensure_args_are_lists_of_tensors
+    def initialize(self, datas, inputs):
+        raise NotImplementedError
 
 
 

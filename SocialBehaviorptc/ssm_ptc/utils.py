@@ -81,45 +81,6 @@ def k_step_prediction(model, model_z, data, k=0):
     return x_predict_arr
 
 
-def k_step_prediction_for_coupled_momentum_model(model, model_z, data, momentum_vecs=None, features=None):
-    data = check_and_convert_to_tensor(data)
-
-    if momentum_vecs is None or features is None:
-        return k_step_prediction(model, model_z, data)
-    else:
-        x_predict_arr = []
-        x_predict = model.observation.sample_x(model_z[0], data[:0], return_np=True)
-        x_predict_arr.append(x_predict)
-        for t in range(1, data.shape[0]):
-            x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True,
-                                                   momentum_vec=momentum_vecs[t-1],
-                                                   features=(features[0][t-1], features[1][t-1]))
-            x_predict_arr.append(x_predict)
-
-        x_predict_arr = np.array(x_predict_arr)
-        return x_predict_arr
-
-
-def k_step_prediction_for_coupled_momentum_interatcion_model(model, model_z, data, momentum_vecs=None,
-                                                             interaction_vecs=None):
-    data = check_and_convert_to_tensor(data)
-
-    if momentum_vecs is None or interaction_vecs is None:
-        return k_step_prediction(model, model_z, data)
-    else:
-        x_predict_arr = []
-        x_predict = model.observation.sample_x(model_z[0], data[:0], return_np=True)
-        x_predict_arr.append(x_predict)
-        for t in range(1, data.shape[0]):
-            x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True,
-                                                   momentum_vec=momentum_vecs[t - 1],
-                                                   interaction_vec=interaction_vecs[t - 1])
-            x_predict_arr.append(x_predict)
-
-        x_predict_arr = np.array(x_predict_arr)
-        return x_predict_arr
-
-
 def check_and_convert_to_tensor(inputs, dtype=torch.float64):
     """
     check if inputs type is either ndarray or tensor (requires_grad=False)
@@ -148,3 +109,33 @@ def get_np(input):
 
 def set_param(param, value):
     return torch.tensor(get_np(value), dtype=param.dtype, requires_grad=param.requires_grad)
+
+
+def ensure_args_are_lists_of_tensors(f):
+    def wrapper(self, datas, inputs=None, **kwargs):
+        datas = [datas] if not isinstance(datas, (list, tuple)) else datas
+
+        for i, data in enumerate(datas):
+            datas[i] = check_and_convert_to_tensor(data)
+
+        batch_size = len(datas)
+
+        M = (self.M,) if isinstance(self.M, int) else self.M
+        assert isinstance(M, tuple)
+
+        _default_inputs = [None for _ in range(batch_size)]
+
+        if inputs is None:
+            inputs = _default_inputs
+        elif inputs != _default_inputs:
+            if not isinstance(inputs, (list, tuple)):
+                inputs = [inputs]
+
+            for i, input in enumerate(inputs):
+                inputs[i] = check_and_convert_to_tensor(input)
+
+            assert len(inputs) == batch_size
+
+        return f(self, datas, inputs, **kwargs)
+
+    return wrapper

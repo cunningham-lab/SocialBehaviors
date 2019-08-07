@@ -19,54 +19,62 @@ def normalize(f, norm=1):
     return f
 
 
-class CoupledMomentumTransformation(BaseTransformation):
+class DirectionTransformation(BaseTransformation):
     """
     transformation:
-    x^a_t \sim x^a_{t-1} + acc_factor * sigmoid(\alpha_a) \frac{m_t}{momentum_lags} + v * sigmoid(xW + b)
-    x^b_t \sim x^b_{t-1} + v * sigmoid(\alpha_b) \frac{m_t}{momentum_lags} + v * sigmoid(xW +b)
+    x^a_t \sim x^a_{t-1} + acc_factor * [ sigmoid(W^a_0) m_t  + \sum_{i=1}^{Df} sigmoid(W^a_i) f_i ]
+    x^b_t \sim x^b_{t-1} + acc_factor * [ sigmoid(W^b_0) m_t  + \sum_{i=1}^{Df} sigmoid(W^b_i) f_i ]
 
 
     feature computation
     training mode: receive precomputed feature input
     sampling mode: compute the feature based on previous observation
     """
-    def __init__(self, K, D=4, Df=0, momentum_lags=2, momentum_weights=None,
-                 max_v=np.array([6, 6, 6, 6]), acc_factor=2):
-        super(CoupledMomentumTransformation, self).__init__(K, D)
+    def __init__(self, K, D=4, Df=None, momentum_lags=2, momentum_weights=None,
+                 feature_vec_funcs=None, acc_factor=2):
+        """
+
+        :param K: number of hidden states
+        :param D: dimension of observations
+        :param Df: number of direction vectors (not including the momentum vectors)
+        :param momentum_lags: number of time lags to accumulate the momentum
+        :param momentum_weights: weights for weighted linear regression
+        :param feature_vec_funcs: function to compute the featured direction vector --> (T, 2*Df)
+        :param acc_factor: acceleration factor, for the purpose of speed control
+        """
+        super(DirectionTransformation, self).__init__(K, D)
         assert D == 4
+
+        if Df is None:
+            raise ValueError("Please provide number of features")
+        self.Df = Df
 
         self.momentum_lags = momentum_lags
 
-        # TODO: this wieghts can be learnable (?)
+        # TODO: this weights can be learnable (?)
         if momentum_weights is None:
             self.momentum_weights = torch.ones(momentum_lags, dtype=torch.float64)
         else:
             self.momentum_weights = check_and_convert_to_tensor(momentum_weights)
 
-        self.max_v = check_and_convert_to_tensor(max_v)
-        assert max_v.shape == (self.D, )
+        if feature_vec_funcs is None:
+            raise ValueError("Must provide feature funcs.")
+        self.feature_funcs = feature_vec_funcs
 
-        self.acc_factor = acc_factor
+        self.acc_factor = acc_factor  # int
 
-        self.alpha = torch.rand(self.K, self.D, dtype=torch.float64, requires_grad=True)
-
-        self.Ws = torch.rand(self.K, self.D, self.D, dtype=torch.float64, requires_grad=True)
-        self.bs = torch.zeros(self.K, self.D, dtype=torch.float64, requires_grad=True)
+        self.Ws = torch.rand(self.K, 2, 1 + self.Df, dtype=torch.float64, requires_grad=True)
 
     @property
     def params(self):
-        return self.alpha, self.Ws, self.bs
+        return self.Ws,
 
     @params.setter
     def params(self, values):
-        self.alpha = set_param(self.alpha, values[0])
-        self.Ws = set_param(self.Ws, values[1])
-        self.bs = set_param(self.bs, values[2])
+        self.Ws = set_param(self.Ws, values[0])
 
     def permute(self, perm):
-        self.alpha = self.alpha[perm]
         self.Ws = self.Ws[perm]
-        self.bs = self.bs[perm]
 
     @staticmethod
     def _compute_momentum_vecs(inputs, lags, weights=None):
@@ -80,14 +88,27 @@ class CoupledMomentumTransformation(BaseTransformation):
         momentum_vec = torch.cat([momentum_vec_a, momentum_vec_b], dim=1)  # (T, 4)
         return momentum_vec
 
-    def transform(self, inputs, momentum_vecs=None):
+    @staticmethod
+    def _compute_features(feature_funcs, inputs):
+        """
+        :param feature_funcs:
+        :param inputs: (T, 4)
+        :return: a tuple, each is of shape (T, 2*Df)
+        """
+        features_a = feature_funcs(inputs[..., :2], inputs[..., 2:])
+        features_b = feature_funcs(inputs[..., 2:], inputs[..., :2])
+
+        return features_a, features_b
+
+    def transform(self, inputs, momentum_vecs=None, features=None):
         """
         Perform the following transformation:
-            x^a_t \sim x^a_{t-1} + sigmoid(\alpha_a) \frac{m_t}{momentum_lags} + sigmoid(xW + b)
-            x^b_t \sim x^b_{t-1} + sigmoid(\alpha_b) \frac{m_t}{momentum_lags} + sigmoid(xW + b)
+            x^a_t \sim x^a_{t-1} + acc_factor * [ sigmoid(W^a_0) m_t  + \sum_{i=1}^{Df} sigmoid(W^a_i) f_i ]
+            x^b_t \sim x^b_{t-1} + acc_factor * [ sigmoid(W^b_0) m_t  + \sum_{i=1}^{Df} sigmoid(W^b_i) f_i ]
 
         :param inputs: (T, 4)
         :param momentum_vec: （T, 4), has been normalized by momentum_lags
+        :param features: (features_a, features_b), each is of shape (T, Df)
         :return: outputs: (T, K, 4)
         """
 
@@ -97,32 +118,46 @@ class CoupledMomentumTransformation(BaseTransformation):
            momentum_vecs = self._compute_momentum_vecs(inputs, self.momentum_lags, self.momentum_weights)
         assert momentum_vecs.shape == (T, 4)
 
-        out1 = torch.sigmoid(self.alpha) * momentum_vecs[:, None, ]  # (T, K, D)
-        assert out1.shape == (T, self.K, self.D)
+        if features is None:
+            features_a, features_b = self._compute_features(self.feature_funcs, inputs)
+        else:
+            features_a, features_b = features
 
-        # Ws: (K, D, D) inputs: (T, D), bs: (K, D)
-        # (1, T, D), (K, D, D) *  -> (K, T, D)
-        assert inputs[None,].shape == (1, T, self.D)
-        out2 = torch.matmul(inputs[None,], self.Ws)
-        out2 = out2.transpose(0, 1)
-        assert out2.shape == (T, self.K, self.D)
-        out2 = torch.sigmoid(out2 + self.bs)
+        assert features_a.shape == (T, self.Df, 2)
+        assert features_b.shape == (T, self.Df, 2)
 
-        out = inputs[:, None, ] + self.acc_factor * out1 + self.max_v * out2
+        all_vecs_a = torch.cat((momentum_vecs[:, None, :2], features_a), dim=1)  # (T, 1+Df, 2)
+        all_vecs_b = torch.cat((momentum_vecs[:, None, 2:], features_b), dim=1)  # (T, 1+Df, 2)
+
+        assert all_vecs_a.shape == (T, 1 + self.Df, 2)
+        assert all_vecs_b.shape == (T, 1 + self.Df, 2)
+
+        # (K, 1+Df) * (T, 1+Df, 2) -> (T, K, 2)
+        out_a = torch.matmul(self.Ws[:,0], all_vecs_a)
+        assert out_a.shape == (T, self.K, 2)
+
+        out_b = torch.matmul(self.Ws[:,1], all_vecs_b)
+        assert out_b.shape == (T, self.K, 2)
+
+        out = torch.cat((out_a, out_b), dim=-1)
+        assert out.shape == (T, self.K, self.D)
+
+        out = inputs[:, None, ] + self.acc_factor * out
 
         assert out.shape == (T, self.K, self.D)
         return out
 
-    def transform_condition_on_z(self, z, inputs, **kwargs):
+    def transform_condition_on_z(self, z, inputs, **memory_kwargs):
         """
         Perform transformation for given z
         :param z: an integer
         :param inputs: (T_pre, D)
-        :param kwargs: supposedly, momentum_vec = (D, )
+        :param memory_kwargs: supposedly, momentum_vec = (D, ), features = (features_a, features_b), each of shape (Df, )
         :return: x: (D, )
         """
 
-        momentum_vec = kwargs.get("momentum_vec", None)
+        momentum_vec = memory_kwargs.get("momentum_vec", None)
+        features = memory_kwargs.get("features", None)
 
         if momentum_vec is None:
             momentum_vec_a = get_momentum(inputs[:, 0:2], lags=self.momentum_lags, weights=self.momentum_weights)  # (2, )
@@ -132,17 +167,43 @@ class CoupledMomentumTransformation(BaseTransformation):
             momentum_vec = check_and_convert_to_tensor(momentum_vec, dtype=torch.float64)
         assert momentum_vec.shape == (4, )
 
-        # (D, ) * (D,) --> (D, )
-        out1 = torch.sigmoid(self.alpha[z]) * momentum_vec
-        #  (1, D) * (D, D) --> (1, D)
-        out2 = torch.squeeze(torch.matmul(inputs[-1:], self.Ws[z]), dim=0)  # (D,)
+        if features is None:
+            features_a, features_b = self._compute_features(self.feature_funcs, inputs[-1:])
+            assert features_a.shape == (1, self.Df, 2)
+            assert features_b.shape == (1, self.Df, 2)
+            features_a = torch.squeeze(features_a, dim=0)
+            features_b = torch.squeeze(features_b, dim=0)
+        else:
+            features_a, features_b = features
+            features_a = check_and_convert_to_tensor(features_a, dtype=torch.float64)
+            features_b = check_and_convert_to_tensor(features_b, dtype=torch.float64)
 
-        out = inputs[-1] + self.acc_factor * out1 + self.max_v * out2
+        assert features_a.shape == (self.Df, 2)
+        assert features_b.shape == (self.Df, 2)
+
+        all_vecs_a = torch.cat((momentum_vec[None, :2], features_a), dim=0)  # (1+Df, 2)
+        all_vecs_b = torch.cat((momentum_vec[None, 2:], features_b), dim=0)  # (1+Df, 2)
+
+        assert all_vecs_a.shape == (1 + self.Df, 2)
+        assert all_vecs_b.shape == (1 + self.Df, 2)
+
+        # (1, 1+Df) * (1+Df, 2) -> (1, 2)
+        out_a = torch.matmul(self.Ws[z, 0:1], all_vecs_a)
+        assert out_a.shape == (1, 2)
+
+        out_b = torch.matmul(self.Ws[z, 1:2], all_vecs_b)
+        assert out_b.shape == (1, 2)
+
+        out = torch.cat((out_a, out_b), dim=-1)
+        out = torch.squeeze(out, dim=0)
+        assert out.shape == (self.D, )
+
+        out = inputs[-1] + self.acc_factor * out
         assert out.shape == (4, )
         return out
 
 
-class CoupledMomentumObservation(BaseObservations):
+class DirectionObservation(BaseObservations):
     """
     Consider a coupled momentum model:
 
@@ -160,14 +221,14 @@ class CoupledMomentumObservation(BaseObservations):
     """
     def __init__(self, K, D, M=0, mus_init=None, sigmas=None,
                  bounds=None, train_sigma=True, **transformation_kwargs):
-        super(CoupledMomentumObservation, self).__init__(K, D, M)
+        super(DirectionObservation, self).__init__(K, D, M)
 
         self.momentum_lags = transformation_kwargs.get("momentum_lags", None)
         if self.momentum_lags is None:
             raise ValueError("Must provide momentum lags.")
         assert self.momentum_lags > 1
 
-        self.transformation = CoupledMomentumTransformation(K=K, D=D, **transformation_kwargs)
+        self.transformation = DirectionTransformation(K=K, D=D, **transformation_kwargs)
 
         # consider diagonal covariance
         if sigmas is None:
@@ -205,7 +266,7 @@ class CoupledMomentumObservation(BaseObservations):
         self.log_sigmas = self.log_sigmas[perm]
         self.transformation.permute(perm)
 
-    def _compute_mus_for(self, data, momentum_vecs=None):
+    def _compute_mus_for(self, data, momentum_vecs=None, features=None):
         """
         compute the mean vector for each observation (using the previous observation, or mus_init)
         :param data: (T,D)
@@ -217,7 +278,7 @@ class CoupledMomentumObservation(BaseObservations):
         if T == 1:
             mus = self.mus_init[None, ]
         else:
-            mus_rest = self.transformation.transform(data[:-1], momentum_vecs=momentum_vecs)
+            mus_rest = self.transformation.transform(data[:-1], momentum_vecs=momentum_vecs, features=features)
             assert mus_rest.shape == (T-1, self.K, self.D)
 
             mus = torch.cat((self.mus_init[None,], mus_rest), dim=0)
@@ -225,8 +286,8 @@ class CoupledMomentumObservation(BaseObservations):
         assert mus.shape == (T, self.K, self.D)
         return mus
 
-    def log_prob(self, data, momentum_vecs=None):
-        mus = self._compute_mus_for(data, momentum_vecs=momentum_vecs)  # (T, K, D)
+    def log_prob(self, data, momentum_vecs=None, features=None):
+        mus = self._compute_mus_for(data, momentum_vecs=momentum_vecs, features=features)  # (T, K, D)
 
         dist = TruncatedNormal(mus=mus, log_sigmas=self.log_sigmas, bounds=self.bounds)
 

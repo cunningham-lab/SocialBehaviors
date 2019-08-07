@@ -19,7 +19,6 @@ class StationaryTransition(BaseTransition):
 
         self.Pi = torch.tensor(Pi, dtype=torch.float64, requires_grad=True)
 
-
     @property
     def params(self):
         return self.Pi,

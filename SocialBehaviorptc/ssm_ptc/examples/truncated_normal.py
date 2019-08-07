@@ -64,8 +64,8 @@ sample_z, sample_x = true_model.sample(T)
 """
 # learning
 
-tran = LinearTransformation(K=K, D=D, lags=1, As=As)
-observation = ARTruncatedNormalObservation(K=K, D=D, M=0, lags=1, transformation=tran, bounds=bounds, mus_init=mus_init)
+tran = LinearTransformation(K=K, D=D, momentum_lags=1, As=As)
+observation = ARTruncatedNormalObservation(K=K, D=D, M=0, momentum_lags=1, transformation=tran, bounds=bounds, mus_init=mus_init)
 model = HMM(K=K, D=D, M=0, observation=true_observation)
 
 num_iters = 5000
