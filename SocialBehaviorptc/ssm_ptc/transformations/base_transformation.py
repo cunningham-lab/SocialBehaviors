@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 
 # base class for transformation
-class BaseTransformation(object):
+class BaseTransformation:
 
     def __init__(self, K, D):
         self.K = K

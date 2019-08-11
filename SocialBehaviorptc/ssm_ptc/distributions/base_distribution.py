@@ -2,7 +2,7 @@ import numpy as np
 import torch
 
 
-class BaseDistribution():
+class BaseDistribution:
 
     def __init__(self):
         pass

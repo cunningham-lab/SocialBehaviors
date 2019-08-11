@@ -27,15 +27,15 @@ model1 = HMM(K=K,D=D, observation=obs1)
 T = 100
 sample_z, sample_x = model1.sample(T)
 
-model2 = HMM(K=K, D=D, observation='gaussian', lags=lags)
+model2 = HMM(K=K, D=D, observation='gaussian', observation_kwargs=dict(lags=lags))
 
 lls, opt = model2.fit(sample_x, num_iters=2000, lr=0.001)
 
 z_infer = model2.most_likely_states(sample_x)
 
-x_predict = k_step_prediction(sample_x, sample_x, z_infer)
+x_predict = k_step_prediction(model2, z_infer, sample_x)
 
 plt.figure()
 plt.plot(x_predict[:,0], label='prediction')
-plt.plot(sample_x[:,0].numpy(), label='truth')
+plt.plot(sample_x[:,0], label='truth')
 plt.show()
