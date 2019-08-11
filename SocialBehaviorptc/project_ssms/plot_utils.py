@@ -29,9 +29,9 @@ def plot_z(z, plot_range=None, ylim=None):
     plt.yticks([])
 
 
-def plot_2_mice(data):
-    plt.plot(data[:,0], data[:,1], label='virgin')
-    plt.plot(data[:,2], data[:,3], label='mother')
+def plot_2_mice(data, alpha):
+    plt.plot(data[:,0], data[:,1], label='virgin', alpha=alpha)
+    plt.plot(data[:,2], data[:,3], label='mother', alpha=alpha)
     plt.legend()
 
 

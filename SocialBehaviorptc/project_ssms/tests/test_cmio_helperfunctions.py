@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 
-from project_ssms.momentum_interaction_observation import normalize, compute_costheta
+from project_ssms.coupled_transformations.momentum_interaction_observation import normalize, compute_costheta
 
 
 def test_normalize():

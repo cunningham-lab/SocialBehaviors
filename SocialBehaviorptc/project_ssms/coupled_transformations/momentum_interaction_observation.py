@@ -1,5 +1,5 @@
 from ssm_ptc.transformations.base_transformation import BaseTransformation
-from ssm_ptc.observations.base_observation import BaseObservations
+from ssm_ptc.observations.base_observation import BaseObservation
 from ssm_ptc.observations.ar_truncated_normal_observation import ARTruncatedNormalObservation
 from ssm_ptc.distributions.truncatednormal import TruncatedNormal
 from ssm_ptc.utils import check_and_convert_to_tensor, set_param
@@ -237,7 +237,7 @@ class MomentumInteractionTransformation(BaseTransformation):
         return out
 
 
-class MomentumInteractionObservation(BaseObservations):
+class MomentumInteractionObservation(BaseObservation):
     """
     Consider a coupled momentum model:
 

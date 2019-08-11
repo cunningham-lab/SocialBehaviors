@@ -1,14 +1,13 @@
 import torch
 import numpy as np
 
-from project_ssms.momentum_feature_observation import MomentumFeatureObservation, \
+from project_ssms.coupled_transformations.momentum_feature_observation import MomentumFeatureObservation, \
     MomentumFeatureTransformation
 from project_ssms.momentum_utils import filter_traj_by_speed
 from project_ssms.feature_funcs import feature_func_single
 from project_ssms.utils import k_step_prediction_for_momentum_feature_model
 
 from ssm_ptc.models.hmm import HMM
-from ssm_ptc.utils import k_step_prediction
 
 import joblib
 

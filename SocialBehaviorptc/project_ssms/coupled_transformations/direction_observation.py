@@ -1,6 +1,5 @@
 from ssm_ptc.transformations.base_transformation import BaseTransformation
-from ssm_ptc.observations.base_observation import BaseObservations
-from ssm_ptc.observations.ar_truncated_normal_observation import ARTruncatedNormalObservation
+from ssm_ptc.observations.base_observation import BaseObservation
 from ssm_ptc.distributions.truncatednormal import TruncatedNormal
 from ssm_ptc.utils import check_and_convert_to_tensor, set_param
 
@@ -31,7 +30,7 @@ class DirectionTransformation(BaseTransformation):
     sampling mode: compute the feature based on previous observation
     """
     def __init__(self, K, D=4, Df=None, momentum_lags=2, momentum_weights=None,
-                 feature_vec_funcs=None, acc_factor=2):
+                 feature_vec_func=None, acc_factor=2):
         """
 
         :param K: number of hidden states
@@ -39,7 +38,7 @@ class DirectionTransformation(BaseTransformation):
         :param Df: number of direction vectors (not including the momentum vectors)
         :param momentum_lags: number of time lags to accumulate the momentum
         :param momentum_weights: weights for weighted linear regression
-        :param feature_vec_funcs: function to compute the featured direction vector --> (T, 2*Df)
+        :param feature_vec_func: function to compute the featured direction vector --> (T, 2*Df)
         :param acc_factor: acceleration factor, for the purpose of speed control
         """
         super(DirectionTransformation, self).__init__(K, D)
@@ -51,15 +50,14 @@ class DirectionTransformation(BaseTransformation):
 
         self.momentum_lags = momentum_lags
 
-        # TODO: this weights can be learnable (?)
         if momentum_weights is None:
             self.momentum_weights = torch.ones(momentum_lags, dtype=torch.float64)
         else:
             self.momentum_weights = check_and_convert_to_tensor(momentum_weights)
 
-        if feature_vec_funcs is None:
+        if feature_vec_func is None:
             raise ValueError("Must provide feature funcs.")
-        self.feature_funcs = feature_vec_funcs
+        self.feature_vec_func = feature_vec_func
 
         self.acc_factor = acc_factor  # int
 
@@ -89,18 +87,18 @@ class DirectionTransformation(BaseTransformation):
         return momentum_vec
 
     @staticmethod
-    def _compute_features(feature_funcs, inputs):
+    def _compute_features(feature_vec_func, inputs):
         """
-        :param feature_funcs:
+        :param feature_vec_func:
         :param inputs: (T, 4)
         :return: a tuple, each is of shape (T, 2*Df)
         """
-        features_a = feature_funcs(inputs[..., :2], inputs[..., 2:])
-        features_b = feature_funcs(inputs[..., 2:], inputs[..., :2])
+        features_a = feature_vec_func(inputs[..., :2], inputs[..., 2:])
+        features_b = feature_vec_func(inputs[..., 2:], inputs[..., :2])
 
         return features_a, features_b
 
-    def transform(self, inputs, momentum_vecs=None, features=None):
+    def transform(self, inputs, **memory_kwargs):
         """
         Perform the following transformation:
             x^a_t \sim x^a_{t-1} + acc_factor * [ sigmoid(W^a_0) m_t  + \sum_{i=1}^{Df} sigmoid(W^a_i) f_i ]
@@ -114,12 +112,15 @@ class DirectionTransformation(BaseTransformation):
 
         T = inputs.shape[0]
 
+        momentum_vecs = memory_kwargs.get("momentum_vecs", None)
+        features = memory_kwargs.get("features", None)
+
         if momentum_vecs is None:
            momentum_vecs = self._compute_momentum_vecs(inputs, self.momentum_lags, self.momentum_weights)
         assert momentum_vecs.shape == (T, 4)
 
         if features is None:
-            features_a, features_b = self._compute_features(self.feature_funcs, inputs)
+            features_a, features_b = self._compute_features(self.feature_vec_func, inputs)
         else:
             features_a, features_b = features
 
@@ -168,7 +169,7 @@ class DirectionTransformation(BaseTransformation):
         assert momentum_vec.shape == (4, )
 
         if features is None:
-            features_a, features_b = self._compute_features(self.feature_funcs, inputs[-1:])
+            features_a, features_b = self._compute_features(self.feature_vec_func, inputs[-1:])
             assert features_a.shape == (1, self.Df, 2)
             assert features_b.shape == (1, self.Df, 2)
             features_a = torch.squeeze(features_a, dim=0)
@@ -203,7 +204,7 @@ class DirectionTransformation(BaseTransformation):
         return out
 
 
-class DirectionObservation(BaseObservations):
+class DirectionObservation(BaseObservation):
     """
     Consider a coupled momentum model:
 
@@ -247,7 +248,7 @@ class DirectionObservation(BaseObservations):
         if mus_init is None:
             self.mus_init = torch.eye(self.K, self.D, dtype=torch.float64)
         else:
-            self.mus_init = torch.tensor(mus_init, dtype=torch.float64)
+            self.mus_init = check_and_convert_to_tensor(mus_init)
 
         self.log_sigmas_init = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64)
 
@@ -308,6 +309,7 @@ class DirectionObservation(BaseObservations):
 
         # no previous x
         if xhist is None or xhist.shape[0] == 0:
+
             mu = self.mus_init[z]  # (D,)
         else:
             # sample from the autoregressive distribution

@@ -104,7 +104,6 @@ def feature_vec_func(s, o):
     :param o: other, (T, 2)
     :return: features, (T, Df, 2)
     """
-    # TODO: modify this to return the right shape
     feature_funcs = [unit_vector_to_other,
                      lambda s, o: unit_vector_to_fixed_loc(s, o, WATER),
                      lambda s, o: unit_vector_to_fixed_loc(s, o, NEST),
