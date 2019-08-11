@@ -62,22 +62,29 @@ def k_step_prediction(model, model_z, data, k=0):
     """
 
     data = check_and_convert_to_tensor(data)
+    T, D = data.shape
 
     x_predict_arr = []
     if k == 0:
-        for t in range(data.shape[0]):
+        for t in range(T):
             x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True)
             x_predict_arr.append(x_predict)
     else:
         assert k>0
         # neglects t = 0 since there is no history
-        for t in range(1, data.shape[0]-k):
+
+        if T <= k:
+            raise ValueError("Please input k such that k < {}.".format(T))
+
+        for t in range(1, T-k+1):
             # TODO: fix k-step prediction sample size
             zx_predict = model.sample(k, prefix=(model_z[:t], data[:t]), return_np=True)
-            assert zx_predict[1].shape == (k, 4)
-            x_predict = zx_predict[1][k-1]
+            assert zx_predict[1].shape == (k, D)
+            x_predict = zx_predict[1][-1]
             x_predict_arr.append(x_predict)
     x_predict_arr = np.array(x_predict_arr)
+
+    assert x_predict_arr.shape == (T-k, D)
     return x_predict_arr
 
 

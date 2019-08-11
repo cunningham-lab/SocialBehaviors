@@ -4,7 +4,7 @@ from torch.distributions import Normal, MultivariateNormal
 import numpy as np
 import numpy.random as npr
 
-from ssm_ptc.observations.base_observation import BaseObservations
+from ssm_ptc.observations.base_observation import BaseObservation
 from ssm_ptc.transformations.base_transformation import BaseTransformation
 from ssm_ptc.transformations.linear import LinearTransformation
 from ssm_ptc.distributions.base_distribution import BaseDistribution
@@ -12,7 +12,7 @@ from ssm_ptc.distributions.truncatednormal import TruncatedNormal
 from ssm_ptc.utils import check_and_convert_to_tensor, set_param
 
 
-class ARTruncatedNormalObservation(BaseObservations):
+class ARTruncatedNormalObservation(BaseObservation):
     """
     A mixture of distributions
     """
@@ -81,7 +81,8 @@ class ARTruncatedNormalObservation(BaseObservations):
     def permute(self, perm):
         self.mus_init = self.mus_init[perm]
         self.log_sigmas_init = self.log_sigmas_init[perm]
-        self.log_sigmas = self.log_sigmas[perm]
+
+        self.log_sigmas = torch.tensor(self.log_sigmas[perm], requires_grad=self.log_sigmas.requires_grad)
         self.transformation.permute(perm)
 
     def _compute_mus_based_on(self, data):

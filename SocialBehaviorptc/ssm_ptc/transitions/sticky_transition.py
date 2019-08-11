@@ -90,8 +90,8 @@ class InputDrivenTransition(StickyTransition):
         self.Ws = set_param(self.Ws, values[1])
 
     def permute(self, perm):
-        self.Pi = self.Pi[np.ix_(perm, perm)]
-        self.Ws = self.Ws[perm]
+        self.Pi = torch.tensor(self.Pi[np.ix_(perm, perm)], requires_grad=True)
+        self.Ws = torch.tensor(self.Ws[perm], requires_grad=True)
 
     def log_prior(self):
         lp = super(InputDrivenTransition, self).log_prior()

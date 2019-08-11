@@ -2,7 +2,8 @@ import numpy as np
 import torch
 from ssm_ptc.utils import ensure_args_are_lists_of_tensors
 
-class BaseObservations():
+
+class BaseObservation():
 
     def __init__(self, K, D, M=0):
 
@@ -17,6 +18,9 @@ class BaseObservations():
 
     @params.setter
     def params(self, values):
+        raise NotImplementedError
+
+    def permute(self, perm):
         raise NotImplementedError
 
     def log_prob(self, data, **kwargs):
@@ -34,9 +38,6 @@ class BaseObservations():
         return x
 
     def rsample_x(self, z, xhist):
-        raise NotImplementedError
-
-    def permute(self, perm):
         raise NotImplementedError
 
     @ensure_args_are_lists_of_tensors

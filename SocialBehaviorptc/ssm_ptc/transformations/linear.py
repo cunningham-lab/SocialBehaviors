@@ -39,8 +39,8 @@ class LinearTransformation(BaseTransformation):
         self.bs = set_param(self.bs, values[1])
 
     def permute(self, perm):
-        self.As = self.As[perm]
-        self.bs = self.bs[perm]
+        self.As = torch.tensor(self.As[perm], requires_grad=self.As.requires_grad)
+        self.bs = torch.tensor(self.bs[perm], requires_grad=self.bs.requires_grad)
 
     def transform(self, inputs):
         """

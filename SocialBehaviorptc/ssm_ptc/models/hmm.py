@@ -9,7 +9,7 @@ import numpy.random as npr
 from ssm_ptc.transitions.base_transition import BaseTransition
 from ssm_ptc.transitions.stationary_transition import StationaryTransition
 from ssm_ptc.transitions.sticky_transition import InputDrivenTransition
-from ssm_ptc.observations.base_observation import BaseObservations
+from ssm_ptc.observations.base_observation import BaseObservation
 from ssm_ptc.observations.ar_gaussian_observation import ARGaussianObservation
 from ssm_ptc.observations.ar_logit_normal_observation import ARLogitNormalObservation
 from ssm_ptc.observations.ar_truncated_normal_observation import ARTruncatedNormalObservation
@@ -67,7 +67,7 @@ class HMM:
                 self.observation = ARTruncatedNormalObservation(self.K, self.D, self.M, **observation_kwargs)
             else:
                 raise ValueError("Please select from 'gaussian', 'logitnormal' and 'truncatednormal'.")
-        elif isinstance(observation, BaseObservations):
+        elif isinstance(observation, BaseObservation):
             self.observation = observation
         else:
             raise ValueError("Invalid observation type.")
@@ -233,7 +233,7 @@ class HMM:
     @property
     def params(self):
         """
-        :return: pi0, Pi, mus_init, log_sigmas, As, bs ...
+        :return: a tuple of three items, each item is a list of tensors
         """
         return (self.pi0, ), self.transition.params, self.observation.params
 
@@ -264,7 +264,7 @@ class HMM:
         return out
 
     # numpy operation
-    def most_likely_states(self, data, input=None, **momentum_kwargs):
+    def most_likely_states(self, data, input=None, **memory_kwargs):
         if isinstance(self.transition, InputDrivenTransition) and input is None:
             raise ValueError("Please provide input.")
 
@@ -286,11 +286,11 @@ class HMM:
             log_Ps = log_Ps.detach().numpy()
             assert log_Ps.shape == (T - 1, self.K, self.K)
 
-        log_likes = self.observation.log_prob(data, **momentum_kwargs).detach().numpy()
+        log_likes = self.observation.log_prob(data, **memory_kwargs).detach().numpy()
         return viterbi(log_pi0, log_Ps, log_likes)
 
     def permute(self, perm):
-        self.pi0 = self.pi0[perm]
+        self.pi0 = torch.tensor(self.pi0[perm], requires_grad=True)
         self.transition.permute(perm)
         self.observation.permute(perm)
 

@@ -42,4 +42,4 @@ class StationaryTransition(BaseTransition):
         return torch.nn.Softmax(dim=1)(self.Pi)
 
     def permute(self, perm):
-        self.Pi = self.Pi[np.ix_(perm, perm)]
+        self.Pi = torch.tensor(self.Pi[np.ix_(perm, perm)], requires_grad=True)
