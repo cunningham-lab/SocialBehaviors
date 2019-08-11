@@ -75,18 +75,22 @@ def k_step_prediction_for_grid_model(model, model_z, data, **memory_kwargs):
         return k_step_prediction(model, model_z, data)
     else:
 
-        momentum_vecs_a = memory_kwargs_a["momentum_vecs"]
-        feature_vecs_a = memory_kwargs_a["feature_vecs"]
+        momentum_vecs_a = memory_kwargs_a.get("momentum_vecs", None)
+        feature_vecs_a = memory_kwargs_a.get("feature_vecs", None)
 
-        momentum_vecs_b = memory_kwargs_b["momentum_vecs"]
-        feature_vecs_b = memory_kwargs_b["feature_vecs"]
+        momentum_vecs_b = memory_kwargs_b.get("momentum_vecs", None)
+        feature_vecs_b = memory_kwargs_b.get("feature_vecs", None)
 
         x_predict_arr = []
         x_predict = model.observation.sample_x(model_z[0], data[:0], return_np=True)
         x_predict_arr.append(x_predict)
         for t in range(1, data.shape[0]):
-            m_kwargs_a = dict(momentum_vec=momentum_vecs_a[t - 1], feature_vec=feature_vecs_a[t - 1])
-            m_kwargs_b = dict(momentum_vec=momentum_vecs_b[t - 1], feature_vec=feature_vecs_b[t - 1])
+            if momentum_vecs_a is None:
+                m_kwargs_a = dict(feature_vec=feature_vecs_a[t - 1])
+                m_kwargs_b = dict(feature_vec=feature_vecs_b[t - 1])
+            else:
+                m_kwargs_a = dict(momentum_vec=momentum_vecs_a[t - 1], feature_vec=feature_vecs_a[t - 1])
+                m_kwargs_b = dict(momentum_vec=momentum_vecs_b[t - 1], feature_vec=feature_vecs_b[t - 1])
 
             x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True,
                                                    memory_kwargs_a=m_kwargs_a, memory_kwargs_b=m_kwargs_b)

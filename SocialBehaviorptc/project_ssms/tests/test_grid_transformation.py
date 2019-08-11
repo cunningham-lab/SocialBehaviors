@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 
-from project_ssms.single_transformations.single_direction_transformation import SingleDirectionTransformation
+from project_ssms.single_transformations.single_momentum_direction_transformation import SingleMomentumDirectionTransformation
 from project_ssms.coupled_transformations.grid_transformation import GridTransformation
 from project_ssms.momentum_utils import filter_traj_by_speed, get_momentum_in_batch, get_momentum
 from project_ssms.feature_funcs import feature_vec_func, unit_vector_to_fixed_loc, unit_vector_to_other
@@ -79,7 +79,7 @@ momentum_weights = np.arange(0.55, 2.05, 0.05)
 momentum_weights = torch.tensor(momentum_weights, dtype=torch.float64)
 
 
-tran = GridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids,
+tran = GridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids, single_transformation="momentum_direction",
                           Df=Df, feature_vec_func=toy_feature_vec_func,
                           lags=momentum_lags, momentum_weights=momentum_weights)
 
@@ -88,7 +88,7 @@ assert len(tran.params) == 8
 
 
 ################# check parameters ######################
-tran_2 = GridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids,
+tran_2 = GridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids, single_transformation="momentum_direction",
                           Df=Df, feature_vec_func=toy_feature_vec_func,
                           lags=momentum_lags, momentum_weights=momentum_weights)
 

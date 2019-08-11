@@ -8,26 +8,34 @@ from project_ssms.momentum_utils import get_momentum_in_batch, get_momentum
 
 
 # base class for transformation
-class SingleDirectionTransformation(BaseSingleTransformation):
+class SingleMomentumDirectionTransformation(BaseSingleTransformation):
     """
     x^{self}_t \sim x^{self}_{t-1} + acc_factor * [ sigmoid(W_0) m_t  + \sum_{i=1}^{Df} sigmoid(W_i) f_i (self, other)]
     """
 
-    def __init__(self, K, D, Df, feature_vec_func=None, acc_factor=2):
-        super(SingleDirectionTransformation, self).__init__(K, D)
+    def __init__(self, K, D, Df, lags=2, momentum_weights=None,
+                 feature_vec_func=None, acc_factor=2):
+        super(SingleMomentumDirectionTransformation, self).__init__(K, D)
         # d = int(D/2)
 
         if Df is None:
             raise ValueError("Please provide number of features")
         self.Df = Df
 
+        self.momentum_lags = lags
+
+        if momentum_weights is None:
+            self.momentum_weights = torch.ones(lags, dtype=torch.float64)
+        else:
+            self.momentum_weights = check_and_convert_to_tensor(momentum_weights)
+
         if feature_vec_func is None:
-            raise ValueError("Must provide feature vec funcs.")
+            raise ValueError("Must provide feature funcs.")
         self.feature_vec_func = feature_vec_func
 
         self.acc_factor = acc_factor  # int
 
-        self.Ws = torch.rand(self.K, self.Df, dtype=torch.float64, requires_grad=True)
+        self.Ws = torch.rand(self.K, 1 + self.Df, dtype=torch.float64, requires_grad=True)
 
     @property
     def params(self):
@@ -45,7 +53,7 @@ class SingleDirectionTransformation(BaseSingleTransformation):
     def transform(self, inputs_self, inputs_other, **memory_kwargs):
         """
         x^{self}_t \sim
-        x^{self}_{t-1} + acc_factor * [ \sum_{i=1}^{Df} sigmoid(W_i) f_i (self, other)]
+        x^{self}_{t-1} + acc_factor * [ sigmoid(W_0) m_t  + \sum_{i=1}^{Df} sigmoid(W_i) f_i (self, other)]
         :param inputs_self: (T, d)
         :param inputs_other: (T, d)
         :param momentum_vecs:
@@ -53,17 +61,24 @@ class SingleDirectionTransformation(BaseSingleTransformation):
         """
         T = inputs_self.shape[0]
 
+        momentum_vecs = memory_kwargs.get("momentum_vecs", None)
         feature_vecs = memory_kwargs.get("feature_vecs", None)
 
+        if momentum_vecs is None:
+            momentum_vecs = get_momentum_in_batch(inputs_self, self.momentum_lags, self.momentum_weights)
+        assert momentum_vecs.shape == (T, self.d)
+
         if feature_vecs is None:
-            feature_vecs = self.feature_vec_func(inputs_self)
+            feature_vecs = self.feature_vec_func(inputs_self, inputs_other)
 
-        assert feature_vecs.shape == (T, self.Df, self.d), \
-            "Feature vec shape is " + str(feature_vecs.shape) \
-            + ". It should have shape ({}, {}, {}).".format(T, self.Df, self.d)
+        assert feature_vecs.shape == (T, self.Df, self.d)
 
-        # (K, Df) * (T, Df, d) -> (T, K, d)
-        out = torch.matmul(self.Ws, feature_vecs)
+        all_vecs = torch.cat((momentum_vecs[:, None, :2], feature_vecs), dim=1)  # (T, 1+Df, d)
+
+        assert all_vecs.shape == (T, 1 + self.Df, 2)
+
+        # (K, 1+Df) * (T, 1+Df, d) -> (T, K, d)
+        out = torch.matmul(self.Ws, all_vecs)
         assert out.shape == (T, self.K, 2)
 
         out = inputs_self[:, None, ] + self.acc_factor * out
@@ -80,10 +95,18 @@ class SingleDirectionTransformation(BaseSingleTransformation):
         :param inputs_other: (T_pre, d)
         :return:
         """
+        momentum_vec = memory_kwargs.get("momentum_vec", None)
         feature_vec = memory_kwargs.get("feature_vec", None)
 
+        if momentum_vec is None:
+            momentum_vec = get_momentum(inputs_self, lags=self.momentum_lags,
+                                          weights=self.momentum_weights)  # (d, )
+        else:
+            momentum_vec = check_and_convert_to_tensor(momentum_vec)
+        assert momentum_vec.shape == (self.d,)
+
         if feature_vec is None:
-            feature_vec = self.feature_vec_func(inputs_self[-1:])
+            feature_vec = self.feature_vec_func(inputs_self[-1:], inputs_other[-1:])
             assert feature_vec.shape == (1, self.Df, 2)
             feature_vec = torch.squeeze(feature_vec, dim=0)
         else:
@@ -91,8 +114,12 @@ class SingleDirectionTransformation(BaseSingleTransformation):
 
         assert feature_vec.shape == (self.Df, self.d)
 
+        all_vecs = torch.cat((momentum_vec[None, ], feature_vec), dim=0)  # (1+Df, d)
+
+        assert all_vecs.shape == (1 + self.Df, self.d)
+
         # (1, 1+Df) * (1+Df, d) -> (1, d)
-        out = torch.matmul(self.Ws[z][None], feature_vec)
+        out = torch.matmul(self.Ws[z][None], all_vecs)
         assert out.shape == (1, self.d)
 
         out = torch.squeeze(out, dim=0)

@@ -52,12 +52,12 @@ def unit_vector_to_other(self, other):
     return unit_vector_vec(self-other)
 
 
-def unit_vector_to_fixed_loc_np(self, other, fixed_loc):
+def unit_vector_to_fixed_loc_np(self, fixed_loc):
     to_fixed_loc = fixed_loc[None, ] - self
     return unit_vector_vec_np(to_fixed_loc)  # (T,2)
 
 
-def unit_vector_to_fixed_loc(self, other, fixed_loc):
+def unit_vector_to_fixed_loc(self, fixed_loc):
     to_fixed_loc = fixed_loc[None, ] - self
     return unit_vector_vec(to_fixed_loc)  # (T,2)
 
@@ -105,10 +105,10 @@ def feature_vec_func(s, o):
     :return: features, (T, Df, 2)
     """
     feature_funcs = [unit_vector_to_other,
-                     lambda s, o: unit_vector_to_fixed_loc(s, o, WATER),
-                     lambda s, o: unit_vector_to_fixed_loc(s, o, NEST),
-                     lambda s, o: unit_vector_to_fixed_loc(s, o, FOOD),
-                     lambda s, o: unit_vector_to_fixed_loc(s, o, CORNER),
+                     lambda s, o: unit_vector_to_fixed_loc(s, WATER),
+                     lambda s, o: unit_vector_to_fixed_loc(s, NEST),
+                     lambda s, o: unit_vector_to_fixed_loc(s, FOOD),
+                     lambda s, o: unit_vector_to_fixed_loc(s, CORNER),
                      ]
 
     features = [f(s, o) for f in feature_funcs]  # each is a tensor of shape (T,2), and there are Df items of them
@@ -116,4 +116,15 @@ def feature_vec_func(s, o):
     return features
 
 
+def feature_direction_vec(s, corners):
+    """
+
+    :param s: self, (T, 2)
+    :param corners: a list or array of 4, each is (2,)
+    :return: (T, 4, 2) unit vecs to each corner
+    """
+
+    features = [unit_vector_to_fixed_loc(s, corners[i]) for i in range(4)]  # each is a tensor of shape (T,2), and there are Df items of them
+    features = torch.stack(features, dim=1)
+    return features
 

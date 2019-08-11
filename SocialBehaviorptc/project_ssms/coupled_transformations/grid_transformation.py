@@ -5,36 +5,37 @@ from ssm_ptc.transformations.base_transformation import BaseTransformation
 from ssm_ptc.utils import check_and_convert_to_tensor
 
 from project_ssms.single_transformations.base_single_transformation import BaseSingleTransformation
+from project_ssms.single_transformations.single_momentum_direction_transformation\
+    import SingleMomentumDirectionTransformation
 from project_ssms.single_transformations.single_direction_transformation import SingleDirectionTransformation
 
 
+SINGLE_TRANSFORMATION_CLASSES = dict(
+    momentum_direction=SingleMomentumDirectionTransformation,
+    direction=SingleDirectionTransformation
+)
+
+
 class GridTransformation(BaseTransformation):
-    def __init__(self, K, D, x_grids, y_grids, Df=None, feature_vec_func=None,
-                 lags=2, momentum_weights=None, acc_factor=2):
+    def __init__(self, K, D, x_grids, y_grids, single_transformation, **single_transformation_kwargs):
         super(GridTransformation, self).__init__(K, D)
         self.d = int(self.D / 2)
 
         self.x_grids = x_grids  # (x_0, x_1, ..., x_m)
         self.y_grids = y_grids  # (y_0, y_1, ..., y_n)
-        self.Df = Df
-        self.feature_vec_func = feature_vec_func
-        self.momentum_lags = lags
-        self.momentum_weights = momentum_weights
-        self.acc_factor = acc_factor
 
         self.G = (len(self.x_grids) - 1) * (len(self.y_grids) - 1)
 
-        self.transformations_a = [SingleDirectionTransformation(K=self.K, D=self.D, Df=self.Df,
-                                                                momentum_lags=self.momentum_lags,
-                                                                momentum_weights=self.momentum_weights,
-                                                                feature_vec_func=self.feature_vec_func,
-                                                                acc_factor=self.acc_factor) for _ in range(self.G)]
+        single_tran = SINGLE_TRANSFORMATION_CLASSES.get(single_transformation, None)
+        if single_tran is None:
+            raise ValueError("Invalid single transformation model: {}. Must be one of {}".
+                      format(single_transformation, list(SINGLE_TRANSFORMATION_CLASSES.keys())))
 
-        self.transformations_b = [SingleDirectionTransformation(K=self.K, D=self.D, Df=self.Df,
-                                                                momentum_lags=self.momentum_lags,
-                                                                momentum_weights=self.momentum_weights,
-                                                                feature_vec_func=self.feature_vec_func,
-                                                                acc_factor=self.acc_factor) for _ in range(self.G)]
+        self.transformations_a = [single_tran(K=self.K, D=self.D, **single_transformation_kwargs)
+                                  for _ in range(self.G)]
+
+        self.transformations_b = [single_tran(K=self.K, D=self.D, **single_transformation_kwargs)
+                                  for _ in range(self.G)]
 
     @property
     def params(self):
