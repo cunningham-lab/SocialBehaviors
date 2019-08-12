@@ -134,10 +134,10 @@ class DirectionTransformation(BaseTransformation):
         assert all_vecs_b.shape == (T, 1 + self.Df, 2)
 
         # (K, 1+Df) * (T, 1+Df, 2) -> (T, K, 2)
-        out_a = torch.matmul(self.Ws[:,0], all_vecs_a)
+        out_a = torch.matmul(torch.sigmoid(self.Ws[:,0]), all_vecs_a)
         assert out_a.shape == (T, self.K, 2)
 
-        out_b = torch.matmul(self.Ws[:,1], all_vecs_b)
+        out_b = torch.matmul(torch.sigmoid(self.Ws[:,1]), all_vecs_b)
         assert out_b.shape == (T, self.K, 2)
 
         out = torch.cat((out_a, out_b), dim=-1)
@@ -189,10 +189,10 @@ class DirectionTransformation(BaseTransformation):
         assert all_vecs_b.shape == (1 + self.Df, 2)
 
         # (1, 1+Df) * (1+Df, 2) -> (1, 2)
-        out_a = torch.matmul(self.Ws[z, 0:1], all_vecs_a)
+        out_a = torch.matmul(torch.sigmoid(self.Ws[z, 0:1]), all_vecs_a)
         assert out_a.shape == (1, 2)
 
-        out_b = torch.matmul(self.Ws[z, 1:2], all_vecs_b)
+        out_b = torch.matmul(torch.sigmoid(self.Ws[z, 1:2]), all_vecs_b)
         assert out_b.shape == (1, 2)
 
         out = torch.cat((out_a, out_b), dim=-1)
