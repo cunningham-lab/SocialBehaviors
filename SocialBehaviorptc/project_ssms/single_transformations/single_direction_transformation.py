@@ -63,7 +63,7 @@ class SingleDirectionTransformation(BaseSingleTransformation):
             + ". It should have shape ({}, {}, {}).".format(T, self.Df, self.d)
 
         # (K, Df) * (T, Df, d) -> (T, K, d)
-        out = torch.matmul(self.Ws, feature_vecs)
+        out = torch.matmul(torch.sigmoid(self.Ws), feature_vecs)
         assert out.shape == (T, self.K, 2)
 
         out = inputs_self[:, None, ] + self.acc_factor * out
@@ -92,7 +92,7 @@ class SingleDirectionTransformation(BaseSingleTransformation):
         assert feature_vec.shape == (self.Df, self.d)
 
         # (1, 1+Df) * (1+Df, d) -> (1, d)
-        out = torch.matmul(self.Ws[z][None], feature_vec)
+        out = torch.matmul(torch.sigmoid(self.Ws[z][None]), feature_vec)
         assert out.shape == (1, self.d)
 
         out = torch.squeeze(out, dim=0)

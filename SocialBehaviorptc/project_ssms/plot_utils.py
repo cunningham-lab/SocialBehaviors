@@ -1,19 +1,15 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
+import matplotlib.colors
 
-from hips.plotting.colormaps import gradient_cmap, white_to_color_cmap
-color_names = [
-    "windows blue",
-    "red",
-    "amber",
-    "faded green",
-    "dusty purple",
-    "orange"
-    ]
+x,y,c = zip(*np.random.rand(30,3)*4)
 
-colors = sns.xkcd_palette(color_names)
-cmap = gradient_cmap(colors)
+cvals = np.arange(10)
+colors = ["C0","C1","C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9"]
+
+norm=plt.Normalize(min(cvals),max(cvals))
+tuples = list(zip(map(norm,cvals), colors))
+cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", tuples)
 
 
 def plot_z(z, plot_range=None, ylim=None):
@@ -29,10 +25,10 @@ def plot_z(z, plot_range=None, ylim=None):
     plt.yticks([])
 
 
-def plot_2_mice(data, alpha):
+def plot_2_mice(data, alpha=0.8):
     plt.plot(data[:,0], data[:,1], label='virgin', alpha=alpha)
     plt.plot(data[:,2], data[:,3], label='mother', alpha=alpha)
-    plt.legend()
+    #plt.legend()
 
 
 def plot_4_traces(data):

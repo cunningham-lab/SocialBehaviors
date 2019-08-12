@@ -78,7 +78,7 @@ class SingleMomentumDirectionTransformation(BaseSingleTransformation):
         assert all_vecs.shape == (T, 1 + self.Df, 2)
 
         # (K, 1+Df) * (T, 1+Df, d) -> (T, K, d)
-        out = torch.matmul(self.Ws, all_vecs)
+        out = torch.matmul(torch.sigmoid(self.Ws), all_vecs)
         assert out.shape == (T, self.K, 2)
 
         out = inputs_self[:, None, ] + self.acc_factor * out
@@ -119,7 +119,7 @@ class SingleMomentumDirectionTransformation(BaseSingleTransformation):
         assert all_vecs.shape == (1 + self.Df, self.d)
 
         # (1, 1+Df) * (1+Df, d) -> (1, d)
-        out = torch.matmul(self.Ws[z][None], all_vecs)
+        out = torch.matmul(torch.sigmoid(self.Ws[z][None]), all_vecs)
         assert out.shape == (1, self.d)
 
         out = torch.squeeze(out, dim=0)
