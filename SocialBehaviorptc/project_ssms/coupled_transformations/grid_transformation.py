@@ -4,7 +4,8 @@ import numpy as np
 from ssm_ptc.transformations.base_transformation import BaseTransformation
 from ssm_ptc.utils import check_and_convert_to_tensor
 
-from project_ssms.single_transformations.base_single_transformation import BaseSingleTransformation
+from project_ssms.single_transformations.single_direction_speedfree_transformation\
+    import SingleDirectionSpeedFreeTransformation
 from project_ssms.single_transformations.single_momentum_direction_transformation\
     import SingleMomentumDirectionTransformation
 from project_ssms.single_transformations.single_direction_transformation import SingleDirectionTransformation
@@ -12,7 +13,8 @@ from project_ssms.single_transformations.single_direction_transformation import 
 
 SINGLE_TRANSFORMATION_CLASSES = dict(
     momentum_direction=SingleMomentumDirectionTransformation,
-    direction=SingleDirectionTransformation
+    direction=SingleDirectionTransformation,
+    direction_speedfree=SingleDirectionSpeedFreeTransformation
 )
 
 
@@ -187,6 +189,11 @@ class GridTransformation(BaseTransformation):
                 cond_y = (self.y_grids[j] < data[:, 3]) & (data[:, 3] <= self.y_grids[j + 1])
                 mask = (cond_x & cond_y).double()
                 masks_b.append(mask)
+
+        masks_a = torch.stack(masks_a, dim=0)
+        assert torch.all(masks_a.sum(dim=0) == 1)
+        masks_b = torch.stack(masks_b, dim=0)
+        assert torch.all(masks_b.sum(dim=0) == 1)
 
         return masks_a, masks_b
 

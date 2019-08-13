@@ -271,6 +271,9 @@ losses, opt = model.fit(data, num_iters=num_iters, lr=0.001, masks=(masks_a, mas
 print("start sampling")
 sample_z, sample_x = model.sample(T)
 
+print("start sampling based on transformation")
+sample_z2, sample_x2 = model.sample(T, transformation=True)
+
 
 # inference
 print("inferiring most likely states...")

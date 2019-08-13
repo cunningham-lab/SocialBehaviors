@@ -135,7 +135,7 @@ class ARTruncatedNormalObservation(BaseObservation):
 
         return torch.cat((log_prob_init[None,], log_prob_ar))
 
-    def sample_x(self, z, xhist=None, return_np=True):
+    def sample_x(self, z, xhist=None, transformation=False, return_np=True):
         """
 
         :param z: ()
@@ -155,14 +155,25 @@ class ARTruncatedNormalObservation(BaseObservation):
             mu = self.transformation.transform_condition_on_z(z, xhist[-self.lags:])  # (D, )
             assert mu.shape == (self.D,)
 
-        dist = TruncatedNormal(mus=mu, log_sigmas=self.log_sigmas[z], bounds=self.bounds)
+        if transformation:
+            samples = mu
+            # some ad-hoc way to address bound issue
+            for d in range(self.D):
+                if samples[d] <= self.bounds[d, 0]:
+                    samples[d] = self.bounds[d, 0] + 0.1 * torch.rand(1, dtype=torch.float64)
+                elif samples[d] >= self.bounds[d, 1]:
+                    samples[d] = self.bounds[d, 1] - 0.1 * torch.rand(1, dtype=torch.float64)
 
-        samples = dist.sample()
+            samples = samples.detach()
+
+        else:
+            dist = TruncatedNormal(mus=mu, log_sigmas=self.log_sigmas[z], bounds=self.bounds)
+            samples = dist.sample()
         if return_np:
             return samples.numpy()
         return samples
 
-    def rsample_x(self, z, xhist=None):
+    def rsample_x(self, z, xhist=None, transformation=False):
         """
         generate reparameterized samples
         :param z: shape ()

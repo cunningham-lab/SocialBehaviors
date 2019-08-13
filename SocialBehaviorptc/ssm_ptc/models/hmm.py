@@ -97,7 +97,7 @@ class HMM:
             z[t] = npr.choice(self.K, p=P[z[t - 1]])
         return z
 
-    def sample(self, T, prefix=None, input=None, return_np=True):
+    def sample(self, T, prefix=None, input=None, transformation=False, return_np=True):
         """
         Sample synthetic data form from the model.
         :param T: int, the number of time steps to sample
@@ -130,7 +130,7 @@ class HMM:
             # sample the first state from the initial distribution
             pi0 = self.init_dist.detach()
             z[0] = npr.choice(self.K, p=pi0)
-            data[0] = self.observation.sample_x(z[0], data[:0], return_np=False)
+            data[0] = self.observation.sample_x(z[0], data[:0], transformation=transformation, return_np=False)
 
             # We only need to sample T-1 datapoints now
             T = T - 1
@@ -153,7 +153,7 @@ class HMM:
             P = self.transition.stationary_transition_matrix.detach() # (K, K)
             for t in range(T_pre, T_pre + T):
                 z[t] = npr.choice(K, p=P[z[t-1]])
-                data[t] = self.observation.sample_x(z[t], data[:t], return_np=False)
+                data[t] = self.observation.sample_x(z[t], data[:t], transformation=transformation, return_np=False)
         else:
             for t in range(T_pre, T_pre + T):
                 P = self.transition.transition_matrix(data[t-1:t+1], input[t-1:t+1]).detach()
@@ -162,7 +162,7 @@ class HMM:
                 assert P.shape == (self.K, self.K)
 
                 z[t] = npr.choice(K, p=P[z[t-1]])
-                data[t] = self.observation.sample_x(z[t], data[:t], return_np=False)
+                data[t] = self.observation.sample_x(z[t], data[:t], transformation=transformation, return_np=False)
 
         assert z.requires_grad is False
         assert data.requires_grad is False
@@ -295,7 +295,7 @@ class HMM:
         self.observation.permute(perm)
 
     # return np
-    def sample_condition_on_zs(self, zs, x0=None, return_np=True):
+    def sample_condition_on_zs(self, zs, x0=None, transformation=False, return_np=True):
         """
         Given a z sequence, generate samples condition on this sequence.
         :param zs: (T, )
@@ -315,17 +315,17 @@ class HMM:
                 print("Nothing to sample")
                 return
             else:
-                return self.observation.sample_x(zs[0])
+                return self.observation.sample_x(zs[0], transformation=transformation)
 
         if x0 is None:
-            x0 = self.observation.sample_x(zs[0], return_np=False)
+            x0 = self.observation.sample_x(zs[0], transformation=transformation, return_np=False)
         else:
             x0 = check_and_convert_to_tensor(x0, dtype=torch.float64)
             assert x0.shape == (self.D, )
 
         xs = [x0]
         for t in np.arange(1, T):
-            x_t = self.observation.sample_x(zs[t], xs[t-1][None, ], return_np=False)
+            x_t = self.observation.sample_x(zs[t], xs[t-1][None, ], transformation=transformation, return_np=False)
             xs.append(x_t)
 
         xs = torch.stack(xs)
