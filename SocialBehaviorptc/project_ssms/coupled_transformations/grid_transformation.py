@@ -157,14 +157,18 @@ class GridTransformation(BaseTransformation):
         """
         assert point.shape == (2, )
         g = 0
+        find = False
         for i in range(len(x_grids)-1):
             for j in range(len(y_grids)-1):
                 cond_x = x_grids[i] < point[0] <= x_grids[i+1]
                 cond_y = y_grids[j] < point[1] <= y_grids[j+1]
                 if (cond_x & cond_y):
+                    find = True
                     break
                 g = g + 1
-        if g == G:
+            if find:
+                break
+        if not find:
             raise ValueError("value {} out of the grid world.".format(point.numpy()))
         return g
 
