@@ -86,14 +86,10 @@ def feature_func_single(s, o):
     :param o: other, (T, 2)
     :return: features, (T, 2 * Df)
     """
-    feature_funcs = [unit_vector_to_other,
-                     lambda s, o: unit_vector_to_fixed_loc(s, o, WATER),
-                     lambda s, o: unit_vector_to_fixed_loc(s, o, NEST),
-                     lambda s, o: unit_vector_to_fixed_loc(s, o, FOOD),
-                     lambda s, o: unit_vector_to_fixed_loc(s, o, CORNER),
-                     ]
 
-    features = [f(s, o) for f in feature_funcs]
+    features_0 = [unit_vector_to_other(s, o)]
+    features_rest = [unit_vector_to_fixed_loc(s, pos) for pos in [WATER, NEST, FOOD, CORNER]]
+    features = features_0 + features_rest
     features = torch.cat(features, dim=-1)
     return features
 
@@ -104,14 +100,9 @@ def feature_vec_func(s, o):
     :param o: other, (T, 2)
     :return: features, (T, Df, 2)
     """
-    feature_funcs = [unit_vector_to_other,
-                     lambda s, o: unit_vector_to_fixed_loc(s, WATER),
-                     lambda s, o: unit_vector_to_fixed_loc(s, NEST),
-                     lambda s, o: unit_vector_to_fixed_loc(s, FOOD),
-                     lambda s, o: unit_vector_to_fixed_loc(s, CORNER),
-                     ]
-
-    features = [f(s, o) for f in feature_funcs]  # each is a tensor of shape (T,2), and there are Df items of them
+    features_0 = [unit_vector_to_other(s, o)]
+    features_rest = [unit_vector_to_fixed_loc(s, pos) for pos in [WATER, NEST, FOOD, CORNER]]
+    features = features_0 + features_rest # each is a tensor of shape (T,2), and there are Df items of them
     features = torch.stack(features, dim=1)
     return features
 
