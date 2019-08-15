@@ -1,7 +1,7 @@
 import torch
 from torch.autograd import Function
-from .hmm import forward_pass as forward_pass_cython
-from .hmm import backward_pass as backward_pass_cython
+from ssm_ptc.message_passing.hmm import forward_pass as forward_pass_cython
+from ssm_ptc.message_passing.hmm import backward_pass as backward_pass_cython
 import numpy as np
 
 
