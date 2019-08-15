@@ -1,0 +1,1253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="8ef7c67d-752e-4b23-9fcc-ed08f5698d97" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/../ARHMM.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/../ARHMM.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Social_Dataset_Class.py" beforeDir="false" afterPath="$PROJECT_DIR$/../Social_Dataset_Class.py" afterDir="false" />
+    </list>
+    <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="CoverageDataManager">
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$ARSigmoidNormalHMM.coverage" NAME="ARSigmoidNormalHMM Coverage Results" MODIFIED="1562619407683" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/socialbehavior/examples" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$test_inputs.coverage" NAME="test_inputs Coverage Results" MODIFIED="1563979751876" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/ssm_ptc/tests" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$test_fit.coverage" NAME="test_fit Coverage Results" MODIFIED="1565548719013" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/ssm_ptc/tests" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$ARHMM_toy.coverage" NAME="ARHMM_toy Coverage Results" MODIFIED="1563549218017" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/socialbehavior/examples" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$test_momentum_interaction_model.coverage" NAME="test_momentum_interaction_model Coverage Results" MODIFIED="1564706975865" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/project_ssms/tests" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$utils.coverage" NAME="utils Coverage Results" MODIFIED="1562531571487" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/../SocialBehavior/SocialBehaviorptc/socialbehavior" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$test.coverage" NAME="test Coverage Results" MODIFIED="1562534817540" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/socialbehavior/examples" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$test_sample.coverage" NAME="test_sample Coverage Results" MODIFIED="1563848479968" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/project_notebooks/ARTN_explore" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$test_momentum_interaction_model2.coverage" NAME="test_momentum_interaction_model2 Coverage Results" MODIFIED="1564709397940" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/project_ssms/tests" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$test_cmio.coverage" NAME="test_cmio Coverage Results" MODIFIED="1564687519903" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/project_ssms/tests" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$trainer__1_.coverage" NAME="trainer (1) Coverage Results" MODIFIED="1562361100019" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/build/lib.macosx-10.7-x86_64-3.7" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$test_momentum_model.coverage" NAME="test_momentum_model Coverage Results" MODIFIED="1564714024219" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/project_ssms/tests" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$trainer__3_.coverage" NAME="trainer (3) Coverage Results" MODIFIED="1562520319079" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/../SocialBehavior/SocialBehaviorptc" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$test_save_and_load_model.coverage" NAME="test_save_and_load_model Coverage Results" MODIFIED="1565548865863" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/ssm_ptc/tests" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$test_params__1_.coverage" NAME="test_params (1) Coverage Results" MODIFIED="1565895032027" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/ssm_ptc" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$test_direction_model.coverage" NAME="test_direction_model Coverage Results" MODIFIED="1565480108097" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/project_ssms/tests" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$setup.coverage" NAME="setup Coverage Results" MODIFIED="1562360830269" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$momentum_model1.coverage" NAME="momentum_model1 Coverage Results" MODIFIED="1565210799359" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/project_ssms" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$truncatednormal.coverage" NAME="truncatednormal Coverage Results" MODIFIED="1563681837068" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/ssm_ptc/distributions" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$test_sampling.coverage" NAME="test_sampling Coverage Results" MODIFIED="1565548596465" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/ssm_ptc/tests" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$truncated_normal.coverage" NAME="truncated_normal Coverage Results" MODIFIED="1563831249730" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/ssm_ptc/examples" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$linear_regression.coverage" NAME="linear_regression Coverage Results" MODIFIED="1562527182872" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/../SocialBehavior/SocialBehaviorptc/socialbehavior" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$debugging_sampling.coverage" NAME="debugging_sampling Coverage Results" MODIFIED="1563848515681" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/project_notebooks/ARTN_explore" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$test_params.coverage" NAME="test_params Coverage Results" MODIFIED="1565894179779" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/ssm_ptc/tests" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$test_artn.coverage" NAME="test_artn Coverage Results" MODIFIED="1565629185202" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/project_ssms/tests" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$trainer.coverage" NAME="trainer Coverage Results" MODIFIED="1562468635604" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$ARHMM_demo.coverage" NAME="ARHMM_demo Coverage Results" MODIFIED="1563554566966" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/ssm_ptc/examples" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$sigmoidnormal.coverage" NAME="sigmoidnormal Coverage Results" MODIFIED="1562858960545" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/socialbehavior/distributions" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$test_realdata.coverage" NAME="test_realdata Coverage Results" MODIFIED="1562509294700" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$shorter_seq.coverage" NAME="shorter_seq Coverage Results" MODIFIED="1563664220059" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/project_notebooks/ARSN_explore" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$runner.coverage" NAME="runner Coverage Results" MODIFIED="1562262294646" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$test_speed_filter.coverage" NAME="test_speed_filter Coverage Results" MODIFIED="1563979757703" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/project_notebooks/ARTN_explore" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$ssm_test.coverage" NAME="ssm_test Coverage Results" MODIFIED="1563665746802" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$AR_truncated_normal.coverage" NAME="AR_truncated_normal Coverage Results" MODIFIED="1564331046342" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/project_notebooks" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$debug_sampling.coverage" NAME="debug_sampling Coverage Results" MODIFIED="1565816757888" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/project_ssms/tests" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$trainer__2_.coverage" NAME="trainer (2) Coverage Results" MODIFIED="1562361740398" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/build/lib.macosx-10.7-x86_64-3.7/socialbehavior" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$ConstrainedARHMM.coverage" NAME="ConstrainedARHMM Coverage Results" MODIFIED="1562595438898" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/socialbehavior/examples" />
+    <SUITE FILE_PATH="coverage/SocialBehaviorptc$test_grid_transformation.coverage" NAME="test_grid_transformation Coverage Results" MODIFIED="1565552520047" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/project_ssms/tests" />
+  </component>
+  <component name="DatabaseView">
+    <option name="SHOW_INTERMEDIATE" value="true" />
+    <option name="GROUP_DATA_SOURCES" value="true" />
+    <option name="GROUP_SCHEMA" value="true" />
+    <option name="GROUP_CONTENTS" value="false" />
+    <option name="SORT_POSITIONED" value="false" />
+    <option name="SHOW_EMPTY_GROUPS" value="false" />
+    <option name="AUTO_SCROLL_FROM_SOURCE" value="false" />
+    <option name="HIDDEN_KINDS">
+      <set />
+    </option>
+    <expand />
+    <select />
+  </component>
+  <component name="FUSProjectUsageTrigger">
+    <session id="1430310081">
+      <usages-collector id="statistics.lifecycle.project">
+        <counts>
+          <entry key="project.closed" value="2" />
+          <entry key="project.open.time.1" value="1" />
+          <entry key="project.open.time.4" value="1" />
+          <entry key="project.open.time.8" value="1" />
+          <entry key="project.opened" value="3" />
+        </counts>
+      </usages-collector>
+      <usages-collector id="statistics.file.extensions.open">
+        <counts>
+          <entry key="py" value="68" />
+          <entry key="pyx" value="4" />
+        </counts>
+      </usages-collector>
+      <usages-collector id="statistics.file.types.open">
+        <counts>
+          <entry key="Cython" value="4" />
+          <entry key="Python" value="68" />
+        </counts>
+      </usages-collector>
+      <usages-collector id="statistics.file.extensions.edit">
+        <counts>
+          <entry key="dummy" value="141" />
+          <entry key="linear_regression" value="219" />
+          <entry key="py" value="15254" />
+          <entry key="trainer" value="1193" />
+          <entry key="trainer (3)" value="2590" />
+          <entry key="utils" value="87" />
+        </counts>
+      </usages-collector>
+      <usages-collector id="statistics.file.types.edit">
+        <counts>
+          <entry key="PLAIN_TEXT" value="141" />
+          <entry key="Python" value="19343" />
+        </counts>
+      </usages-collector>
+    </session>
+    <session id="48704086">
+      <usages-collector id="statistics.lifecycle.project">
+        <counts>
+          <entry key="project.closed" value="3" />
+          <entry key="project.open.time.0" value="1" />
+          <entry key="project.open.time.1" value="1" />
+          <entry key="project.open.time.11" value="1" />
+          <entry key="project.open.time.6" value="2" />
+          <entry key="project.open.time.9" value="1" />
+          <entry key="project.opened" value="6" />
+        </counts>
+      </usages-collector>
+      <usages-collector id="statistics.file.extensions.open">
+        <counts>
+          <entry key="ipynb" value="2" />
+          <entry key="pt" value="1" />
+          <entry key="py" value="441" />
+        </counts>
+      </usages-collector>
+      <usages-collector id="statistics.file.types.open">
+        <counts>
+          <entry key="Chameleon" value="1" />
+          <entry key="IPNB" value="2" />
+          <entry key="Python" value="441" />
+        </counts>
+      </usages-collector>
+      <usages-collector id="statistics.file.extensions.edit">
+        <counts>
+          <entry key="ARSigmoidNormalHMM" value="671" />
+          <entry key="dummy" value="438" />
+          <entry key="py" value="85544" />
+          <entry key="sigmoidnormal" value="1706" />
+          <entry key="test_params" value="49" />
+          <entry key="truncatednormal" value="240" />
+        </counts>
+      </usages-collector>
+      <usages-collector id="statistics.file.types.edit">
+        <counts>
+          <entry key="PLAIN_TEXT" value="438" />
+          <entry key="Python" value="88210" />
+        </counts>
+      </usages-collector>
+    </session>
+  </component>
+  <component name="FileEditorManager">
+    <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/ssm_ptc/models/hmm.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="480">
+              <caret line="32" column="19" lean-forward="true" selection-start-line="32" selection-start-column="19" selection-end-line="32" selection-end-column="19" />
+              <folding>
+                <element signature="e#71#83#0" expanded="true" />
+                <marker date="1565628451631" expanded="true" signature="3202:3309" ph="..." />
+                <marker date="1565628451631" expanded="true" signature="3392:3393" ph="..." />
+                <marker date="1565628451631" expanded="true" signature="3393:3398" ph="..." />
+                <marker date="1565628451631" expanded="true" signature="7093:7099" ph="..." />
+                <marker date="1565628451631" expanded="true" signature="9796:9866" ph="..." />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/tests/ssm_ptc/test_params.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="-180">
+              <caret line="17" column="8" lean-forward="true" selection-start-line="17" selection-start-column="8" selection-end-line="17" selection-end-column="8" />
+              <folding>
+                <element signature="e#0#12#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/project_ssms/ar_truncated_normal_observation.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="470">
+              <caret line="84" column="21" selection-start-line="84" selection-start-column="21" selection-end-line="84" selection-end-column="21" />
+              <folding>
+                <element signature="e#0#12#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/tests/project_ssms/tests/debug_sampling.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="305">
+              <caret line="55" column="21" selection-start-line="55" selection-start-column="21" selection-end-line="55" selection-end-column="21" />
+              <folding>
+                <element signature="e#0#12#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/project_ssms/feature_funcs.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="485">
+              <caret line="118" column="37" selection-start-line="118" selection-start-column="37" selection-end-line="118" selection-end-column="37" />
+              <folding>
+                <element signature="e#0#12#0" expanded="true" />
+                <marker date="1565880617282" expanded="true" signature="519:589" ph="..." />
+                <marker date="1565880617282" expanded="true" signature="1282:1324" ph="..." />
+                <marker date="1565880617282" expanded="true" signature="2209:2212" ph="..." />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/project_ssms/coupled_transformations/grid_transformation.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="525">
+              <caret line="35" column="33" selection-start-line="35" selection-start-column="33" selection-end-line="35" selection-end-column="33" />
+              <folding>
+                <element signature="e#0#12#0" expanded="true" />
+                <marker date="1565816757878" expanded="true" signature="798:7416" ph="..." />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/project_ssms/single_transformations/single_direction_transformation.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="416">
+              <caret line="29" column="86" lean-forward="true" selection-start-line="29" selection-start-column="86" selection-end-line="29" selection-end-column="86" />
+              <folding>
+                <element signature="e#0#30#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/tests/project_ssms/tests/test_artn.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="330">
+              <caret line="22" column="4" lean-forward="true" selection-start-line="22" selection-start-column="4" selection-end-line="22" selection-end-column="4" />
+              <folding>
+                <element signature="e#0#12#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/project_ssms/utils.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="420">
+              <caret line="99" column="28" selection-start-line="99" selection-start-column="28" selection-end-line="99" selection-end-column="28" />
+              <folding>
+                <element signature="e#0#12#0" expanded="true" />
+                <marker date="1565553758487" expanded="true" signature="2706:2810" ph="..." />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+    </leaf>
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Unit Test" />
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="FindInProjectRecents">
+    <findStrings>
+      <find>log_lik</find>
+      <find>inputs_other</find>
+      <find>unit_vector_to_fi</find>
+      <find>Df</find>
+      <find>plot_z</find>
+      <find>plot_2_mice</find>
+      <find>lags</find>
+      <find>mask</find>
+      <find>plot_quiver</find>
+      <find>transform</find>
+      <find>acc_factor</find>
+      <find>self.Ws</find>
+      <find>sigmoid</find>
+      <find>def transform</find>
+      <find>find_grid_index</find>
+      <find>get_masks</find>
+      <find>out</find>
+      <find>masks</find>
+      <find>observation.sample_x</find>
+      <find>transformation</find>
+      <find>Grid</find>
+      <find>unit_vector_to_fixed_locs</find>
+      <find>sample</find>
+      <find>sample_x</find>
+      <find>def sample_x</find>
+      <find>k_step</find>
+      <find>lambda</find>
+      <find>unit_vector_to_fixed_loc</find>
+      <find>feature_vec_func</find>
+      <find>def sample</find>
+    </findStrings>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="IdeDocumentHistory">
+    <option name="CHANGED_PATHS">
+      <list>
+        <option value="$PROJECT_DIR$/project_ssms/coupled_momentum_observation.py" />
+        <option value="$PROJECT_DIR$/project_ssms/coupled_momentum_feature_observation.py" />
+        <option value="$PROJECT_DIR$/project_ssms/coupled_direction_observation.py" />
+        <option value="$PROJECT_DIR$/project_ssms/momentum_interaction_observation.py" />
+        <option value="$PROJECT_DIR$/project_ssms/momentum_interaction_observation2.py" />
+        <option value="$PROJECT_DIR$/project_ssms/momentum_observation.py" />
+        <option value="$PROJECT_DIR$/project_ssms/tests/test_momentum_feature_model.py" />
+        <option value="$PROJECT_DIR$/project_ssms/momentum_feature_observation.py" />
+        <option value="$PROJECT_DIR$/project_ssms/grid_observation.py" />
+        <option value="$PROJECT_DIR$/project_ssms/direction_observation.py" />
+        <option value="$PROJECT_DIR$/project_ssms/CoupledTransformation/base_coupled_transformation.py" />
+        <option value="$PROJECT_DIR$/project_ssms/coupled_transformations/decoupled_direction_transformation.py" />
+        <option value="$PROJECT_DIR$/project_ssms/coupled_transformations/coupled_direction_transformation.py" />
+        <option value="$PROJECT_DIR$/project_ssms/single_transformations.py" />
+        <option value="$PROJECT_DIR$/project_ssms/single_transformations/base_single_transformation.py" />
+        <option value="$PROJECT_DIR$/ssm_ptc/transformations/linear.py" />
+        <option value="$PROJECT_DIR$/ssm_ptc/transitions/sticky_transition.py" />
+        <option value="$PROJECT_DIR$/ssm_ptc/transitions/stationary_transition.py" />
+        <option value="$PROJECT_DIR$/project_ssms/ar_truncatednormal_observation.py" />
+        <option value="$PROJECT_DIR$/project_ssms/coupled_transformations/momentum_transformations.py" />
+        <option value="$PROJECT_DIR$/project_ssms/coupled_transformations/grid_observation.py" />
+        <option value="$PROJECT_DIR$/ssm_ptc/utils.py" />
+        <option value="$PROJECT_DIR$/project_ssms/tests/test_direction_model.py" />
+        <option value="$PROJECT_DIR$/project_ssms/tests/test_ar_momentum_models.py" />
+        <option value="$PROJECT_DIR$/project_ssms/coupled_transformations/base_coupled_transformation.py" />
+        <option value="$PROJECT_DIR$/ssm_ptc/distributions/base_distribution.py" />
+        <option value="$PROJECT_DIR$/ssm_ptc/transformations/base_transformation.py" />
+        <option value="$PROJECT_DIR$/ssm_ptc/transitions/base_transition.py" />
+        <option value="$PROJECT_DIR$/ssm_ptc/tests/test_fit.py" />
+        <option value="$PROJECT_DIR$/Social_Dataset_Class.py" />
+        <option value="$PROJECT_DIR$/ssm_ptc/tests/test_save_and_load_model.py" />
+        <option value="$PROJECT_DIR$/project_ssms/single_transformations/SingleDirectionTransformation.py" />
+        <option value="$PROJECT_DIR$/project_ssms/tests/test_grid_transformation.py" />
+        <option value="$PROJECT_DIR$/project_ssms/utils.py" />
+        <option value="$PROJECT_DIR$/project_ssms/plot_utils.py" />
+        <option value="$PROJECT_DIR$/project_ssms/single_transformations/single_momentum_direction_transformation.py" />
+        <option value="$PROJECT_DIR$/project_ssms/coupled_transformations/direction_observation.py" />
+        <option value="$PROJECT_DIR$/project_ssms/single_transformations/single_direction_speedfree_transformation.py" />
+        <option value="$PROJECT_DIR$/project_ssms/single_transformations/single_direction_transformation.py" />
+        <option value="$PROJECT_DIR$/ssm_ptc/models/hmm.py" />
+        <option value="$PROJECT_DIR$/ssm_ptc/observations/base_observation.py" />
+        <option value="$PROJECT_DIR$/ssm_ptc/observations/ar_logit_normal_observation.py" />
+        <option value="$PROJECT_DIR$/ssm_ptc/observations/ar_gaussian_observation.py" />
+        <option value="$PROJECT_DIR$/project_ssms/tests/test_artn.py" />
+        <option value="$PROJECT_DIR$/project_ssms/ar_truncated_normal_observation.py" />
+        <option value="$PROJECT_DIR$/ssm_ptc/observations/ar_truncated_normal_observation.py" />
+        <option value="$PROJECT_DIR$/project_ssms/tests/debug_sampling.py" />
+        <option value="$PROJECT_DIR$/project_ssms/coupled_transformations/grid_transformation.py" />
+        <option value="$PROJECT_DIR$/project_ssms/feature_funcs.py" />
+        <option value="$PROJECT_DIR$/ssm_ptc/tests/test_params.py" />
+        <option value="$PROJECT_DIR$/tests/test_params.py" />
+      </list>
+    </option>
+  </component>
+  <component name="JsBuildToolGruntFileManager" detection-done="true" sorting="DEFINITION_ORDER" />
+  <component name="JsBuildToolPackageJson" detection-done="true" sorting="DEFINITION_ORDER" />
+  <component name="JsGulpfileManager">
+    <detection-done>true</detection-done>
+    <sorting>DEFINITION_ORDER</sorting>
+  </component>
+  <component name="ProjectFrameBounds" fullScreen="true">
+    <option name="y" value="23" />
+    <option name="width" value="1878" />
+    <option name="height" value="1057" />
+  </component>
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectView">
+    <navigator proportions="" version="1">
+      <foldersAlwaysOnTop value="true" />
+    </navigator>
+    <panes>
+      <pane id="ProjectPane">
+        <subPane>
+          <expand>
+            <path>
+              <item name="SocialBehaviorptc" type="b2602c69:ProjectViewProjectNode" />
+              <item name="SocialBehaviorptc" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="SocialBehaviorptc" type="b2602c69:ProjectViewProjectNode" />
+              <item name="SocialBehaviorptc" type="462c0819:PsiDirectoryNode" />
+              <item name="tests" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="SocialBehaviorptc" type="b2602c69:ProjectViewProjectNode" />
+              <item name="SocialBehaviorptc" type="462c0819:PsiDirectoryNode" />
+              <item name="tests" type="462c0819:PsiDirectoryNode" />
+              <item name="ssm_ptc" type="462c0819:PsiDirectoryNode" />
+            </path>
+          </expand>
+          <select />
+        </subPane>
+      </pane>
+      <pane id="Scope" />
+    </panes>
+  </component>
+  <component name="PropertiesComponent">
+    <property name="SearchEverywhereHistoryKey" value="&#9;FILE&#9;file:///Users/leah/Columbia/courses/19summer/SocialBehavior/SocialBehaviorptc/ssm_ptc/observations/ar_truncated_normal_observation.py" />
+    <property name="WebServerToolWindowFactoryState" value="false" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
+    <property name="nodejs_npm_path_reset_for_default_project" value="true" />
+    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
+  </component>
+  <component name="PyConsoleOptionsProvider">
+    <option name="myPythonConsoleState">
+      <console-settings is-module-sdk="true">
+        <option name="myUseModuleSdk" value="true" />
+      </console-settings>
+    </option>
+  </component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$" />
+      <recent name="$PROJECT_DIR$/data" />
+      <recent name="$PROJECT_DIR$/project_notebooks/ARTN_explore" />
+      <recent name="$PROJECT_DIR$/../SocialBehavior/SocialBehaviorptc/socialbehavior" />
+      <recent name="$PROJECT_DIR$/socialbehavior/message_passing" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/tests/project_ssms" />
+      <recent name="$PROJECT_DIR$/tests/ssm_ptc" />
+      <recent name="$PROJECT_DIR$/" />
+      <recent name="$PROJECT_DIR$/project_ssms/" />
+      <recent name="$PROJECT_DIR$/project_ssms/coupled_transformations/" />
+    </key>
+  </component>
+  <component name="RunDashboard">
+    <option name="ruleStates">
+      <list>
+        <RuleState>
+          <option name="name" value="ConfigurationTypeDashboardGroupingRule" />
+        </RuleState>
+        <RuleState>
+          <option name="name" value="StatusDashboardGroupingRule" />
+        </RuleState>
+      </list>
+    </option>
+  </component>
+  <component name="RunManager" selected="Python.test_params (1)">
+    <configuration name="debug_sampling" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="SocialBehaviorptc" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/project_ssms/tests" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/project_ssms/tests/debug_sampling.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="test_artn" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="SocialBehaviorptc" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/project_ssms/tests" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/project_ssms/tests/test_artn.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="test_grid_transformation" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="SocialBehaviorptc" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/project_ssms/tests" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/project_ssms/tests/test_grid_transformation.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="test_params (1)" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="SocialBehaviorptc" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/tests/ssm_ptc" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/tests/ssm_ptc/test_params.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="test_params" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="SocialBehaviorptc" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/ssm_ptc/tests" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/ssm_ptc/tests/test_params.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="truncatednormal" type="PythonConfigurationType" factoryName="Python">
+      <module name="SocialBehaviorptc" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/ssm_ptc/distributions" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/ssm_ptc/distributions/truncatednormal.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="true" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <list>
+      <item itemvalue="Python.truncatednormal" />
+      <item itemvalue="Python.test_grid_transformation" />
+      <item itemvalue="Python.test_artn" />
+      <item itemvalue="Python.debug_sampling" />
+      <item itemvalue="Python.test_params" />
+      <item itemvalue="Python.test_params (1)" />
+    </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.test_params (1)" />
+        <item itemvalue="Python.test_params" />
+        <item itemvalue="Python.debug_sampling" />
+        <item itemvalue="Python.test_artn" />
+        <item itemvalue="Python.test_grid_transformation" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SvnConfiguration">
+    <configuration />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="8ef7c67d-752e-4b23-9fcc-ed08f5698d97" name="Default Changelist" comment="" />
+      <created>1562168782829</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1562168782829</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="ToolWindowManager">
+    <frame x="0" y="0" width="1920" height="1080" extended-state="0" />
+    <editor active="true" />
+    <layout>
+      <window_info id="Favorites" order="0" side_tool="true" />
+      <window_info active="true" content_ui="combo" id="Project" order="1" visible="true" weight="0.16506922" />
+      <window_info id="Structure" order="2" side_tool="true" weight="0.25" />
+      <window_info anchor="bottom" id="Database Changes" order="0" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Terminal" order="1" weight="0.32871288" />
+      <window_info anchor="bottom" id="Event Log" order="2" sideWeight="0.5005325" side_tool="true" weight="0.31287128" />
+      <window_info anchor="bottom" id="Version Control" order="3" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Python Console" order="4" weight="0.25906736" />
+      <window_info anchor="bottom" id="Docker" order="5" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Message" order="6" />
+      <window_info anchor="bottom" id="Find" order="7" weight="0.32673267" />
+      <window_info anchor="bottom" id="Run" order="8" sideWeight="0.49946752" visible="true" weight="0.38613862" />
+      <window_info anchor="bottom" id="Debug" order="9" weight="0.30792078" />
+      <window_info anchor="bottom" id="Cvs" order="10" weight="0.25" />
+      <window_info anchor="bottom" id="Inspection" order="11" weight="0.4" />
+      <window_info anchor="bottom" id="TODO" order="12" />
+      <window_info anchor="bottom" id="Concurrent Activities Diagram" order="13" weight="0.32970297" />
+      <window_info anchor="right" id="Database" order="0" weight="0.32904148" />
+      <window_info anchor="right" id="Commander" order="1" weight="0.4" />
+      <window_info anchor="right" id="SciView" order="2" weight="0.31948882" />
+      <window_info anchor="right" id="Ant Build" order="3" weight="0.25" />
+      <window_info anchor="right" content_ui="combo" id="Hierarchy" order="4" weight="0.25" />
+    </layout>
+    <layout-to-restore>
+      <window_info id="Favorites" order="0" side_tool="true" />
+      <window_info active="true" content_ui="combo" id="Project" order="1" visible="true" weight="0.16347177" />
+      <window_info id="Structure" order="2" side_tool="true" weight="0.25" />
+      <window_info anchor="bottom" id="Database Changes" order="0" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Terminal" order="1" weight="0.32871288" />
+      <window_info anchor="bottom" id="Event Log" order="2" side_tool="true" />
+      <window_info anchor="bottom" id="Version Control" order="3" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Python Console" order="4" weight="0.25906736" />
+      <window_info anchor="bottom" id="Docker" order="5" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Message" order="6" />
+      <window_info anchor="bottom" id="Find" order="7" weight="0.32673267" />
+      <window_info anchor="bottom" id="Run" order="8" weight="0.31287128" />
+      <window_info anchor="bottom" id="Debug" order="9" weight="0.41683167" />
+      <window_info anchor="bottom" id="Cvs" order="10" weight="0.25" />
+      <window_info anchor="bottom" id="Inspection" order="11" weight="0.4" />
+      <window_info anchor="bottom" id="TODO" order="12" />
+      <window_info anchor="bottom" id="Concurrent Activities Diagram" order="13" weight="0.32970297" />
+      <window_info anchor="right" id="Database" order="0" weight="0.32904148" />
+      <window_info anchor="right" id="Commander" order="1" weight="0.4" />
+      <window_info anchor="right" id="SciView" order="2" weight="0.3196945" />
+      <window_info anchor="right" id="Ant Build" order="3" weight="0.25" />
+      <window_info anchor="right" content_ui="combo" id="Hierarchy" order="4" weight="0.25" />
+    </layout-to-restore>
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="1" />
+  </component>
+  <component name="VcsContentAnnotationSettings">
+    <option name="myLimit" value="2678400000" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/../SocialBehavior/SocialBehaviorptc/socialbehavior/utils.py</url>
+          <line>22</line>
+          <option name="timeStamp" value="31" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/ssm_ptc/distributions/logitnormal.py</url>
+          <line>167</line>
+          <option name="timeStamp" value="49" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/ssm_ptc/examples/ARHMM_demo.py</url>
+          <line>86</line>
+          <option name="timeStamp" value="72" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/ssm_ptc/distributions/logitnormal.py</url>
+          <line>111</line>
+          <option name="timeStamp" value="84" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/project_notebooks/ARSN_explore/shorter_seq.py</url>
+          <line>60</line>
+          <option name="timeStamp" value="86" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/project_notebooks/ARSN_explore/shorter_seq.py</url>
+          <line>58</line>
+          <option name="timeStamp" value="87" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/../ssm/ssm/hmm.py</url>
+          <line>295</line>
+          <option name="timeStamp" value="91" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/../ssm/ssm/hmm.py</url>
+          <line>381</line>
+          <option name="timeStamp" value="94" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/project_ssms/coupled_transformations/momentum_interaction_observation.py</url>
+          <line>147</line>
+          <option name="timeStamp" value="234" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/ssm_ptc/utils.py</url>
+          <line>72</line>
+          <option name="timeStamp" value="292" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/ssm_ptc/models/hmm.py</url>
+          <line>164</line>
+          <option name="timeStamp" value="293" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/tests/project_ssms/tests/debug_sampling.py</url>
+          <line>62</line>
+          <option name="timeStamp" value="300" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/tests/ssm_ptc/test_params.py</url>
+          <line>23</line>
+          <option name="timeStamp" value="303" />
+        </line-breakpoint>
+      </breakpoints>
+      <default-breakpoints>
+        <breakpoint type="python-exception">
+          <properties notifyOnTerminate="true" exception="BaseException">
+            <option name="notifyOnTerminate" value="true" />
+          </properties>
+        </breakpoint>
+      </default-breakpoints>
+    </breakpoint-manager>
+  </component>
+  <component name="editorHistoryManager">
+    <entry file="file://$PROJECT_DIR$/tests/project_ssms/tests/test_cmio_helperfunctions.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="375">
+          <caret line="25" column="17" selection-start-line="25" selection-start-column="17" selection-end-line="25" selection-end-column="17" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+            <marker date="1565407370920" expanded="true" signature="166:171" ph="..." />
+            <marker date="1565407370920" expanded="true" signature="535:536" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/tests/project_ssms/tests/test_momentum_feature_model.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="321">
+          <caret line="82" column="62" selection-start-line="82" selection-start-column="62" selection-end-line="82" selection-end-column="62" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/project_ssms/coupled_transformations/momentum_interaction_observation.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="274">
+          <caret line="74" column="31" selection-start-line="74" selection-start-column="31" selection-end-line="74" selection-end-column="31" />
+          <folding>
+            <element signature="e#0#74#0" expanded="true" />
+            <marker date="1565381046650" expanded="true" signature="1070:1626" ph="..." />
+            <marker date="1565381046650" expanded="true" signature="5638:5644" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/project_ssms/coupled_transformations/momentum_interaction_observation2.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="2599">
+          <caret line="188" column="9" lean-forward="true" selection-start-line="188" selection-start-column="6" selection-end-line="188" selection-end-column="36" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/setup.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state>
+          <folding>
+            <element signature="e#0#32#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/project_ssms/coupled_transformations/coupled_direction_transformation.py" />
+    <entry file="file://$PROJECT_DIR$/project_ssms/single_transformations.py" />
+    <entry file="file://$PROJECT_DIR$/project_ssms/single_transformations/base_single_transformation.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="420">
+          <caret line="28" column="69" lean-forward="true" selection-start-line="28" selection-start-column="69" selection-end-line="28" selection-end-column="69" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/project_ssms/coupled_transformations/momentum_observation.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-279">
+          <caret line="133" lean-forward="true" selection-start-line="133" selection-end-line="133" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ssm_ptc/transformations/linear.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="195">
+          <caret line="42" column="82" selection-start-line="42" selection-start-column="82" selection-end-line="42" selection-end-column="82" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+            <marker date="1565466761650" expanded="true" signature="1228:1234" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ssm_ptc/transformations/feature_linear.py" />
+    <entry file="file://$PROJECT_DIR$/ssm_ptc/transitions/sticky_transition.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="279">
+          <caret line="92" column="78" selection-start-line="92" selection-start-column="78" selection-end-line="92" selection-end-column="78" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+            <marker date="1565466761633" expanded="true" signature="432:435" ph="..." />
+            <marker date="1565466761633" expanded="true" signature="1998:1999" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ssm_ptc/transitions/stationary_transition.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="621">
+          <caret line="44" column="78" selection-start-line="44" selection-start-column="78" selection-end-line="44" selection-end-column="78" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+            <marker date="1565466761626" expanded="true" signature="204:205" ph="..." />
+            <marker date="1565466761626" expanded="true" signature="204:210" ph="..." />
+            <marker date="1565466761626" expanded="true" signature="673:722" ph="..." />
+            <marker date="1565466761626" expanded="true" signature="891:948" ph="..." />
+            <marker date="1565466761626" expanded="true" signature="942:948" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/tests/project_ssms/tests/test_direction_model.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="885">
+          <caret line="59" column="16" selection-start-line="59" selection-start-column="16" selection-end-line="59" selection-end-column="16" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/tests/project_ssms/tests/test_ar_momentum_models.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="372">
+          <caret line="66" column="26" selection-start-line="66" selection-start-column="26" selection-end-line="66" selection-end-column="26" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/project_ssms/coupled_transformations/base_coupled_transformation.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="540">
+          <caret line="58" lean-forward="true" selection-start-line="58" selection-end-line="58" />
+          <folding>
+            <element signature="e#0#35#0" expanded="true" />
+            <marker date="1565488969745" expanded="true" signature="179:184" ph="..." />
+            <marker date="1565488969745" expanded="true" signature="356:361" ph="..." />
+            <marker date="1565488969745" expanded="true" signature="715:721" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/project_ssms/coupled_transformations/momentum_transformations.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="264">
+          <caret line="75" column="31" lean-forward="true" selection-start-line="75" selection-start-column="31" selection-end-line="75" selection-end-column="31" />
+          <folding>
+            <element signature="e#0#65#0" expanded="true" />
+            <marker date="1565473801325" expanded="true" signature="3665:4538" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ssm_ptc/distributions/base_distribution.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="60">
+          <caret line="4" column="22" selection-start-line="4" selection-start-column="22" selection-end-line="4" selection-end-column="22" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ssm_ptc/models/modulated_hmm.py">
+      <provider selected="true" editor-type-id="text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ssm_ptc/transformations/base_transformation.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="105">
+          <caret line="7" column="18" lean-forward="true" selection-start-line="7" selection-start-column="18" selection-end-line="7" selection-end-column="18" />
+          <folding>
+            <marker date="1565548424808" expanded="true" signature="95:101" ph="..." />
+            <marker date="1565548424808" expanded="true" signature="338:344" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ssm_ptc/transformations/constrained_linear.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="510">
+          <caret line="34" column="29" lean-forward="true" selection-start-line="34" selection-start-column="29" selection-end-line="34" selection-end-column="29" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ssm_ptc/transitions/base_transition.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="105">
+          <caret line="7" column="36" lean-forward="true" selection-start-line="7" selection-start-column="36" selection-end-line="7" selection-end-column="36" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+            <marker date="1565548424811" expanded="true" signature="95:96" ph="..." />
+            <marker date="1565548424811" expanded="true" signature="95:101" ph="..." />
+            <marker date="1565548424811" expanded="true" signature="419:425" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/tests/ssm_ptc/test_sampling.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="119">
+          <caret line="14" lean-forward="true" selection-start-line="14" selection-end-line="14" />
+          <folding>
+            <element signature="e#0#34#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/tests/ssm_ptc/test_inputs.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="167">
+          <caret line="22" column="12" lean-forward="true" selection-start-line="22" selection-start-column="12" selection-end-line="22" selection-end-column="12" />
+          <folding>
+            <element signature="e#0#34#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/tests/ssm_ptc/test_fit.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="390">
+          <caret line="26" column="7" lean-forward="true" selection-start-line="26" selection-start-column="7" selection-end-line="26" selection-end-column="7" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/Social_Dataset_Class.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="15">
+          <caret line="31" column="26" selection-start-line="31" selection-start-column="26" selection-end-line="31" selection-end-column="26" />
+          <folding>
+            <element signature="e#0#9#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/tests/ssm_ptc/test_save_and_load_model.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="450">
+          <caret line="30" column="37" selection-start-line="30" selection-start-column="37" selection-end-line="30" selection-end-column="37" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ssm_ptc/utils.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="404">
+          <caret line="145" selection-start-line="145" selection-end-line="145" />
+          <folding>
+            <element signature="e#116#128#0" expanded="true" />
+            <marker date="1565483153283" expanded="true" signature="2633:2636" ph="..." />
+            <marker date="1565483153283" expanded="true" signature="3253:3262" ph="..." />
+            <marker date="1565483153283" expanded="true" signature="3465:3470" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/project_ssms/plot_utils.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="172">
+          <caret line="51" column="27" selection-start-line="51" selection-start-column="27" selection-end-line="51" selection-end-column="27" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/project_ssms/single_transformations/single_momentum_direction_transformation.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-212">
+          <caret line="80" column="48" selection-start-line="80" selection-start-column="41" selection-end-line="80" selection-end-column="48" />
+          <folding>
+            <element signature="e#0#30#0" expanded="true" />
+            <marker date="1565572674498" expanded="true" signature="647:1388" ph="..." />
+            <marker date="1565572674498" expanded="true" signature="1419:1449" ph="..." />
+            <marker date="1565572674498" expanded="true" signature="1588:1660" ph="..." />
+            <marker date="1565572674498" expanded="true" signature="1744:3001" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/project_ssms/coupled_transformations/momentum_feature_observation.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="219">
+          <caret line="190" column="28" selection-start-line="190" selection-start-column="21" selection-end-line="190" selection-end-column="28" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/project_ssms/coupled_transformations/direction_observation.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="210">
+          <caret line="93" column="52" lean-forward="true" selection-start-line="93" selection-start-column="52" selection-end-line="93" selection-end-column="52" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/project_ssms/momentum_utils.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="594">
+          <caret line="155" column="21" selection-start-line="155" selection-start-column="21" selection-end-line="155" selection-end-column="21" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+            <marker date="1564677747013" expanded="true" signature="2261:3371" ph="..." />
+            <marker date="1564677747013" expanded="true" signature="4331:4332" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/project_ssms/single_transformations/single_direction_speedfree_transformation.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="150">
+          <caret line="10" column="35" selection-start-line="10" selection-start-column="6" selection-end-line="10" selection-end-column="44" />
+          <folding>
+            <element signature="e#0#30#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ssm_ptc/observations/ar_logit_normal_observation.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="459">
+          <caret line="163" selection-start-line="163" selection-end-line="163" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+            <marker date="1565628451636" expanded="true" signature="3341:3347" ph="..." />
+            <marker date="1565628451636" expanded="true" signature="3667:3676" ph="..." />
+            <marker date="1565628451636" expanded="true" signature="5396:5402" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ssm_ptc/observations/ar_gaussian_observation.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="540">
+          <caret line="133" column="26" lean-forward="true" selection-start-line="133" selection-start-column="26" selection-end-line="133" selection-end-column="26" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+            <marker date="1565628557099" expanded="true" signature="1980:2098" ph="..." />
+            <marker date="1565628557099" expanded="true" signature="2373:2379" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ssm_ptc/observations/base_observation.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="529">
+          <caret line="39" column="48" selection-start-line="39" selection-start-column="34" selection-end-line="39" selection-end-column="48" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
+            <marker date="1565628451633" expanded="true" signature="392:461" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ssm_ptc/observations/ar_truncated_normal_observation.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="503">
+          <caret line="167" column="12" selection-start-line="167" selection-start-column="12" selection-end-line="167" selection-end-column="12" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+            <marker date="1565629250360" expanded="true" signature="3208:3326" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/project_ssms/utils.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="420">
+          <caret line="99" column="28" selection-start-line="99" selection-start-column="28" selection-end-line="99" selection-end-column="28" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+            <marker date="1565553758487" expanded="true" signature="2706:2810" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ssm_ptc/distributions/truncatednormal.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="85">
+          <caret line="28" column="40" selection-start-line="28" selection-start-column="40" selection-end-line="28" selection-end-column="40" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/project_ssms/ar_truncated_normal_observation.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="470">
+          <caret line="84" column="21" selection-start-line="84" selection-start-column="21" selection-end-line="84" selection-end-column="21" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/tests/project_ssms/tests/debug_sampling.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="305">
+          <caret line="55" column="21" selection-start-line="55" selection-start-column="21" selection-end-line="55" selection-end-column="21" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/project_ssms/feature_funcs.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="485">
+          <caret line="118" column="37" selection-start-line="118" selection-start-column="37" selection-end-line="118" selection-end-column="37" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+            <marker date="1565880617282" expanded="true" signature="519:589" ph="..." />
+            <marker date="1565880617282" expanded="true" signature="1282:1324" ph="..." />
+            <marker date="1565880617282" expanded="true" signature="2209:2212" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/project_ssms/coupled_transformations/grid_transformation.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="525">
+          <caret line="35" column="33" selection-start-line="35" selection-start-column="33" selection-end-line="35" selection-end-column="33" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+            <marker date="1565816757878" expanded="true" signature="798:7416" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/tests/project_ssms/tests/test_grid_transformation.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1410">
+          <caret line="122" lean-forward="true" selection-start-line="122" selection-end-line="122" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/project_ssms/single_transformations/single_direction_transformation.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="416">
+          <caret line="29" column="86" lean-forward="true" selection-start-line="29" selection-start-column="86" selection-end-line="29" selection-end-column="86" />
+          <folding>
+            <element signature="e#0#30#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/tests/project_ssms/tests/test_artn.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="330">
+          <caret line="22" column="4" lean-forward="true" selection-start-line="22" selection-start-column="4" selection-end-line="22" selection-end-column="4" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ssm_ptc/__init__.py">
+      <provider selected="true" editor-type-id="text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/test_params.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="150">
+          <caret line="11" column="32" lean-forward="true" selection-start-line="11" selection-start-column="32" selection-end-line="11" selection-end-column="32" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ssm_ptc/models/hmm.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="480">
+          <caret line="32" column="19" lean-forward="true" selection-start-line="32" selection-start-column="19" selection-end-line="32" selection-end-column="19" />
+          <folding>
+            <element signature="e#71#83#0" expanded="true" />
+            <marker date="1565628451631" expanded="true" signature="3202:3309" ph="..." />
+            <marker date="1565628451631" expanded="true" signature="3392:3393" ph="..." />
+            <marker date="1565628451631" expanded="true" signature="3393:3398" ph="..." />
+            <marker date="1565628451631" expanded="true" signature="7093:7099" ph="..." />
+            <marker date="1565628451631" expanded="true" signature="9796:9866" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/tests/ssm_ptc/test_params.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-180">
+          <caret line="17" column="8" lean-forward="true" selection-start-line="17" selection-start-column="8" selection-end-line="17" selection-end-column="8" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+  </component>
+</project>
