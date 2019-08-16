@@ -11,6 +11,21 @@ from project_ssms.ar_truncated_normal_observation import ARTruncatedNormalObserv
 from project_ssms.utils import k_step_prediction_for_grid_model
 
 import joblib
+import git
+
+
+repo = git.Repo('.', search_parent_directories=True) # SocialBehaviorectories=True)
+repo_dir = repo.working_tree_dir  # SocialBehavior
+
+data_dir = repo_dir +'/SocialBehaviorptc/data/trajs_all'
+trajs = joblib.load(data_dir)
+
+traj0 = trajs[36000*0:36000*1]
+
+f_traj = filter_traj_by_speed(traj0, q1=0.99, q2=0.99)
+
+data = torch.tensor(f_traj, dtype=torch.float64)
+data = data[:100]
 
 torch.manual_seed(0)
 np.random.seed(0)

@@ -1,15 +1,21 @@
 import torch
 import numpy as np
 
-from project_ssms.momentum_interaction_observation2 import MomentumInteractionObservation, \
+from project_ssms.coupled_transformations.momentum_interaction_observation2 import MomentumInteractionObservation, \
     MomentumInteractionTransformation
 from project_ssms.momentum_utils import filter_traj_by_speed
 from project_ssms.feature_funcs import feature_func_single
+from project_ssms.utils import k_step_prediction_for_momentum_interaction_model
 
 from ssm_ptc.models.hmm import HMM
-from ssm_ptc.utils import k_step_prediction_for_coupled_momentum_interatcion_model, k_step_prediction
+from ssm_ptc.utils import k_step_prediction
 
 import joblib
+import git
+
+
+repo = git.Repo('.', search_parent_directories=True) # SocialBehaviorectories=True)
+repo_dir = repo.working_tree_dir  # SocialBehavior
 
 
 torch.manual_seed(0)
@@ -18,20 +24,15 @@ np.random.seed(0)
 
 ######################## Datasets ########################
 
-datasets_processed = \
-    joblib.load('/Users/leah/Columbia/courses/19summer/SocialBehavior/tracedata/all_data_3_1')  # a list of length 30, each is a social_dataset
+data_dir = repo_dir +'/SocialBehaviorptc/data/trajs_all'
+trajs = joblib.load(data_dir)
 
-rendered_data = []
-for dataset in datasets_processed:
-    session_data = dataset.render_trajectories([3,8])  # list of length 2, each item is an array (T, 2). T = 36000
-    rendered_data.append(np.concatenate((session_data),axis = 1)) # each item is an array (T, 4)
-trajectories = np.concatenate(rendered_data,axis=0)  # (T*30, 4)
-
-traj0 = rendered_data[0]
-
+traj0 = trajs[36000*0:36000*1]
 f_traj = filter_traj_by_speed(traj0, q1=0.99, q2=0.99)
 
 data = torch.tensor(f_traj, dtype=torch.float64)
+data = data[:100]
+
 
 
 arena_xmin = 10
@@ -101,7 +102,7 @@ print("inferiring most likely states...")
 z = model.most_likely_states(data, momentum_vecs=momentum_vecs, interaction_vecs=interaction_vecs)
 
 print("k step prediction")
-x_predict = k_step_prediction_for_coupled_momentum_interatcion_model(model, z, data,
+x_predict = k_step_prediction_for_momentum_interaction_model(model, z, data,
                                                          momentum_vecs=momentum_vecs, interaction_vecs=interaction_vecs)
 print("k step prediction without precomputed features.")
 x_predict_2 = k_step_prediction(model, z, data, 10)

@@ -60,10 +60,10 @@ def toy_feature_vec_func(s, o):
     :return: features, (T, Df, 2)
     """
     feature_funcs = [unit_vector_to_other,
-                     lambda s, o: unit_vector_to_fixed_loc(s, o, torch.tensor([0, 0], dtype=torch.float64)),
-                     lambda s, o: unit_vector_to_fixed_loc(s, o, torch.tensor([0, 8], dtype=torch.float64)),
-                     lambda s, o: unit_vector_to_fixed_loc(s, o, torch.tensor([10, 0], dtype=torch.float64)),
-                     lambda s, o: unit_vector_to_fixed_loc(s, o, torch.tensor([10, 8], dtype=torch.float64)),
+                     lambda s, o: unit_vector_to_fixed_loc(s, torch.tensor([0, 0], dtype=torch.float64)),
+                     lambda s, o: unit_vector_to_fixed_loc(s, torch.tensor([0, 8], dtype=torch.float64)),
+                     lambda s, o: unit_vector_to_fixed_loc(s, torch.tensor([10, 0], dtype=torch.float64)),
+                     lambda s, o: unit_vector_to_fixed_loc(s, torch.tensor([10, 8], dtype=torch.float64)),
                      ]
 
     features = [f(s, o) for f in feature_funcs]  # each is a tensor of shape (T,2), and there are Df items of them
