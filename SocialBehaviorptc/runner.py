@@ -38,8 +38,8 @@ CORNERS = torch.tensor([[ARENA_XMIN, ARENA_YMIN], [ARENA_XMIN, ARENA_YMAX],
 @click.option('--job_name', default=None, help='name of the job')
 @click.option('--load_model', default=False, help='Whether to load the (trained) model')
 @click.option('--load_model_dir', default="", help='Directory of model to load')
-@click.option('--video_clips', default=[0, 5], help='The starting and ending video clips of the training data. '
-                                                    'Input should be a list of two integer')
+@click.option('--video_clip_start', default=0, help='The starting video clip of the training data.')
+@click.option('--video_clip_end', default=1, help='The ending video clip of the training data.')
 @click.option('--torch_seed', default=0, help='torch random seed')
 @click.option('--np_seed', default=0, help='numpy random seed')
 @click.option('--k', default=4, help='number of hidden states')
@@ -48,7 +48,7 @@ CORNERS = torch.tensor([[ARENA_XMIN, ARENA_YMIN], [ARENA_XMIN, ARENA_YMAX],
 @click.option('--num_iters', default=8000, help='number of iterations for training')
 @click.option('--lr', default=0.005, help='learning rate for training')
 @click.option('--sample_t', default=100, help='length of samples')
-def main(job_name, load_model, load_model_dir, video_clips, torch_seed, np_seed, k, n_x, n_y, num_iters, lr, sample_t):
+def main(job_name, load_model, load_model_dir, video_clip_start, video_clip_end, torch_seed, np_seed, k, n_x, n_y, num_iters, lr, sample_t):
     if job_name is None:
         raise ValueError("Please provide the job name.")
     K = k
@@ -64,11 +64,10 @@ def main(job_name, load_model, load_model_dir, video_clips, torch_seed, np_seed,
     data_dir = repo_dir + '/SocialBehaviorptc/data/trajs_all'
     trajs = joblib.load(data_dir)
 
-    traj0 = trajs[36000*video_clips[0]:36000*video_clips[1]]
+    traj0 = trajs[36000*video_clip_start:36000*video_clip_end]
     f_traj = filter_traj_by_speed(traj0, q1=0.99, q2=0.99)
 
     data = torch.tensor(f_traj, dtype=torch.float64)
-    data = data[:100]
 
     ######################### model ####################
 
@@ -114,7 +113,8 @@ def main(job_name, load_model, load_model_dir, video_clips, torch_seed, np_seed,
                   "n_y": n_y,
                   "num_iters": num_iters,
                   "lr": lr,
-                  "video_clips": video_clips,
+                  "video_clip_start": video_clip_start,
+                  "video_clip_end": video_clip_end,
                   "sample_T": sample_T}
 
     print("Experiment params:")
@@ -204,7 +204,7 @@ def main(job_name, load_model, load_model_dir, video_clips, torch_seed, np_seed,
 
     #################### saving ##############################
 
-    print("Begin saving.")
+    print("begin saving...")
     # save model
     joblib.dump(model, rslt_dir+"/model")
 
