@@ -153,10 +153,8 @@ def main(job_name, load_model, load_model_dir, video_clip_start, video_clip_end,
     print("0 step prediction")
     x_predict = k_step_prediction_for_grid_model(model, z, data, memory_kwargs_a=m_kwargs_a, memory_kwargs_b=m_kwargs_b)
 
-    #print("5 step prediction")
-    #x_predict_5 = k_step_prediction(model, z, data)
-    x_predict_5 = []
-
+    print("5 step prediction")
+    x_predict_5 = k_step_prediction(model, z, data)
 
     ################### samples #########################
 
