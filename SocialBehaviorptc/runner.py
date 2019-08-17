@@ -257,6 +257,7 @@ def main(job_name, load_model, load_model_dir, video_clip_start, video_clip_end,
     plot_quiver(XY_grids, dXY, 'mother', K=K, scale=0.2, alpha=0.9)
     plt.savefig(rslt_dir+"/quiver_b.jpg")
 
+    print("Finish running!")
 
 if __name__ == "__main__":
     main()
