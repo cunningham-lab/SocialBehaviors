@@ -29,18 +29,18 @@ f_traj = filter_traj_by_speed(traj0, q1=0.99, q2=0.99)
 data = torch.tensor(f_traj, dtype=torch.float64)
 data = data[:2]
 
-arena_xmin = 0
-arena_xmax = 330
+ARENA_XMIN = 0
+ARENA_XMAX = 330
 
-arena_ymin = -10
-arena_ymax = 390
+ARENA_YMIN = -10
+ARENA_YMAX = 390
 
 # make 3 by 3 grid world
-x_grid_gap = (arena_xmax - arena_xmin) / 2
-y_grid_gap = (arena_ymax - arena_ymin) / 2
+x_grid_gap = (ARENA_XMAX - ARENA_XMIN) / 2
+y_grid_gap = (ARENA_YMAX - ARENA_YMIN) / 2
 
-x_grids = np.array([arena_xmin + i * x_grid_gap for i in range(3)])
-y_grids = np.array([arena_ymin + j * y_grid_gap for j in range(3)])
+x_grids = np.array([ARENA_XMIN + i * x_grid_gap for i in range(3)])
+y_grids = np.array([ARENA_YMIN + j * y_grid_gap for j in range(3)])
 
 """
 # fake data

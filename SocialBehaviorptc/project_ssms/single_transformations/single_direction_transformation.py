@@ -37,6 +37,11 @@ class SingleDirectionTransformation(BaseSingleTransformation):
     def params(self, values):
         self.Ws = set_param(self.Ws, values)
 
+    @property
+    def weights(self):
+        # (K, Df)
+        return self.acc_factor * torch.sigmoid(self.Ws)
+
     @abstractmethod
     def permute(self, perm):
         self.Ws = torch.tensor(self.Ws[perm], requires_grad=True)
