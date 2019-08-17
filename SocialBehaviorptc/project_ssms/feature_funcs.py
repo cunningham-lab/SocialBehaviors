@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 
-from ssm_ptc.utils import check_and_convert_to_tensor
+from project_ssms.constants import ARENA_XMIN, ARENA_XMAX, ARENA_YMIN, ARENA_YMAX
 
 
 # some constants
@@ -120,11 +120,6 @@ def feature_direction_vec(s, corners):
     features = torch.stack(features, dim=1)
     return features
 
-
-ARENA_XMIN = 5
-ARENA_XMAX = 325
-ARENA_YMIN = -10
-ARENA_YMAX = 390
 
 # feature_funcs
 CORNERS = torch.tensor([[ARENA_XMIN, ARENA_YMIN], [ARENA_XMIN, ARENA_YMAX],

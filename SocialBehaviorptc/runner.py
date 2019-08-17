@@ -9,6 +9,7 @@ from project_ssms.momentum_utils import filter_traj_by_speed
 from project_ssms.utils import k_step_prediction_for_grid_model
 from project_ssms.plot_utils import plot_z, plot_2_mice, plot_4_traces
 from project_ssms.grid_utils import plot_weights, plot_dynamics, plot_quiver, add_grid
+from project_ssms.constants import ARENA_XMIN, ARENA_XMAX, ARENA_YMIN, ARENA_YMAX
 
 from saver.rslts_saving import addDateTime, NumpyEncoder
 
@@ -21,16 +22,6 @@ import git
 import os
 import click
 import json
-
-ARENA_XMIN = 5
-ARENA_XMAX = 325
-ARENA_YMIN = -10
-ARENA_YMAX = 390
-
-# feature_funcs
-CORNERS = torch.tensor([[ARENA_XMIN, ARENA_YMIN], [ARENA_XMIN, ARENA_YMAX],
-                        [ARENA_XMAX, ARENA_YMIN], [ARENA_XMAX, ARENA_YMAX]], dtype=torch.float64)
-
 
 ################### specifying default arguments ################
 
@@ -45,14 +36,16 @@ CORNERS = torch.tensor([[ARENA_XMIN, ARENA_YMIN], [ARENA_XMIN, ARENA_YMAX],
 @click.option('--k', default=4, help='number of hidden states')
 @click.option('--n_x', default=3, help='number of grids in x axis')
 @click.option('--n_y', default=3, help='number of grids in y_axis')
-@click.option('--num_iters', default=8000, help='number of iterations for training')
+@click.option('--list_of_num_iters', default='5000,5000', help='a list of checkpoint numbers of iterations for training')
 @click.option('--lr', default=0.005, help='learning rate for training')
 @click.option('--sample_t', default=100, help='length of samples')
-def main(job_name, load_model, load_model_dir, video_clip_start, video_clip_end, torch_seed, np_seed, k, n_x, n_y, num_iters, lr, sample_t):
+def main(job_name, load_model, load_model_dir, video_clip_start, video_clip_end, torch_seed, np_seed, k, n_x, n_y,
+         list_of_num_iters, lr, sample_t):
     if job_name is None:
         raise ValueError("Please provide the job name.")
     K = k
     sample_T = sample_t
+    list_of_num_iters = [int(x) for x in list_of_num_iters.split(",")]
 
     repo = git.Repo('.', search_parent_directories=True)  # SocialBehaviorectories=True)
     repo_dir = repo.working_tree_dir  # SocialBehavior
@@ -64,8 +57,8 @@ def main(job_name, load_model, load_model_dir, video_clip_start, video_clip_end,
     data_dir = repo_dir + '/SocialBehaviorptc/data/trajs_all'
     trajs = joblib.load(data_dir)
 
-    traj0 = trajs[36000*video_clip_start:36000*video_clip_end]
-    f_traj = filter_traj_by_speed(traj0, q1=0.99, q2=0.99)
+    traj = trajs[36000*video_clip_start:36000*video_clip_end]
+    f_traj = filter_traj_by_speed(traj, q1=0.99, q2=0.99)
 
     data = torch.tensor(f_traj, dtype=torch.float64)
 
@@ -111,7 +104,7 @@ def main(job_name, load_model, load_model_dir, video_clip_start, video_clip_end,
                   "K": K,
                   "n_x": n_x,
                   "n_y": n_y,
-                  "num_iters": num_iters,
+                  "list_of_num_iters": list_of_num_iters,
                   "lr": lr,
                   "video_clip_start": video_clip_start,
                   "video_clip_end": video_clip_end,
@@ -141,20 +134,39 @@ def main(job_name, load_model, load_model_dir, video_clip_start, video_clip_end,
     ##################### training ############################
     if not load_model:
         print("start training")
-        losses, opt = model.fit(data, num_iters=num_iters, lr=lr, masks=(masks_a, masks_b),
+        list_of_losses = []
+        for i, num_iters in enumerate(list_of_num_iters):
+            if i == 0:
+                losses, opt = model.fit(data, num_iters=num_iters, lr=lr, masks=(masks_a, masks_b),
                                           memory_kwargs_a=m_kwargs_a, memory_kwargs_b=m_kwargs_b)
+                list_of_losses.append(losses)
+                # save model
+                joblib.dump(model, rslt_dir+"/model_checkpoint{}".format(i))
+            else:
+                losses, _ = model.fit(data, num_iters=num_iters, lr=lr, masks=(masks_a, masks_b),
+                                          memory_kwargs_a=m_kwargs_a, memory_kwargs_b=m_kwargs_b)
+                list_of_losses.append(losses)
+                # save model
+                joblib.dump(model, rslt_dir+"/model_checkpoint{}".format(i))
 
     #################### inference ###########################
 
-    print("inferiring most likely states...")
+    print("\ninferiring most likely states...")
     z = model.most_likely_states(data, masks=(masks_a, masks_b),
                                       memory_kwargs_a=m_kwargs_a, memory_kwargs_b=m_kwargs_b)
 
     print("0 step prediction")
-    x_predict = k_step_prediction_for_grid_model(model, z, data, memory_kwargs_a=m_kwargs_a, memory_kwargs_b=m_kwargs_b)
+    if data.shape[0] <= 1000:
+        data_to_predict = data
+    else:
+        data_to_predict = data[-1000:]
+    x_predict = k_step_prediction_for_grid_model(model, z, data_to_predict, memory_kwargs_a=m_kwargs_a, memory_kwargs_b=m_kwargs_b)
+    x_predict_err = np.mean(np.abs(x_predict - data_to_predict.numpy()), axis=0)
 
     print("5 step prediction")
-    x_predict_5 = k_step_prediction(model, z, data)
+    x_predict_5 = k_step_prediction(model, z, data_to_predict, k=5)
+    x_predict_5_err = np.mean(np.abs(x_predict_5-data_to_predict[5:].numpy()), axis=0)
+
 
     ################### samples #########################
 
@@ -203,28 +215,26 @@ def main(job_name, load_model, load_model_dir, video_clip_start, video_clip_end,
     #################### saving ##############################
 
     print("begin saving...")
-    # save model
-    joblib.dump(model, rslt_dir+"/model")
 
     if not load_model:
         joblib.dump(opt, rslt_dir+"/optimizer")
 
     # save numbers
     saving_dict = {"z": z, "x_predict": x_predict, "x_predict_5": x_predict_5,
+                   "x_predict_err": x_predict_err, "x_predict_5_err": x_predict_5_err,
                    "sample_z": sample_z, "sample_x": sample_x,
                    "sample_z_center": sample_z_center, "sample_x_center": sample_x_center,
                    "grid_z_a_percentage": grid_z_a_percentage, "grid_z_b_percentage": grid_z_b_percentage}
 
     if not load_model:
-        saving_dict['losses'] = losses
+        saving_dict['list_of_losses'] = list_of_losses
+        for i, losses in enumerate(list_of_losses):
+            plt.figure()
+            plt.plot(losses)
+            plt.savefig(rslt_dir+"/losses_{}.jpg".format(i))
     joblib.dump(saving_dict, rslt_dir+"/numbers")
 
     # save figures
-    plt.figure(figsize=(4,4))
-    plot_2_mice(data.numpy())
-    plt.legend()
-    add_grid(x_grids, y_grids)
-    plt.savefig(rslt_dir+"/data.jpg")
     plt.figure(figsize=(4,4))
     plot_2_mice(sample_x)
     plt.legend()
@@ -256,6 +266,7 @@ def main(job_name, load_model, load_model_dir, video_clip_start, video_clip_end,
     plt.savefig(rslt_dir+"/quiver_b.jpg")
 
     print("Finish running!")
+
 
 if __name__ == "__main__":
     main()

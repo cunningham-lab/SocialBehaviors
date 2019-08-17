@@ -108,8 +108,8 @@ def weighted_fit_line_in_batch(batch_xs, batch_ys, weights=None, return_b=False)
 
 
 def filter_speed(traj, quantile=0.99, threshold=None):
-    assert len(traj.shape) == 2
-    assert traj.shape[1] == 2
+    T, d = traj.shape
+    assert d == 2
     speed = np.sqrt(np.diff(traj[:, 0]) ** 2 + np.diff(traj[:, 1]) ** 2)
     if threshold is None:
         threshold = np.quantile(speed, quantile)
@@ -118,7 +118,7 @@ def filter_speed(traj, quantile=0.99, threshold=None):
     part_okindex = np.zeros((part_okidx.shape[0] + 1,), dtype=part_okidx.dtype)
     part_okindex[1:] = part_okidx + 1
 
-    time_index = np.arange(0, 36000)
+    time_index = np.arange(0, T)
     part_oktraj = traj[part_okindex]
 
     filtered_x = np.interp(time_index, part_okindex, part_oktraj[:, 0])
