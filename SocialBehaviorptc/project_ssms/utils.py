@@ -99,3 +99,14 @@ def k_step_prediction_for_grid_model(model, model_z, data, **memory_kwargs):
 
         x_predict_arr = np.array(x_predict_arr)
         return x_predict_arr
+
+
+def downsample(traj, n):
+    # data : (T, D)
+    if n == 1:
+        return traj
+    T, _ = traj.shape
+    T_over_n = int(T / n)
+    idx = n * np.arange(T_over_n)
+    return traj[idx]
+

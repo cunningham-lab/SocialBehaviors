@@ -6,7 +6,7 @@ from project_ssms.coupled_transformations.grid_transformation import GridTransfo
 from project_ssms.single_transformations import single_direction_transformation
 from project_ssms.feature_funcs import f_corner_vec_func
 from project_ssms.momentum_utils import filter_traj_by_speed
-from project_ssms.utils import k_step_prediction_for_grid_model
+from project_ssms.utils import k_step_prediction_for_grid_model, downsample
 from project_ssms.plot_utils import plot_z, plot_2_mice, plot_4_traces
 from project_ssms.grid_utils import plot_weights, plot_dynamics, plot_quiver, add_grid
 from project_ssms.constants import ARENA_XMIN, ARENA_XMAX, ARENA_YMIN, ARENA_YMAX
@@ -27,6 +27,7 @@ import json
 
 @click.command()
 @click.option('--job_name', default=None, help='name of the job')
+@click.option('--downsample_n', default=1, help='downsample factor. Data size will reduce to 1/downsample_n')
 @click.option('--load_model', default=False, help='Whether to load the (trained) model')
 @click.option('--load_model_dir', default="", help='Directory of model to load')
 @click.option('--video_clip_start', default=0, help='The starting video clip of the training data.')
@@ -39,7 +40,7 @@ import json
 @click.option('--list_of_num_iters', default='5000,5000', help='a list of checkpoint numbers of iterations for training')
 @click.option('--lr', default=0.005, help='learning rate for training')
 @click.option('--sample_t', default=100, help='length of samples')
-def main(job_name, load_model, load_model_dir, video_clip_start, video_clip_end, torch_seed, np_seed, k, n_x, n_y,
+def main(job_name, downsample_n, load_model, load_model_dir, video_clip_start, video_clip_end, torch_seed, np_seed, k, n_x, n_y,
          list_of_num_iters, lr, sample_t):
     if job_name is None:
         raise ValueError("Please provide the job name.")
@@ -58,6 +59,7 @@ def main(job_name, load_model, load_model_dir, video_clip_start, video_clip_end,
     trajs = joblib.load(data_dir)
 
     traj = trajs[36000*video_clip_start:36000*video_clip_end]
+    traj = downsample(traj, downsample_n)
     f_traj = filter_traj_by_speed(traj, q1=0.99, q2=0.99)
 
     data = torch.tensor(f_traj, dtype=torch.float64)
@@ -99,6 +101,7 @@ def main(job_name, load_model, load_model_dir, video_clip_start, video_clip_end,
 
     # save experiment params
     exp_params = {"job_name":   job_name,
+                  'downsample_n': downsample_n,
                   "load_model": load_model,
                   "load_model_dir": load_model_dir,
                   "K": K,
