@@ -236,6 +236,15 @@ def main(job_name, downsample_n, load_model, load_model_dir, train_model, video_
     joblib.dump(saving_dict, rslt_dir+"/numbers")
 
     # save figures
+    plot_z(z)
+    plt.savefig(rslt_dir+"/z.jpg")
+
+    plot_z(sample_z)
+    plt.savefig(rslt_dir+"/sample_z.jpg")
+
+    plot_z(sample_z_center)
+    plt.savefig(rslt_dir+"/sample_z_center.jpg")
+
     plt.figure(figsize=(4,4))
     plot_2_mice(sample_x)
     plt.legend()
@@ -259,10 +268,10 @@ def main(job_name, downsample_n, load_model, load_model_dir, train_model, video_
     plot_dynamics(weighted_corner_vecs_b, "mother", x_grids, y_grids, K=K, scale=0.2, percentage=grid_z_b_percentage)
     plt.savefig(rslt_dir+"/dynamics_b.jpg")
 
-    plot_quiver(XY_grids[:, 0:2], dXY[:, 0:2], 'virgin', K=K, scale=0.2, alpha=0.9)
+    plot_quiver(XY_grids[:, 0:2], dXY[..., 0:2], 'virgin', K=K, scale=0.2, alpha=0.9)
     plt.savefig(rslt_dir+"/quiver_a.jpg")
 
-    plot_quiver(XY_grids[:, 2:4], dXY[:, 2:4], 'mother', K=K, scale=0.2, alpha=0.9)
+    plot_quiver(XY_grids[:, 2:4], dXY[..., 2:4], 'mother', K=K, scale=0.2, alpha=0.9)
     plt.savefig(rslt_dir+"/quiver_b.jpg")
 
     print("Finish running!")

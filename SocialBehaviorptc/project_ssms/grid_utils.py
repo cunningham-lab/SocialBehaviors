@@ -117,7 +117,6 @@ def plot_dynamics(weighted_corner_vecs, animal, x_grids, y_grids, K, scale=0.1, 
                    units='xy', scale=scale, width=2, color='red', alpha=0.5)
         plt.title("K={}, ".format(k) + animal, fontsize=20)
 
-
     if K <= 4:
         plt.figure(figsize=(20, 5))
         for k in range(K):
