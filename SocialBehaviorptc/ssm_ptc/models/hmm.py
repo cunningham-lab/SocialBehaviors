@@ -349,7 +349,13 @@ class HMM:
             elif method == 'sgd':
                 optimizer = torch.optim.SGD(self.trainable_params, lr=lr)
             else:
-                raise ValueError("method must be chosen from adam and sgd.")
+                raise ValueError("Method must be chosen from adam and sgd.")
+
+        elif optimizer is not None:
+            assert isinstance(optimizer, (torch.optim.SGD, torch.optim.Adam)), \
+                "Optimizer must be chosen from SGD or Adam"
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = lr
 
         losses = []
         for i in np.arange(num_iters):
