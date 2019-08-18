@@ -10,7 +10,7 @@ from project_ssms.momentum_utils import get_momentum_in_batch, get_momentum
 # base class for transformation
 class SingleDirectionTransformation(BaseSingleTransformation):
     """
-    x^{self}_t \sim x^{self}_{t-1} + acc_factor * [ \sum_{i=1}^{Df} sigmoid(W_i) f_i (self, other)]
+    x^{self}_t \sim x^{self}_{t-1} + acc_factor * [ \sum_{i=1}^{Df} sigmoid(W^k_i) f_i (self)]
     """
 
     def __init__(self, K, D, Df, feature_vec_func=None, acc_factor=2):
@@ -96,7 +96,7 @@ class SingleDirectionTransformation(BaseSingleTransformation):
 
         assert feature_vec.shape == (self.Df, self.d)
 
-        # (1, 1+Df) * (1+Df, d) -> (1, d)
+        # (1, Df) * (Df, d) -> (1, d)
         out = torch.matmul(torch.sigmoid(self.Ws[z][None]), feature_vec)
         assert out.shape == (1, self.d)
 
