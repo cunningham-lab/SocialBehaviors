@@ -3,18 +3,18 @@ import torch
 
 from ssm_ptc.utils import check_and_convert_to_tensor, set_param
 
-from project_ssms.single_transformations.base_single_transformation import BaseSingleTransformation
+from project_ssms.unit_transformations.base_unit_transformation import BaseSingleTransformation
 from project_ssms.momentum_utils import get_momentum_in_batch, get_momentum
 
 
 # base class for transformation
-class SingleDirectionTransformation(BaseSingleTransformation):
+class SingleDirectionSpeedFreeTransformation(BaseSingleTransformation):
     """
-    x^{self}_t \sim x^{self}_{t-1} + acc_factor * [ \sum_{i=1}^{Df} sigmoid(W^k_i) f_i (self)]
+    x^{self}_t \sim x^{self}_{t-1} + [ \sum_{i=1}^{Df} W_i f_i (self, other)]
     """
 
     def __init__(self, K, D, Df, feature_vec_func=None, acc_factor=2):
-        super(SingleDirectionTransformation, self).__init__(K, D)
+        super(SingleDirectionSpeedFreeTransformation, self).__init__(K, D)
         # d = int(D/2)
 
         if Df is None:
@@ -37,11 +37,6 @@ class SingleDirectionTransformation(BaseSingleTransformation):
     def params(self, values):
         self.Ws = set_param(self.Ws, values)
 
-    @property
-    def weights(self):
-        # (K, Df)
-        return self.acc_factor * torch.sigmoid(self.Ws)
-
     @abstractmethod
     def permute(self, perm):
         self.Ws = torch.tensor(self.Ws[perm], requires_grad=True)
@@ -50,7 +45,7 @@ class SingleDirectionTransformation(BaseSingleTransformation):
     def transform(self, inputs_self, inputs_other, **memory_kwargs):
         """
         x^{self}_t \sim
-        x^{self}_{t-1} + acc_factor * [ \sum_{i=1}^{Df} sigmoid(W_i) f_i (self, other)]
+        x^{self}_{t-1} + acc_factor * [ \sum_{i=1}^{Df} W_i f_i (self, other)]
         :param inputs_self: (T, d)
         :param inputs_other: (T, d)
         :param momentum_vecs:
@@ -68,7 +63,7 @@ class SingleDirectionTransformation(BaseSingleTransformation):
             + ". It should have shape ({}, {}, {}).".format(T, self.Df, self.d)
 
         # (K, Df) * (T, Df, d) -> (T, K, d)
-        out = torch.matmul(torch.sigmoid(self.Ws), feature_vecs)
+        out = torch.matmul(self.Ws, feature_vecs)
         assert out.shape == (T, self.K, 2)
 
         out = inputs_self[:, None, ] + self.acc_factor * out
@@ -96,8 +91,8 @@ class SingleDirectionTransformation(BaseSingleTransformation):
 
         assert feature_vec.shape == (self.Df, self.d)
 
-        # (1, Df) * (Df, d) -> (1, d)
-        out = torch.matmul(torch.sigmoid(self.Ws[z][None]), feature_vec)
+        # (1, 1+Df) * (1+Df, d) -> (1, d)
+        out = torch.matmul(self.Ws[z][None], feature_vec)
         assert out.shape == (1, self.d)
 
         out = torch.squeeze(out, dim=0)

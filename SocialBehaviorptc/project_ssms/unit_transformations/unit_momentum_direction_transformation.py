@@ -3,7 +3,7 @@ import torch
 
 from ssm_ptc.utils import check_and_convert_to_tensor, set_param
 
-from project_ssms.single_transformations.base_single_transformation import BaseSingleTransformation
+from project_ssms.unit_transformations.base_unit_transformation import BaseSingleTransformation
 from project_ssms.momentum_utils import get_momentum_in_batch, get_momentum
 
 

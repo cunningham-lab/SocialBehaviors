@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 
 
 def add_grid(x_grids, y_grids):
+    if x_grids is None or y_grids is None:
+        return
     plt.scatter([x_grids[0], x_grids[0], x_grids[-1], x_grids[-1]], [-10, 390, -10, 390])
     for j in range(len(y_grids)):
         plt.plot([x_grids[0], x_grids[-1]], [y_grids[j], y_grids[j]], '--', color='grey')
@@ -21,7 +23,7 @@ def add_grid_to_ax(ax, x_grids, y_grids):
         ax.plot([x_grids[i], x_grids[i]], [y_grids[0], y_grids[-1]], '--', color='grey')
 
 
-def plot_realdata_quiver(realdata, x_grids, y_grids, scale=0.3, alpha=0.8, xlim=None, ylim=None):
+def plot_realdata_quiver(realdata, x_grids=None, y_grids=None, scale=0.3, alpha=0.8, xlim=None, ylim=None):
     assert isinstance(realdata, np.ndarray), "please input ndarray"
     start = realdata[:-1]
     end = realdata[1:]
@@ -131,19 +133,13 @@ def plot_dynamics(weighted_corner_vecs, animal, x_grids, y_grids, K, scale=0.1, 
 
 
 def plot_quiver(XYs, dXYs, mouse, K,scale=1, alpha=1):
-    if mouse == 'virgin':
-        i = 0
-        j = 1
-    elif mouse == 'mother':
-        i = 2
-        j = 3
 
-    if K <=5:
+    if K <= 5:
         plt.figure(figsize=(20, 4))
 
         for k in range(K):
             plt.subplot(1, K, k+1)
-            plt.quiver(XYs[:, i], XYs[:, j], dXYs[:, k, i], dXYs[:, k, j],
+            plt.quiver(XYs[:, 0], XYs[:, 1], dXYs[:, k, 0], dXYs[:, k, 1],
                       angles='xy', scale_units='xy', scale=scale, alpha=alpha)
             plt.title('K={} '.format(k) + mouse)
 
@@ -152,7 +148,7 @@ def plot_quiver(XYs, dXYs, mouse, K,scale=1, alpha=1):
 
         for k in range(K):
             plt.subplot(2, int(K/2)+1, k+1)
-            plt.quiver(XYs[:, i], XYs[:, j], dXYs[:, k, i], dXYs[:, k, j],
+            plt.quiver(XYs[:, 0], XYs[:, 1], dXYs[:, k, 0], dXYs[:, k, 1],
                        angles='xy', scale_units='xy', scale=scale, alpha=alpha)
             plt.title('K={} '.format(k) + mouse)
 

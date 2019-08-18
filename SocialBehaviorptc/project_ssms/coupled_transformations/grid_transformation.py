@@ -4,11 +4,11 @@ import numpy as np
 from ssm_ptc.transformations.base_transformation import BaseTransformation
 from ssm_ptc.utils import check_and_convert_to_tensor
 
-from project_ssms.single_transformations.single_direction_speedfree_transformation\
+from project_ssms.unit_transformations.unit_direction_speedfree_transformation\
     import SingleDirectionSpeedFreeTransformation
-from project_ssms.single_transformations.single_momentum_direction_transformation\
+from project_ssms.unit_transformations.unit_momentum_direction_transformation\
     import SingleMomentumDirectionTransformation
-from project_ssms.single_transformations.single_direction_transformation import SingleDirectionTransformation
+from project_ssms.unit_transformations.unit_direction_transformation import SingleDirectionTransformation
 
 
 SINGLE_TRANSFORMATION_CLASSES = dict(

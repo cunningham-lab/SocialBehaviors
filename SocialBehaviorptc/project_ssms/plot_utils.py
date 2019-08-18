@@ -25,6 +25,10 @@ def plot_z(z, plot_range=None, ylim=None):
     plt.yticks([])
 
 
+def plot_1_mice(data, alpha=0.8, label='virgin'):
+    plt.plot(data[:, 0], data[:, 1], label=label, alpha=alpha)
+
+
 def plot_2_mice(data, alpha=0.8):
     plt.plot(data[:,0], data[:,1], label='virgin', alpha=alpha)
     plt.plot(data[:,2], data[:,3], label='mother', alpha=alpha)
