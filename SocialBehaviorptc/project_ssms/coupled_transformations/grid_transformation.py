@@ -133,8 +133,8 @@ class GridTransformation(BaseTransformation):
         memory_kwargs_b = memory_kwargs_b or {}
 
         # decide which transformation ot use
-        g_a = self.find_grid_index(inputs[-1, :2], self.x_grids, self.y_grids, self.G)
-        g_b = self.find_grid_index(inputs[-1, 2:], self.x_grids, self.y_grids, self.G)
+        g_a = self.find_grid_index(inputs[-1, :2], self.x_grids, self.y_grids)
+        g_b = self.find_grid_index(inputs[-1, 2:], self.x_grids, self.y_grids)
 
         out_a = self.transformations_a[g_a].transform_condition_on_z(z, inputs[:, :2], inputs[:, 2:], **memory_kwargs_a)
         out_b = self.transformations_b[g_b].transform_condition_on_z(z, inputs[:, 2:], inputs[:, :2], **memory_kwargs_b)
@@ -147,7 +147,7 @@ class GridTransformation(BaseTransformation):
         return out
 
     @staticmethod
-    def find_grid_index(point, x_grids, y_grids, G):
+    def find_grid_index(point, x_grids, y_grids):
         """
 
         :param point: (2, )
