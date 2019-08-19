@@ -226,34 +226,34 @@ def main(job_name, downsample_n, load_model, load_model_dir, train_model, pbar_u
     joblib.dump(saving_dict, rslt_dir+"/numbers")
 
     # save figures
-    plot_z(z)
-    plt.savefig(rslt_dir + "/z.jpg")
+    plot_z(z, K)
+    plt.savefig(rslt_dir + "/samples/z.jpg")
 
-    plot_z(sample_z)
-    plt.savefig(rslt_dir + "/sample_z.jpg")
+    plot_z(sample_z, K)
+    plt.savefig(rslt_dir + "/samples/sample_z.jpg")
 
-    plot_z(sample_z_center)
+    plot_z(sample_z_center, K)
     plt.savefig(rslt_dir + "/sample_z_center.jpg")
 
     plt.figure(figsize=(4,4))
     plot_1_mice(sample_x)
     plt.legend()
     add_grid(x_grids, y_grids)
-    plt.savefig(rslt_dir+"/sample_x.jpg")
+    plt.savefig(rslt_dir+"/samples/sample_x.jpg")
     plt.figure(figsize=(4,4))
     plot_1_mice(sample_x_center)
     plt.legend()
     add_grid(x_grids, y_grids)
-    plt.savefig(rslt_dir+"/sample_x_center.jpg")
+    plt.savefig(rslt_dir+"/samples/sample_x_center.jpg")
 
     plot_weights(weights_a, Df, K, x_grids, y_grids, max_weight=tran.transformations_a[0].acc_factor)
-    plt.savefig(rslt_dir+"/weights_a.jpg")
+    plt.savefig(rslt_dir+"/dynamics/weights_a.jpg")
 
     plot_dynamics(weighted_corner_vecs_a, "virgin", x_grids, y_grids, K=K, scale=0.2, percentage=grid_z_a_percentage)
-    plt.savefig(rslt_dir+"/dynamics_a.jpg")
+    plt.savefig(rslt_dir+"/dynamics/dynamics_a.jpg")
 
     plot_quiver(XY_grids, dXY, 'virgin', K=K, scale=0.2, alpha=0.9)
-    plt.savefig(rslt_dir+"/quiver_a.jpg")
+    plt.savefig(rslt_dir+"/dynamics/quiver_a.jpg")
 
     print("Finish running!")
 

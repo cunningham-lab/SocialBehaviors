@@ -8,7 +8,7 @@ from project_ssms.feature_funcs import f_corner_vec_func
 from project_ssms.momentum_utils import filter_traj_by_speed
 from project_ssms.utils import k_step_prediction_for_grid_model, downsample
 from project_ssms.plot_utils import plot_z, plot_2_mice, plot_4_traces
-from project_ssms.grid_utils import plot_weights, plot_dynamics, plot_quiver, add_grid
+from project_ssms.grid_utils import plot_weights, plot_dynamics, plot_quiver, add_grid, plot_realdata_quiver
 from project_ssms.constants import ARENA_XMIN, ARENA_XMAX, ARENA_YMIN, ARENA_YMAX
 
 from saver.rslts_saving import addDateTime, NumpyEncoder
@@ -92,8 +92,8 @@ def main(job_name, downsample_n, load_model, load_model_dir, train_model, pbar_u
         tran = model.observation.transformation
 
         K = model.K
-        n_x = len(tran.transformations_a[0].x_grids) - 1
-        n_y = len(tran.transformations_a[0].y_grids) - 1
+        n_x = len(tran.x_grids) - 1
+        n_y = len(tran.y_grids) - 1
 
     else:
         tran = GridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids, unit_transformation="direction",
@@ -223,12 +223,25 @@ def main(job_name, downsample_n, load_model, load_model_dir, train_model, pbar_u
     if train_model:
         joblib.dump(opt, rslt_dir+"/optimizer")
 
+    # save summary
+    avg_transform_speed = np.average(np.abs(dXY), axis=0)
+    avg_sample_speed = np.average(np.abs(np.diff(sample_x, axis=0)), axis=0)
+    avg_sample_center_speed = np.average(np.abs(np.diff(sample_x_center, axis=0)), axis=0)
+    avg_data_speed = np.average(np.abs(np.diff(data.numpy(), axis=0)), axis=0)
+
+    summary_dict = {"x_predict_err": x_predict_err, "x_predict_5_err": x_predict_5_err,
+                    "variance": torch.exp(model.observation.log_sigmas).detach().numpy(),
+                    "log_likes": model.log_likelihood(data).detach().numpy(),
+                    "grid_z_a_percentage": grid_z_a_percentage, "grid_z_b_percentage": grid_z_b_percentage,
+                    "avg_transform_speed": avg_transform_speed, "avg_data_speed": avg_data_speed,
+                    "avg_sample_speed": avg_sample_speed, "avg_sample_center_speed": avg_sample_center_speed}
+    with open(rslt_dir+"/summary.json", "w") as f:
+        json.dump(summary_dict, f, indent=4, cls=NumpyEncoder)
+
     # save numbers
     saving_dict = {"z": z, "x_predict": x_predict, "x_predict_5": x_predict_5,
-                   "x_predict_err": x_predict_err, "x_predict_5_err": x_predict_5_err,
                    "sample_z": sample_z, "sample_x": sample_x,
-                   "sample_z_center": sample_z_center, "sample_x_center": sample_x_center,
-                   "grid_z_a_percentage": grid_z_a_percentage, "grid_z_b_percentage": grid_z_b_percentage}
+                   "sample_z_center": sample_z_center, "sample_x_center": sample_x_center}
 
     if train_model:
         saving_dict['list_of_losses'] = list_of_losses
@@ -239,43 +252,49 @@ def main(job_name, downsample_n, load_model, load_model_dir, train_model, pbar_u
     joblib.dump(saving_dict, rslt_dir+"/numbers")
 
     # save figures
-    plot_z(z)
+    plot_z(z, K)
     plt.savefig(rslt_dir+"/z.jpg")
 
-    plot_z(sample_z)
-    plt.savefig(rslt_dir+"/sample_z.jpg")
+    plot_z(sample_z, K)
+    plt.savefig(rslt_dir+"/samples/sample_z_{}.jpg".format(sample_T))
 
-    plot_z(sample_z_center)
-    plt.savefig(rslt_dir+"/sample_z_center.jpg")
+    plot_z(sample_z_center, K)
+    plt.savefig(rslt_dir+"/samples/sample_z_center_{}.jpg".format(sample_T))
 
     plt.figure(figsize=(4,4))
     plot_2_mice(sample_x)
     plt.legend()
     add_grid(x_grids, y_grids)
-    plt.savefig(rslt_dir+"/sample_x.jpg")
+    plt.savefig(rslt_dir+"/samples/sample_x_{}.jpg".format(sample_T))
     plt.figure(figsize=(4,4))
     plot_2_mice(sample_x_center)
     plt.legend()
     add_grid(x_grids, y_grids)
-    plt.savefig(rslt_dir+"/sample_x_center.jpg")
+    plt.savefig(rslt_dir+"/samples/sample_x_center_{}.jpg".format(sample_T))
+
+    plot_realdata_quiver(sample_x, x_grids, y_grids)
+    plt.savefig(rslt_dir+"/samples/sample_x_quiver_{}.jpg".format(sample_T))
+
+    plot_realdata_quiver(sample_x_center, x_grids, y_grids)
+    plt.savefig(rslt_dir+"/samples/sample_x_center_quiver_{}.jpg".format(sample_T))
 
     plot_weights(weights_a, Df, K, x_grids, y_grids, max_weight=tran.transformations_a[0].acc_factor)
-    plt.savefig(rslt_dir+"/weights_a.jpg")
+    plt.savefig(rslt_dir+"/dynamics/weights_a.jpg")
 
     plot_weights(weights_b, Df, K, x_grids, y_grids, max_weight=tran.transformations_b[0].acc_factor)
-    plt.savefig(rslt_dir+"/weights_b.jpg")
+    plt.savefig(rslt_dir+"/dynamics/weights_b.jpg")
 
     plot_dynamics(weighted_corner_vecs_a, "virgin", x_grids, y_grids, K=K, scale=0.2, percentage=grid_z_a_percentage)
-    plt.savefig(rslt_dir+"/dynamics_a.jpg")
+    plt.savefig(rslt_dir+"/dynamics/dynamics_a.jpg")
 
     plot_dynamics(weighted_corner_vecs_b, "mother", x_grids, y_grids, K=K, scale=0.2, percentage=grid_z_b_percentage)
-    plt.savefig(rslt_dir+"/dynamics_b.jpg")
+    plt.savefig(rslt_dir+"/dynamics/dynamics_b.jpg")
 
     plot_quiver(XY_grids[:, 0:2], dXY[..., 0:2], 'virgin', K=K, scale=0.2, alpha=0.9)
-    plt.savefig(rslt_dir+"/quiver_a.jpg")
+    plt.savefig(rslt_dir+"/dynamics/quiver_a.jpg")
 
     plot_quiver(XY_grids[:, 2:4], dXY[..., 2:4], 'mother', K=K, scale=0.2, alpha=0.9)
-    plt.savefig(rslt_dir+"/quiver_b.jpg")
+    plt.savefig(rslt_dir+"/dynamics/quiver_b.jpg")
 
     print("Finish running!")
 
