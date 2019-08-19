@@ -166,7 +166,7 @@ def plot_quiver(XYs, dXYs, mouse, K,scale=1, alpha=1):
     plt.tight_layout()
 
 
-def get_z_percentage_by_grid(masks_a, z, G):
+def get_z_percentage_by_grid(masks_a, z, K, G):
     masks_z_a = np.array([(z[:-1] + 1) * masks_a[g].numpy() for g in range(G)])
 
     # (G, K) For each grid g, number of data in that grid = k
