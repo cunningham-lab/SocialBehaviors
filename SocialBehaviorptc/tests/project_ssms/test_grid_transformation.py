@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 
-from project_ssms.unit_transformations.unit_momentum_direction_transformation import SingleMomentumDirectionTransformation
+from project_ssms.unit_transformations.unit_momentum_direction_transformation import UnitMomentumDirectionTransformation
 from project_ssms.coupled_transformations.grid_transformation import GridTransformation
 from project_ssms.momentum_utils import filter_traj_by_speed, get_momentum_in_batch, get_momentum
 from project_ssms.feature_funcs import feature_vec_func, unit_vector_to_fixed_loc, unit_vector_to_other

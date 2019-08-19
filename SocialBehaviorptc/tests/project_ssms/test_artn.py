@@ -4,7 +4,7 @@ import numpy as np
 from ssm_ptc.models.hmm import HMM
 from ssm_ptc.utils import k_step_prediction
 
-from project_ssms.unit_transformations.unit_momentum_direction_transformation import SingleMomentumDirectionTransformation
+from project_ssms.unit_transformations.unit_momentum_direction_transformation import UnitMomentumDirectionTransformation
 from project_ssms.coupled_transformations.grid_transformation import GridTransformation
 from project_ssms.momentum_utils import filter_traj_by_speed, get_momentum_in_batch, get_momentum
 from project_ssms.feature_funcs import unit_vector_to_fixed_loc, unit_vector_to_other, \
