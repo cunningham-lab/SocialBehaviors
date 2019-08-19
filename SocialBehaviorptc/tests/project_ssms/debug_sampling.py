@@ -40,7 +40,7 @@ bounds = np.array([[arena_xmin, arena_xmax], [arena_ymin, arena_ymax],
                    [arena_xmin, arena_xmax], [arena_ymin, arena_ymax]])
 
 
-tran = GridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids, single_transformation="direction",
+tran = GridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids, unit_transformation="direction",
                           Df=Df, feature_vec_func=f_corner_vec_func, acc_factor=10)
 
 obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=1, bounds=bounds, transformation=tran)

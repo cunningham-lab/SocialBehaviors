@@ -96,8 +96,8 @@ def main(job_name, downsample_n, load_model, load_model_dir, train_model, pbar_u
         n_y = len(tran.transformations_a[0].y_grids) - 1
 
     else:
-        tran = GridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids, single_transformation="direction",
-                              Df=Df, feature_vec_func=f_corner_vec_func, acc_factor=10)
+        tran = GridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids, unit_transformation="direction",
+                                  Df=Df, feature_vec_func=f_corner_vec_func, acc_factor=10)
         obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=1, bounds=bounds, transformation=tran)
 
         model = HMM(K=K, D=D, M=M, observation=obs)

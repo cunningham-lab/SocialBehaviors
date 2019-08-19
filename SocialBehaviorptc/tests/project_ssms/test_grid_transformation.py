@@ -79,7 +79,7 @@ momentum_weights = np.arange(0.55, 2.05, 0.05)
 momentum_weights = torch.tensor(momentum_weights, dtype=torch.float64)
 
 
-tran = GridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids, single_transformation="momentum_direction",
+tran = GridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids, unit_transformation="momentum_direction",
                           Df=Df, feature_vec_func=toy_feature_vec_func,
                           lags=momentum_lags, momentum_weights=momentum_weights)
 
@@ -88,9 +88,9 @@ assert len(tran.params) == 8
 
 
 ################# check parameters ######################
-tran_2 = GridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids, single_transformation="momentum_direction",
-                          Df=Df, feature_vec_func=toy_feature_vec_func,
-                          lags=momentum_lags, momentum_weights=momentum_weights)
+tran_2 = GridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids, unit_transformation="momentum_direction",
+                            Df=Df, feature_vec_func=toy_feature_vec_func,
+                            lags=momentum_lags, momentum_weights=momentum_weights)
 
 tran_2.params = tran.params
 

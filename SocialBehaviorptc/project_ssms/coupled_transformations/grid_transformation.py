@@ -11,7 +11,7 @@ from project_ssms.unit_transformations.unit_momentum_direction_transformation\
 from project_ssms.unit_transformations.unit_direction_transformation import UnitDirectionTransformation
 
 
-SINGLE_TRANSFORMATION_CLASSES = dict(
+UNIT_TRANSFORMATION_CLASSES = dict(
     momentum_direction=UnitMomentumDirectionTransformation,
     direction=UnitDirectionTransformation,
     direction_speedfree=UnitDirectionSpeedFreeTransformation
@@ -19,7 +19,7 @@ SINGLE_TRANSFORMATION_CLASSES = dict(
 
 
 class GridTransformation(BaseTransformation):
-    def __init__(self, K, D, x_grids, y_grids, single_transformation, **single_transformation_kwargs):
+    def __init__(self, K, D, x_grids, y_grids, unit_transformation, **unit_transformation_kwargs):
         super(GridTransformation, self).__init__(K, D)
         self.d = int(self.D / 2)
 
@@ -28,15 +28,15 @@ class GridTransformation(BaseTransformation):
 
         self.G = (len(self.x_grids) - 1) * (len(self.y_grids) - 1)
 
-        single_tran = SINGLE_TRANSFORMATION_CLASSES.get(single_transformation, None)
-        if single_tran is None:
-            raise ValueError("Invalid single transformation model: {}. Must be one of {}".
-                      format(single_transformation, list(SINGLE_TRANSFORMATION_CLASSES.keys())))
+        unit_tran = UNIT_TRANSFORMATION_CLASSES.get(unit_transformation, None)
+        if unit_tran is None:
+            raise ValueError("Invalid unit transformation model: {}. Must be one of {}".
+                             format(unit_transformation, list(UNIT_TRANSFORMATION_CLASSES.keys())))
 
-        self.transformations_a = [single_tran(K=self.K, D=self.D, **single_transformation_kwargs)
+        self.transformations_a = [unit_tran(K=self.K, D=self.D, **unit_transformation_kwargs)
                                   for _ in range(self.G)]
 
-        self.transformations_b = [single_tran(K=self.K, D=self.D, **single_transformation_kwargs)
+        self.transformations_b = [unit_tran(K=self.K, D=self.D, **unit_transformation_kwargs)
                                   for _ in range(self.G)]
 
     @property

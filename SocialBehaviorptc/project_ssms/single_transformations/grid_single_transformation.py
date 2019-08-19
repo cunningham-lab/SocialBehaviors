@@ -12,7 +12,7 @@ from project_ssms.unit_transformations.unit_direction_transformation import Unit
 from project_ssms.unit_transformations.unit_direction_transformation_with_input \
     import UnitDirectionTransformationWithInput
 
-SINGLE_TRANSFORMATION_CLASSES = dict(
+UNIT_TRANSFORMATION_CLASSES = dict(
     momentum_direction=UnitMomentumDirectionTransformation,
     direction=UnitDirectionTransformation,
     direction_with_input=UnitDirectionTransformationWithInput,
@@ -24,7 +24,7 @@ class GridSingleTransformation(BaseTransformation):
     """
     Receive inputs in 4 dimension, but only perform transformation in the first 2 dimensions
     """
-    def __init__(self, K, D, x_grids, y_grids, single_transformation, **single_transformation_kwargs):
+    def __init__(self, K, D, x_grids, y_grids, unit_transformation, **unit_transformation_kwargs):
         super(GridSingleTransformation, self).__init__(K, D)
 
         assert D == 2
@@ -34,12 +34,12 @@ class GridSingleTransformation(BaseTransformation):
 
         self.G = (len(self.x_grids) - 1) * (len(self.y_grids) - 1)
 
-        single_tran = SINGLE_TRANSFORMATION_CLASSES.get(single_transformation, None)
-        if single_tran is None:
-            raise ValueError("Invalid single transformation model: {}. Must be one of {}".
-                             format(single_transformation, list(SINGLE_TRANSFORMATION_CLASSES.keys())))
+        unit_tran = UNIT_TRANSFORMATION_CLASSES.get(unit_transformation, None)
+        if unit_tran is None:
+            raise ValueError("Invalid unit transformation model: {}. Must be one of {}".
+                             format(unit_transformation, list(UNIT_TRANSFORMATION_CLASSES.keys())))
 
-        self.transformations_a = [single_tran(K=self.K, D=self.D*2, **single_transformation_kwargs)
+        self.transformations_a = [unit_tran(K=self.K, D=self.D*2, **unit_transformation_kwargs)
                                   for _ in range(self.G)]
 
     @property
@@ -69,6 +69,11 @@ class GridSingleTransformation(BaseTransformation):
 
         inputs_self = check_and_convert_to_tensor(inputs_self)
 
+        if memory_kwargs_a is None:
+            inputs_other = None
+        else:
+            inputs_other = memory_kwargs_a.get("inputs_other", None)
+
         T, _ = inputs_self.shape
 
         # perform transform on data
@@ -81,7 +86,7 @@ class GridSingleTransformation(BaseTransformation):
 
         output_a = 0
         for g in range(self.G):
-            t_a = self.transformations_a[g].transform(inputs_self, **memory_kwargs_a)
+            t_a = self.transformations_a[g].transform(inputs_self, inputs_other, **memory_kwargs_a)
             output_a = output_a + t_a * masks_a[g][:, None, None]
 
         assert output_a.shape == (T, self.K, 2)
@@ -148,7 +153,7 @@ class GridSingleTransformation(BaseTransformation):
                 if i == 0:
                     cond_x = (self.x_grids[i] <= data[:, 0]) & (data[:, 0] <= self.x_grids[i + 1])
                 else:
-                    cond_x = (self.x_grids[i] < data[:, 0] & data[:, 0] <= self.x_grids[i + 1])
+                    cond_x = (self.x_grids[i] < data[:, 0]) & (data[:, 0] <= self.x_grids[i + 1])
                 if j == 0:
                     cond_y = (self.y_grids[j] <= data[:, 1]) & (data[:, 1] <= self.y_grids[j + 1])
                 else:

@@ -125,5 +125,6 @@ def feature_direction_vec(s, corners):
 CORNERS = torch.tensor([[ARENA_XMIN, ARENA_YMIN], [ARENA_XMIN, ARENA_YMAX],
                         [ARENA_XMAX, ARENA_YMIN], [ARENA_XMAX, ARENA_YMAX]], dtype=torch.float64)
 
+
 def f_corner_vec_func(s):
     return feature_direction_vec(s, CORNERS)

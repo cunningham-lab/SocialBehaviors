@@ -235,7 +235,7 @@ CORNERS = torch.tensor([[0,0], [0, 330], [300, 0], [300, 330]], dtype=torch.floa
 
 f_corner_vec_func = lambda s: feature_direction_vec(s, CORNERS)
 
-tran = GridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids, single_transformation="direction",
+tran = GridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids, unit_transformation="direction",
                           Df=Df, feature_vec_func=f_corner_vec_func)
 
 # compute memories
