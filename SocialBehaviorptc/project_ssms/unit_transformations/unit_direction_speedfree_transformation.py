@@ -3,18 +3,18 @@ import torch
 
 from ssm_ptc.utils import check_and_convert_to_tensor, set_param
 
-from project_ssms.unit_transformations.base_unit_transformation import BaseSingleTransformation
+from project_ssms.unit_transformations.base_unit_transformation import BaseUnitTransformation
 from project_ssms.momentum_utils import get_momentum_in_batch, get_momentum
 
 
 # base class for transformation
-class SingleDirectionSpeedFreeTransformation(BaseSingleTransformation):
+class UnitDirectionSpeedFreeTransformation(BaseUnitTransformation):
     """
     x^{self}_t \sim x^{self}_{t-1} + [ \sum_{i=1}^{Df} W_i f_i (self, other)]
     """
 
     def __init__(self, K, D, Df, feature_vec_func=None, acc_factor=2):
-        super(SingleDirectionSpeedFreeTransformation, self).__init__(K, D)
+        super(UnitDirectionSpeedFreeTransformation, self).__init__(K, D)
         # d = int(D/2)
 
         if Df is None:

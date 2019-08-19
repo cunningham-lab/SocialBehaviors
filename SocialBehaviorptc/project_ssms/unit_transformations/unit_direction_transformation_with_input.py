@@ -1,18 +1,18 @@
 from abc import abstractmethod
 import torch
 
-from project_ssms.unit_transformations.base_unit_transformation import BaseSingleTransformation
+from project_ssms.unit_transformations.base_unit_transformation import BaseUnitTransformation
 
 from ssm_ptc.utils import set_param, check_and_convert_to_tensor
 
 
-class SingleDirectionTransformationWithInput(BaseSingleTransformation):
+class UnitDirectionTransformationWithInput(BaseUnitTransformation):
     """
         x^{self}_t \sim x^{self}_{t-1} + acc_factor * [ \sum_{i=1}^{Df} sigmoid(A^k_i x_{self,other} +b^k_i) f_i (self)]
     """
 
     def __init__(self, K, D, Df, feature_vec_func=None, acc_factor=2):
-        super(BaseSingleTransformation, self).__init__(K, D)
+        super(BaseUnitTransformation, self).__init__(K, D)
 
         assert self.D == 4
         assert self.d == 2
@@ -45,7 +45,7 @@ class SingleDirectionTransformationWithInput(BaseSingleTransformation):
         self.bs = torch.tensor(self.bs[perm], requires_grad=True)
 
     @abstractmethod
-    def transform(self, inputs_self, inputs_other, **memory_kwargs):
+    def transform(self, inputs_self, **memory_kwargs):
         """
         x^{self}_t \sim
         x^{self}_{t-1} + acc_factor * [ \sum_{i=1}^{Df} sigmoid(W_i) f_i (self, other)]
@@ -56,6 +56,12 @@ class SingleDirectionTransformationWithInput(BaseSingleTransformation):
         """
         T = inputs_self.shape[0]
 
+        inputs_other = memory_kwargs.get("inputs_other", None)
+        assert inputs_other is not None
+        inputs_other = check_and_convert_to_tensor(inputs_other)
+
+        assert inputs_self.shape == inputs_other.shape, "inputs_self and inputs_other must have the same shape!"
+
         feature_vecs = memory_kwargs.get("feature_vecs", None)
 
         if feature_vecs is None:
@@ -65,8 +71,10 @@ class SingleDirectionTransformationWithInput(BaseSingleTransformation):
             "Feature vec shape is " + str(feature_vecs.shape) \
             + ". It should have shape ({}, {}, {}).".format(T, self.Df, self.d)
 
-        # TODO: check
-        inputs = torch.cat((inputs_self, inputs_other), dim=0)
+
+        inputs = torch.cat((inputs_self, inputs_other), dim=-1)
+        assert inputs.shape == (T, 4)
+
         # (K, Df, D) * (T, D) -> (T, K, Df)
         # (K, Df, D) * (T, 1, D, 1) --> (T, K, Df, 1)
         weights = torch.matmul(self.As, inputs[:, None, :, None])
@@ -83,14 +91,18 @@ class SingleDirectionTransformationWithInput(BaseSingleTransformation):
         return out
 
     @abstractmethod
-    def transform_condition_on_z(self, z, inputs_self, inputs_other, **memory_kwargs):
+    def transform_condition_on_z(self, z, inputs_self, **memory_kwargs):
         """
 
         :param z: an integer
         :param inputs_self: (T_pre, d)
-        :param inputs_other: (T_pre, d)
         :return:
         """
+        inputs_other = memory_kwargs.get("inputs_other", None)
+        assert inputs_other is not None
+        inputs_other = check_and_convert_to_tensor(inputs_other)
+        assert inputs_other.shape == inputs_self.shape
+
         feature_vec = memory_kwargs.get("feature_vec", None)
 
         if feature_vec is None:
@@ -102,16 +114,16 @@ class SingleDirectionTransformationWithInput(BaseSingleTransformation):
 
         assert feature_vec.shape == (self.Df, self.d)
 
-        # (D,)
-        inputs = torch.cat((inputs_self, inputs_other), dim=0)
+        # (T_pre, D)
+        inputs = torch.cat((inputs_self, inputs_other), dim=-1)
         # (Df, D) * (D, 1) --> (Df, 1)
-        weights = torch.matmul(self.As[z], inputs[:,None])
+        weights = torch.matmul(self.As[z], inputs[-1:])
         assert weights.shape == (self.Df, 1)
         weights = torch.squeeze(weights, dim=-1) + self.bs[z]
         assert weights.shape == (self.Df, )
 
         # (1, Df) * (Df, d) -> (1, d)
-        out = torch.matmul(torch.sigmoid(weights[None]), feature_vec)
+        out = torch.matmul(torch.sigmoid(weights[None,]), feature_vec)
         assert out.shape == (1, self.d)
 
         out = torch.squeeze(out, dim=0)

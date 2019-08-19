@@ -30,6 +30,7 @@ import json
 @click.option('--load_model', default=False, help='Whether to load the (trained) model')
 @click.option('--load_model_dir', default="", help='Directory of model to load')
 @click.option('--train_model', default=True, help='Whether to train the model')
+@click.option('--pbar_update_interval', default=500, help='progress bar update interval')
 @click.option('--video_clips', default="0,1", help='The starting and ending video clip of the training data')
 @click.option('--torch_seed', default=0, help='torch random seed')
 @click.option('--np_seed', default=0, help='numpy random seed')
@@ -39,7 +40,8 @@ import json
 @click.option('--list_of_num_iters', default='5000,5000', help='a list of checkpoint numbers of iterations for training')
 @click.option('--list_of_lr', default='0.005,0.005', help='learning rate for training')
 @click.option('--sample_t', default=1000, help='length of samples')
-def main(job_name, downsample_n, load_model, load_model_dir, train_model, video_clips, torch_seed, np_seed, k, n_x, n_y,
+def main(job_name, downsample_n, load_model, load_model_dir, train_model, pbar_update_interval,
+         video_clips, torch_seed, np_seed, k, n_x, n_y,
          list_of_num_iters, list_of_lr, sample_t):
     if job_name is None:
         raise ValueError("Please provide the job name.")
@@ -107,6 +109,7 @@ def main(job_name, downsample_n, load_model, load_model_dir, train_model, video_
                   "load_model": load_model,
                   "load_model_dir": load_model_dir,
                   "train_model": train_model,
+                  "pbar_update_interval": pbar_update_interval,
                   "K": K,
                   "n_x": n_x,
                   "n_y": n_y,
@@ -141,7 +144,7 @@ def main(job_name, downsample_n, load_model, load_model_dir, train_model, video_
         opt = None
         for i, (num_iters, lr) in enumerate(zip(list_of_num_iters, list_of_lr)):
             losses, opt = model.fit(data, optimizer=opt, method='adam', num_iters=num_iters, lr=lr, masks_a=masks_a,
-                                      memory_kwargs_a=m_kwargs_a)
+                                    pbar_update_interval=pbar_update_interval, memory_kwargs_a=m_kwargs_a)
             list_of_losses.append(losses)
             # save model
             joblib.dump(model, rslt_dir+"/model_checkpoint{}".format(i))

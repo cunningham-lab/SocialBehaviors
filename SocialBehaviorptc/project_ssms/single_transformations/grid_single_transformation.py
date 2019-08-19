@@ -5,18 +5,18 @@ from ssm_ptc.transformations.base_transformation import BaseTransformation
 from ssm_ptc.utils import check_and_convert_to_tensor
 
 from project_ssms.unit_transformations.unit_direction_speedfree_transformation \
-    import SingleDirectionSpeedFreeTransformation
+    import UnitDirectionSpeedFreeTransformation
 from project_ssms.unit_transformations.unit_momentum_direction_transformation \
-    import SingleMomentumDirectionTransformation
-from project_ssms.unit_transformations.unit_direction_transformation import SingleDirectionTransformation
+    import UnitMomentumDirectionTransformation
+from project_ssms.unit_transformations.unit_direction_transformation import UnitDirectionTransformation
 from project_ssms.unit_transformations.unit_direction_transformation_with_input \
-    import SingleDirectionTransformationWithInput
+    import UnitDirectionTransformationWithInput
 
 SINGLE_TRANSFORMATION_CLASSES = dict(
-    momentum_direction=SingleMomentumDirectionTransformation,
-    direction=SingleDirectionTransformation,
-    direction_with_input=SingleDirectionTransformationWithInput,
-    direction_speedfree=SingleDirectionSpeedFreeTransformation
+    momentum_direction=UnitMomentumDirectionTransformation,
+    direction=UnitDirectionTransformation,
+    direction_with_input=UnitDirectionTransformationWithInput,
+    direction_speedfree=UnitDirectionSpeedFreeTransformation
 )
 
 
@@ -58,19 +58,17 @@ class GridSingleTransformation(BaseTransformation):
         for g in range(self.G):
             self.transformations_a[g].permute(perm)
 
-    def transform(self, inputs_self, masks_a=None, memory_kwargs_a=None, inputs_other=None):
+    def transform(self, inputs_self, masks_a=None, memory_kwargs_a=None):
         """
         Transform based on the current grid
-        :param inputs: (T, 4)
+        :param inputs_self: (T, 2)
         :param masks_a:
         :param memory_kwargs_a:
-        :param inputs_other:
         :return: outputs (T, K, 4)
         """
 
         inputs_self = check_and_convert_to_tensor(inputs_self)
-        if inputs_other is not None:
-            inputs_other = check_and_convert_to_tensor(inputs_other)
+
         T, _ = inputs_self.shape
 
         # perform transform on data
@@ -83,7 +81,7 @@ class GridSingleTransformation(BaseTransformation):
 
         output_a = 0
         for g in range(self.G):
-            t_a = self.transformations_a[g].transform(inputs_self, inputs_other, **memory_kwargs_a)
+            t_a = self.transformations_a[g].transform(inputs_self, **memory_kwargs_a)
             output_a = output_a + t_a * masks_a[g][:, None, None]
 
         assert output_a.shape == (T, self.K, 2)
@@ -124,8 +122,8 @@ class GridSingleTransformation(BaseTransformation):
         find = False
         for i in range(len(x_grids) - 1):
             for j in range(len(y_grids) - 1):
-                cond_x = x_grids[i] < point[0] <= x_grids[i + 1]
-                cond_y = y_grids[j] < point[1] <= y_grids[j + 1]
+                cond_x = x_grids[i] <= point[0] <= x_grids[i + 1]
+                cond_y = y_grids[j] <= point[1] <= y_grids[j + 1]
                 if (cond_x & cond_y):
                     find = True
                     break
@@ -147,8 +145,15 @@ class GridSingleTransformation(BaseTransformation):
         masks_a = []
         for i in range(len(self.x_grids) - 1):
             for j in range(len(self.y_grids) - 1):
-                cond_x = (self.x_grids[i] < data[:, 0]) & (data[:, 0] <= self.x_grids[i + 1])
-                cond_y = (self.y_grids[j] < data[:, 1]) & (data[:, 1] <= self.y_grids[j + 1])
+                if i == 0:
+                    cond_x = (self.x_grids[i] <= data[:, 0]) & (data[:, 0] <= self.x_grids[i + 1])
+                else:
+                    cond_x = (self.x_grids[i] < data[:, 0] & data[:, 0] <= self.x_grids[i + 1])
+                if j == 0:
+                    cond_y = (self.y_grids[j] <= data[:, 1]) & (data[:, 1] <= self.y_grids[j + 1])
+                else:
+                    cond_y = (self.y_grids[j] < data[:, 1]) & (data[:, 1] <= self.y_grids[j + 1])
+
                 mask = (cond_x & cond_y).double()
                 masks_a.append(mask)
 

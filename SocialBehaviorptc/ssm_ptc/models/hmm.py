@@ -335,7 +335,8 @@ class HMM:
         return xs
 
     @ensure_args_are_lists_of_tensors
-    def fit(self, datas, inputs=None, optimizer=None, method='adam', num_iters=1000, lr=0.001, **memory_kwargs):
+    def fit(self, datas, inputs=None, optimizer=None, method='adam', num_iters=1000, lr=0.001,
+            pbar_update_interval=10, **memory_kwargs):
 
         # TODO: need to modify this
         if isinstance(self.transition, InputDrivenTransition) and inputs is None:
@@ -369,9 +370,9 @@ class HMM:
             loss = loss.detach().numpy()
             losses.append(loss)
 
-            if i % 10 == 0:
+            if i % pbar_update_interval == 0:
                 pbar.set_description('iter {} loss {:.2f}'.format(i, loss))
-                pbar.update(10)
+                pbar.update(pbar_update_interval)
 
         pbar.close()
 

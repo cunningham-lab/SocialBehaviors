@@ -30,9 +30,9 @@ import json
 @click.option('--downsample_n', default=1, help='downsample factor. Data size will reduce to 1/downsample_n')
 @click.option('--load_model', default=False, help='Whether to load the (trained) model')
 @click.option('--train_model', default=True, help='Whether to train the model')
+@click.option('--pbar_update_interval', default=500, help='progress bar update interval')
 @click.option('--load_model_dir', default="", help='Directory of model to load')
-@click.option('--video_clip_start', default=0, help='The starting video clip of the training data')
-@click.option('--video_clip_end', default=1, help='The ending video clip of the training data')
+@click.option('--video_clips', default="0,1", help='The starting video clip of the training data')
 @click.option('--torch_seed', default=0, help='torch random seed')
 @click.option('--np_seed', default=0, help='numpy random seed')
 @click.option('--k', default=4, help='number of hidden states')
@@ -41,12 +41,13 @@ import json
 @click.option('--list_of_num_iters', default='5000,5000', help='a list of checkpoint numbers of iterations for training')
 @click.option('--list_of_lr', default='0.005, 0.005', help='learning rate for training')
 @click.option('--sample_t', default=100, help='length of samples')
-def main(job_name, downsample_n, load_model, load_model_dir, train_model, video_clip_start, video_clip_end,
+def main(job_name, downsample_n, load_model, load_model_dir, train_model, pbar_update_interval, video_clips,
          torch_seed, np_seed, k, n_x, n_y, list_of_num_iters, list_of_lr, sample_t):
     if job_name is None:
         raise ValueError("Please provide the job name.")
     K = k
     sample_T = sample_t
+    video_clip_start, video_clip_end = [int(x) for x in video_clips.split(",")]
     list_of_num_iters = [int(x) for x in list_of_num_iters.split(",")]
     list_of_lr = [float(x) for x in list_of_lr.split(",")]
     assert len(list_of_num_iters) == len(list_of_lr), "Length of list_of_num_iters must match length of list-of_lr."
@@ -108,6 +109,7 @@ def main(job_name, downsample_n, load_model, load_model_dir, train_model, video_
                   "load_model": load_model,
                   "load_model_dir": load_model_dir,
                   "train_model": train_model,
+                  "pbar_update_interval": pbar_update_interval,
                   "K": K,
                   "n_x": n_x,
                   "n_y": n_y,
@@ -144,8 +146,9 @@ def main(job_name, downsample_n, load_model, load_model_dir, train_model, video_
         list_of_losses = []
         opt = None
         for i, (num_iters, lr) in enumerate(zip(list_of_num_iters, list_of_lr)):
-            losses, opt = model.fit(data, optimizer=opt, method='adam', num_iters=num_iters, lr=lr, masks=(masks_a, masks_b),
-                                      memory_kwargs_a=m_kwargs_a, memory_kwargs_b=m_kwargs_b)
+            losses, opt = model.fit(data, optimizer=opt, method='adam', num_iters=num_iters, lr=lr,
+                                    masks=(masks_a, masks_b), pbar_update_interval=pbar_update_interval,
+                                    memory_kwargs_a=m_kwargs_a, memory_kwargs_b=m_kwargs_b)
             list_of_losses.append(losses)
             # save model
             joblib.dump(model, rslt_dir+"/model_checkpoint{}".format(i))
