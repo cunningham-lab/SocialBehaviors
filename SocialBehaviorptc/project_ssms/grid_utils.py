@@ -23,33 +23,45 @@ def add_grid_to_ax(ax, x_grids, y_grids):
         ax.plot([x_grids[i], x_grids[i]], [y_grids[0], y_grids[-1]], '--', color='grey')
 
 
-def plot_realdata_quiver(realdata, x_grids=None, y_grids=None, scale=0.3, alpha=0.8, xlim=None, ylim=None):
+def plot_realdata_quiver(realdata, x_grids=None, y_grids=None, xlim=None, ylim=None, **quiver_args):
     assert isinstance(realdata, np.ndarray), "please input ndarray"
     start = realdata[:-1]
     end = realdata[1:]
     dXY = end - start
 
-    plt.figure(figsize=(15, 7))
+    if realdata.shape[-1] == 2:
+        plt.figure(figsize=(7, 7))
+        plt.quiver(start[:, 0], start[:, 1], dXY[:, 0], dXY[:, 1],
+                   angles='xy', scale_units='xy', **quiver_args)
+        add_grid(x_grids, y_grids)
+        if xlim is not None:
+            plt.xlim(xlim)
+        if ylim is not None:
+            plt.ylim(ylim)
+    else:
+        assert realdata.shape[-1] == 4
 
-    plt.subplot(1, 2, 1)
-    plt.quiver(start[:, 0], start[:, 1], dXY[:, 0], dXY[:, 1],
-               angles='xy', scale_units='xy', scale=scale, alpha=alpha)
-    add_grid(x_grids, y_grids)
-    plt.title("virgin")
-    if xlim is not None:
-        plt.xlim(xlim)
-    if ylim is not None:
-        plt.ylim(ylim)
+        plt.figure(figsize=(15, 7))
 
-    plt.subplot(1, 2, 2)
-    plt.quiver(start[:, 2], start[:, 3], dXY[:, 0], dXY[:, 1],
-               angles='xy', scale_units='xy', scale=scale, alpha=alpha)
-    add_grid(x_grids, y_grids)
-    plt.title("mother")
-    if xlim is not None:
-        plt.xlim(xlim)
-    if ylim is not None:
-        plt.ylim(ylim)
+        plt.subplot(1, 2, 1)
+        plt.quiver(start[:, 0], start[:, 1], dXY[:, 0], dXY[:, 1],
+               angles='xy', scale_units='xy', **quiver_args)
+        add_grid(x_grids, y_grids)
+        plt.title("virgin")
+        if xlim is not None:
+            plt.xlim(xlim)
+        if ylim is not None:
+            plt.ylim(ylim)
+
+        plt.subplot(1, 2, 2)
+        plt.quiver(start[:, 2], start[:, 3], dXY[:, 2], dXY[:, 3],
+                   angles='xy', scale_units='xy', **quiver_args)
+        add_grid(x_grids, y_grids)
+        plt.title("mother")
+        if xlim is not None:
+            plt.xlim(xlim)
+        if ylim is not None:
+            plt.ylim(ylim)
 
 
 def plot_weights(weights, Df, K, x_grids, y_grids, max_weight=10):
@@ -152,6 +164,17 @@ def plot_quiver(XYs, dXYs, mouse, K,scale=1, alpha=1):
             plt.title('K={} '.format(k) + mouse)
 
     plt.tight_layout()
+
+
+def get_z_percentage_by_grid(masks_a, z, G):
+    masks_z_a = np.array([(z[:-1] + 1) * masks_a[g].numpy() for g in range(G)])
+
+    # (G, K) For each grid g, number of data in that grid = k
+    grid_z_a = np.array([[sum(masks_z_a[g] == k) for k in range(1, K + 1)] for g in range(G)])
+
+    grid_z_a_percentage = grid_z_a / (grid_z_a.sum(axis=1)[:, None] + 1e-6)
+
+    return grid_z_a_percentage
 
 
 def test_plot_grid_and_weight_idx(n_x, n_y):

@@ -91,14 +91,14 @@ class UnitDirectionTransformationWithInput(BaseUnitTransformation):
         return out
 
     @abstractmethod
-    def transform_condition_on_z(self, z, inputs_self, **memory_kwargs):
+    def transform_condition_on_z(self, z, inputs_self, inputs_other, **memory_kwargs):
         """
 
         :param z: an integer
         :param inputs_self: (T_pre, d)
         :return:
         """
-        inputs_other = memory_kwargs.get("inputs_other", None)
+
         assert inputs_other is not None
         inputs_other = check_and_convert_to_tensor(inputs_other)
         assert inputs_other.shape == inputs_self.shape
