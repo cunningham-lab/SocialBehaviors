@@ -43,8 +43,9 @@ import json
 @click.option('--list_of_num_iters', default='5000,5000', help='a list of checkpoint numbers of iterations for training')
 @click.option('--list_of_lr', default='0.005, 0.005', help='learning rate for training')
 @click.option('--sample_t', default=100, help='length of samples')
+@click.option('--quiver_scale', default=0.3, help='scale for the quiver plots')
 def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, train_model, pbar_update_interval, video_clips,
-         torch_seed, np_seed, k, n_x, n_y, list_of_num_iters, list_of_lr, sample_t):
+         torch_seed, np_seed, k, n_x, n_y, list_of_num_iters, list_of_lr, sample_t, quiver_scale):
     if job_name is None:
         raise ValueError("Please provide the job name.")
     K = k
@@ -199,8 +200,8 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, train_
     weighted_corner_vecs_a = unit_corner_vecs[:, None] * weights_a[..., None]
     weighted_corner_vecs_b = unit_corner_vecs[:, None] * weights_b[..., None]
 
-    grid_z_a_percentage = get_z_percentage_by_grid(masks_a, z, G)
-    grid_z_b_percentage = get_z_percentage_by_grid(masks_b, z, G)
+    grid_z_a_percentage = get_z_percentage_by_grid(masks_a, z, K, G)
+    grid_z_b_percentage = get_z_percentage_by_grid(masks_b, z, K, G)
 
     # quiver
     XX, YY = np.meshgrid(np.linspace(20, 310, 30),
@@ -250,6 +251,10 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, train_
     plot_z(z, K)
     plt.savefig(rslt_dir+"/z.jpg")
 
+    if not os.path.exists(rslt_dir+"/samples"):
+        os.makedirs(rslt_dir+"/samples")
+        print("Making samples directory...")
+
     plot_z(sample_z, K)
     plt.savefig(rslt_dir+"/samples/sample_z_{}.jpg".format(sample_T))
 
@@ -273,22 +278,26 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, train_
     plot_realdata_quiver(sample_x_center, x_grids, y_grids)
     plt.savefig(rslt_dir+"/samples/sample_x_center_quiver_{}.jpg".format(sample_T))
 
+    if not os.path.exists(rslt_dir+"/dynamics"):
+        os.makedirs(rslt_dir+"/dynamics")
+        print("Making dynamics directory...")
+
     plot_weights(weights_a, Df, K, x_grids, y_grids, max_weight=tran.transformations_a[0].acc_factor)
     plt.savefig(rslt_dir+"/dynamics/weights_a.jpg")
 
     plot_weights(weights_b, Df, K, x_grids, y_grids, max_weight=tran.transformations_b[0].acc_factor)
     plt.savefig(rslt_dir+"/dynamics/weights_b.jpg")
 
-    plot_dynamics(weighted_corner_vecs_a, "virgin", x_grids, y_grids, K=K, scale=0.2, percentage=grid_z_a_percentage)
+    plot_dynamics(weighted_corner_vecs_a, "virgin", x_grids, y_grids, K=K, scale=quiver_scale, percentage=grid_z_a_percentage)
     plt.savefig(rslt_dir+"/dynamics/dynamics_a.jpg")
 
-    plot_dynamics(weighted_corner_vecs_b, "mother", x_grids, y_grids, K=K, scale=0.2, percentage=grid_z_b_percentage)
+    plot_dynamics(weighted_corner_vecs_b, "mother", x_grids, y_grids, K=K, scale=quiver_scale, percentage=grid_z_b_percentage)
     plt.savefig(rslt_dir+"/dynamics/dynamics_b.jpg")
 
-    plot_quiver(XY_grids[:, 0:2], dXY[..., 0:2], 'virgin', K=K, scale=0.2, alpha=0.9)
+    plot_quiver(XY_grids[:, 0:2], dXY[..., 0:2], 'virgin', K=K, scale=quiver_scale, alpha=0.9)
     plt.savefig(rslt_dir+"/dynamics/quiver_a.jpg")
 
-    plot_quiver(XY_grids[:, 2:4], dXY[..., 2:4], 'mother', K=K, scale=0.2, alpha=0.9)
+    plot_quiver(XY_grids[:, 2:4], dXY[..., 2:4], 'mother', K=K, scale=quiver_scale, alpha=0.9)
     plt.savefig(rslt_dir+"/dynamics/quiver_b.jpg")
 
     print("Finish running!")
