@@ -29,23 +29,25 @@ import json
 @click.command()
 @click.option('--job_name', default=None, help='name of the job')
 @click.option('--downsample_n', default=1, help='downsample factor. Data size will reduce to 1/downsample_n')
-@click.option('--filter_traj', default=False, help='whether or not to filter the trajectory by SPEED')
-@click.option('--load_model', default=False, help='Whether to load the (trained) model')
-@click.option('--train_model', default=True, help='Whether to train the model')
-@click.option('--pbar_update_interval', default=500, help='progress bar update interval')
+@click.option('--filter_traj', is_flag=True, help='whether or not to filter the trajectory by SPEED')
+@click.option('--load_model', is_flag=True, help='Whether to load the (trained) model')
 @click.option('--load_model_dir', default="", help='Directory of model to load')
+@click.option('--train_model', is_flag=True, help='Whether to train the model')
+@click.option('--pbar_update_interval', default=500, help='progress bar update interval')
+@click.option('--load_opt_dir', default="", help='Directory of optimizer to load.')
 @click.option('--video_clips', default="0,1", help='The starting video clip of the training data')
 @click.option('--torch_seed', default=0, help='torch random seed')
 @click.option('--np_seed', default=0, help='numpy random seed')
-@click.option('--k', default=4, help='number of hidden states')
-@click.option('--n_x', default=3, help='number of grids in x axis')
-@click.option('--n_y', default=3, help='number of grids in y_axis')
+@click.option('--k', default=4, help='number of hidden states. Would be overwritten if load model.')
+@click.option('--n_x', default=3, help='number of grids in x axis. Would be overwritten if load model.')
+@click.option('--n_y', default=3, help='number of grids in y_axis. Would be overwritten if load model.')
 @click.option('--list_of_num_iters', default='5000,5000', help='a list of checkpoint numbers of iterations for training')
 @click.option('--list_of_lr', default='0.005, 0.005', help='learning rate for training')
 @click.option('--sample_t', default=100, help='length of samples')
 @click.option('--quiver_scale', default=0.3, help='scale for the quiver plots')
-def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, train_model, pbar_update_interval, video_clips,
-         torch_seed, np_seed, k, n_x, n_y, list_of_num_iters, list_of_lr, sample_t, quiver_scale):
+def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_opt_dir, train_model,
+         pbar_update_interval, video_clips, torch_seed, np_seed, k, n_x, n_y,
+         list_of_num_iters, list_of_lr, sample_t, quiver_scale):
     if job_name is None:
         raise ValueError("Please provide the job name.")
     K = k
@@ -54,6 +56,9 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, train_
     list_of_num_iters = [int(x) for x in list_of_num_iters.split(",")]
     list_of_lr = [float(x) for x in list_of_lr.split(",")]
     assert len(list_of_num_iters) == len(list_of_lr), "Length of list_of_num_iters must match length of list-of_lr."
+    for lr in list_of_lr:
+        if lr > 0.5:
+            raise ValueError("Learning rate should not be larger than 0.5!")
 
     repo = git.Repo('.', search_parent_directories=True)  # SocialBehaviorectories=True)
     repo_dir = repo.working_tree_dir  # SocialBehavior
@@ -74,32 +79,36 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, train_
 
     ######################### model ####################
 
-    # grids
-    x_grid_gap = (ARENA_XMAX - ARENA_XMIN) / n_x
-    y_grid_gap = (ARENA_YMAX - ARENA_YMIN) / n_y
-
-    x_grids = [ARENA_XMIN + i * x_grid_gap for i in range(n_x + 1)]
-    y_grids = [ARENA_YMIN + i * y_grid_gap for i in range(n_y + 1)]
-
-    bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX],
-                       [ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX]])
-
-    G = n_x * n_y
-
     # model
     D = 4
     M = 0
     Df = 4
 
     if load_model:
+        print("Loading the model from ", load_model_dir)
         model = joblib.load(load_model_dir)
         tran = model.observation.transformation
 
         K = model.K
+
+        bounds = model.observation.bounds
+        x_grids = tran.x_grids
+        y_grids = tran.y_grids
         n_x = len(tran.x_grids) - 1
         n_y = len(tran.y_grids) - 1
 
     else:
+        print("Creating the model...")
+        bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX],
+                           [ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX]])
+
+        # grids
+        x_grid_gap = (ARENA_XMAX - ARENA_XMIN) / n_x
+        y_grid_gap = (ARENA_YMAX - ARENA_YMIN) / n_y
+
+        x_grids = [ARENA_XMIN + i * x_grid_gap for i in range(n_x + 1)]
+        y_grids = [ARENA_YMIN + i * y_grid_gap for i in range(n_y + 1)]
+
         tran = GridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids, unit_transformation="direction",
                                   Df=Df, feature_vec_func=f_corner_vec_func, acc_factor=10)
         obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=1, bounds=bounds, transformation=tran)
@@ -107,11 +116,14 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, train_
         model = HMM(K=K, D=D, M=M, observation=obs)
         model.observation.mus_init = data[0] * torch.ones(K, D, dtype=torch.float64)
 
+    G = n_x * n_y
+
     # save experiment params
     exp_params = {"job_name":   job_name,
                   'downsample_n': downsample_n,
                   "load_model": load_model,
                   "load_model_dir": load_model_dir,
+                  "load_opt_dir": load_opt_dir,
                   "train_model": train_model,
                   "pbar_update_interval": pbar_update_interval,
                   "K": K,
@@ -148,7 +160,10 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, train_
     if train_model:
         print("start training")
         list_of_losses = []
-        opt = None
+        if load_opt_dir != "":
+            opt = joblib.load(load_opt_dir)
+        else:
+            opt = None
         for i, (num_iters, lr) in enumerate(zip(list_of_num_iters, list_of_lr)):
             losses, opt = model.fit(data, optimizer=opt, method='adam', num_iters=num_iters, lr=lr,
                                     masks=(masks_a, masks_b), pbar_update_interval=pbar_update_interval,
@@ -272,10 +287,10 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, train_
     add_grid(x_grids, y_grids)
     plt.savefig(rslt_dir+"/samples/sample_x_center_{}.jpg".format(sample_T))
 
-    plot_realdata_quiver(sample_x, x_grids, y_grids)
+    plot_realdata_quiver(sample_x, x_grids, y_grids, scale=quiver_scale)
     plt.savefig(rslt_dir+"/samples/sample_x_quiver_{}.jpg".format(sample_T))
 
-    plot_realdata_quiver(sample_x_center, x_grids, y_grids)
+    plot_realdata_quiver(sample_x_center, x_grids, y_grids, scale=quiver_scale)
     plt.savefig(rslt_dir+"/samples/sample_x_center_quiver_{}.jpg".format(sample_T))
 
     if not os.path.exists(rslt_dir+"/dynamics"):
