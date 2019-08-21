@@ -195,8 +195,14 @@ class GridTransformation(BaseTransformation):
                 mask = (cond_x & cond_y).double()
                 masks_a.append(mask)
 
-                cond_x = (self.x_grids[i] < data[:, 2]) & (data[:, 2] <= self.x_grids[i + 1])
-                cond_y = (self.y_grids[j] < data[:, 3]) & (data[:, 3] <= self.y_grids[j + 1])
+                if i == 0:
+                    cond_x = (self.x_grids[i] <= data[:, 2]) & (data[:, 2] <= self.x_grids[i + 1])
+                else:
+                    cond_x = (self.x_grids[i] < data[:, 2]) & (data[:, 2] <= self.x_grids[i + 1])
+                if j == 0:
+                    cond_y = (self.y_grids[j] <= data[:, 3]) & (data[:, 3] <= self.y_grids[j + 1])
+                else:
+                    cond_y = (self.y_grids[j] < data[:, 3]) & (data[:, 3] <= self.y_grids[j + 1])
                 mask = (cond_x & cond_y).double()
                 masks_b.append(mask)
 
