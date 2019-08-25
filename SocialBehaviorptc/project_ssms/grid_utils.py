@@ -1,6 +1,10 @@
 import numpy as np
-
+import torch
 import matplotlib.pyplot as plt
+import seaborn as sns
+
+from ssm_ptc.utils import check_and_convert_to_tensor
+
 
 
 def add_grid(x_grids, y_grids):
@@ -175,6 +179,206 @@ def get_z_percentage_by_grid(masks_a, z, K, G):
     grid_z_a_percentage = grid_z_a / (grid_z_a.sum(axis=1)[:, None] + 1e-6)
 
     return grid_z_a_percentage
+
+
+def get_masks(data, x_grids, y_grids):
+    """
+    :param data: (T, 4)
+    :param x_grids
+    :param y_grids
+    :return: two lists of masks, each list contains G masks, where each mask is a binary-valued array of length T
+    """
+
+    data = check_and_convert_to_tensor(data)
+    masks_a = []
+    masks_b = []
+    for i in range(len(x_grids)-1):
+        for j in range(len(y_grids)-1):
+            if i == 0:
+                cond_x = (x_grids[i] <= data[:, 0]) & (data[:, 0] <= x_grids[i + 1])
+            else:
+                cond_x = (x_grids[i] < data[:, 0]) & (data[:, 0] <= x_grids[i + 1])
+            if j == 0:
+                cond_y = (y_grids[j] <= data[:, 1]) & (data[:, 1] <= y_grids[j + 1])
+            else:
+                cond_y = (y_grids[j] < data[:, 1]) & (data[:, 1] <= y_grids[j + 1])
+            mask = (cond_x & cond_y).double()
+            masks_a.append(mask)
+
+            if i == 0:
+                cond_x = (x_grids[i] <= data[:, 2]) & (data[:, 2] <= x_grids[i + 1])
+            else:
+                cond_x = (x_grids[i] < data[:, 2]) & (data[:, 2] <= x_grids[i + 1])
+            if j == 0:
+                cond_y = (y_grids[j] <= data[:, 3]) & (data[:, 3] <= y_grids[j + 1])
+            else:
+                cond_y = (y_grids[j] < data[:, 3]) & (data[:, 3] <= y_grids[j + 1])
+            mask = (cond_x & cond_y).double()
+            masks_b.append(mask)
+
+    masks_a = torch.stack(masks_a, dim=0)
+    assert torch.all(masks_a.sum(dim=0) == 1)
+    masks_b = torch.stack(masks_b, dim=0)
+    assert torch.all(masks_b.sum(dim=0) == 1)
+
+    return masks_a, masks_b
+
+
+def find_Q_masks(angles):
+    # mask the angles by quadrants
+    # Put origin in the first quadrant
+    assert angles.shape[1] == 2  # (T, 2)
+    q1 = ((angles[:, 0] >= 0) & (angles[:, 1] >= 0))
+    q2 = (angles[:, 0] <= 0) & (angles[:, 1] > 0)
+    q3 = (angles[:, 0] < 0) & (angles[:, 1] <= 0)
+    q4 = (angles[:, 0] >= 0) & (angles[:, 1] < 0)
+    qs = np.stack((q1, q2, q3, q4), axis=0)
+    #print(qs)
+    assert np.all(qs.sum(axis=0) == 1)
+    return qs
+
+
+def get_angles_single(data):
+    """must make sure that data are consecutive"""
+    assert data.shape[1] == 2  # (T, 2)
+    start = data[:-1]
+    end = data[1:]
+    dXY = end - start  # (T-1, 2)
+    angles = np.arctan(dXY[:, 1] / (dXY[:, 0] + 1e-8))  # (T-1, )
+
+    angles_qs_add = [0, np.pi, np.pi, 2 * np.pi]
+
+    qs = find_Q_masks(dXY)
+    for i in range(4):
+        angles[qs[i]] = angles[qs[i]] + angles_qs_add[i]
+    return angles
+
+
+def get_angles_single_from_quiver(dXY):
+    angles = np.arctan(dXY[:, 1] / (dXY[:, 0] + 1e-8))  # (T-1, )
+
+    angles_qs_add = [0, np.pi, np.pi, 2 * np.pi]
+
+    qs = find_Q_masks(dXY)
+    for i in range(4):
+        angles[qs[i]] = angles[qs[i]] + angles_qs_add[i]
+    return angles
+
+
+def get_all_angles(data, x_grids, y_grids):
+
+    dXY = data[1:] - data[:-1]
+    if isinstance(dXY, torch.Tensor):
+        dXY = dXY.numpy()
+
+    return get_all_angles_from_quiver(data[:-1], dXY, x_grids, y_grids)
+
+
+def get_all_angles_from_quiver(XY, dXY, x_grids, y_grids):
+    # XY and dXY should have the same shape
+    if isinstance(XY, np.ndarray):
+        XY = torch.tensor(XY, dtype=torch.float64)
+    masks_a, masks_b = get_masks(XY, x_grids, y_grids)
+    masks_a = masks_a.numpy()
+    masks_b = masks_b.numpy()
+
+    angles_a = []
+    angles_b = []
+    G = (len(x_grids) - 1) * (len(y_grids) - 1)
+    for g in range(G):
+        dXY_a_g = dXY[masks_a[g] == 1][:, 0:2]
+        dXY_b_g = dXY[masks_b[g] == 1][:, 2:4]
+
+        angles_a.append(get_angles_single_from_quiver(dXY_a_g))
+        angles_b.append(get_angles_single_from_quiver(dXY_b_g))
+
+    return angles_a, angles_b
+
+
+def plot_angles(angles, title_name, n_x, n_y, bins=50, hist=True):
+    plt.figure(figsize=(16, 12))
+    plt.suptitle(title_name, fontsize=20)
+
+    for i in range(n_x):
+        for j in range(n_y):
+            plot_idx = (n_y - j - 1) * n_x + i + 1
+            plt.subplot(n_y, n_x, plot_idx)
+
+            grid_idx = i * n_y + j
+            if hist:
+                plt.hist(angles[grid_idx], bins=bins)
+            else:
+                sns.kdeplot(angles[grid_idx])
+            plt.xlim(0, 2 * np.pi)
+            plt.xlim(0, 2 * np.pi)
+            plt.xticks([0, np.pi / 2, np.pi, np.pi / 2 * 3, 2 * np.pi],
+                       [0, r'$\pi/2$', r'$\pi$', r'$3\pi/2$', r'$2\pi$'])
+
+
+def plot_list_of_angles(list_of_angles, labels, title_name, n_x, n_y):
+    plt.figure(figsize=(16, 12))
+    plt.suptitle(title_name, fontsize=20)
+
+    for i in range(n_x):
+        for j in range(n_y):
+            plot_idx = (n_y - j - 1) * n_x + i + 1
+            plt.subplot(n_y, n_x, plot_idx)
+
+            grid_idx = i * n_y + j
+
+            for angles, label in zip(list_of_angles, labels):
+                sns.kdeplot(angles[grid_idx], label=label)
+
+            plt.legend()
+            plt.xlim(0, 2 * np.pi)
+            plt.xlim(0, 2 * np.pi)
+            plt.xticks([0, np.pi / 2, np.pi, np.pi / 2 * 3, 2 * np.pi],
+                       [0, r'$\pi/2$', r'$\pi$', r'$3\pi/2$', r'$2\pi$'])
+
+
+def get_speed(data, x_grids, y_grids):
+    # data (T, 4)
+    if isinstance(data, np.ndarray):
+        diff = np.diff(data, axis=0)  # (T-1, 4)
+        data = torch.tensor(data, dtype=torch.float64)
+        masks_a, masks_b = get_masks(data[:-1], x_grids, y_grids)
+    elif isinstance(data, torch.Tensor):
+        masks_a, masks_b = get_masks(data[:-1], x_grids, y_grids)
+        diff = np.diff(data.numpy(), axis=0)  # (T-1, 4)
+    else:
+        raise ValueError("Data must be either np.ndarray or torch.Tensor")
+
+    speed_a_all = np.sqrt(diff[:, 0] ** 2 + diff[:, 1] ** 2)  # (T-1, 2)
+    speed_b_all = np.sqrt(diff[:, 2] ** 2 + diff[:, 3] ** 2)  # (T-1, 2)
+
+    speed_a = []
+    speed_b = []
+    G = (len(x_grids) - 1) * (len(y_grids) - 1)
+    for g in range(G):
+        speed_a_g = speed_a_all[masks_a[g].numpy() == 1]
+        speed_b_g = speed_b_all[masks_b[g].numpy() == 1]
+
+        speed_a.append(speed_a_g)
+        speed_b.append(speed_b_g)
+
+    return speed_a, speed_b
+
+
+def plot_list_of_speed(list_of_speed,  labels, title_name, n_x, n_y):
+    plt.figure(figsize=(16, 12))
+    plt.suptitle(title_name, fontsize=20)
+
+    for i in range(n_x):
+        for j in range(n_y):
+            plot_idx = (n_y - j - 1) * n_x + i + 1
+            plt.subplot(n_y, n_x, plot_idx)
+
+            grid_idx = i * n_y + j
+
+            for speed, label in zip(list_of_speed, labels):
+                sns.kdeplot(speed[grid_idx], label=label)
+
+            plt.legend()
 
 
 def test_plot_grid_and_weight_idx(n_x, n_y):
