@@ -32,7 +32,7 @@ def rslt_saving(rslt_dir, model, Df, data, masks_a, masks_b, m_kwargs_a, m_kwarg
 
     #################### inference ###########################
 
-    print("\ninferiring most likely states...")
+    print("\ninferring most likely states...")
     z = model.most_likely_states(data, masks=(masks_a, masks_b),
                                  memory_kwargs_a=m_kwargs_a, memory_kwargs_b=m_kwargs_b)
 
@@ -216,3 +216,4 @@ def rslt_saving(rslt_dir, model, Df, data, masks_a, masks_b, m_kwargs_a, m_kwarg
                        ['data', 'sample', 'sample_c'], "speed distribution (mother)", n_x, n_y)
     plt.savefig(rslt_dir + "/distributions/speed_b.jpg")
     plt.close()
+
