@@ -5,7 +5,7 @@ import os
 import json
 import joblib
 
-from project_ssms.utils import k_step_prediction_for_grid_model
+from project_ssms.utils import k_step_prediction_for_artn_model
 from project_ssms.plot_utils import plot_z, plot_2_mice
 from project_ssms.grid_utils import plot_weights, plot_dynamics, \
     plot_quiver, add_grid, plot_realdata_quiver, get_z_percentage_by_grid, \
@@ -17,7 +17,7 @@ from saver.rslts_saving import NumpyEncoder
 
 
 def rslt_saving(rslt_dir, model, Df, data, masks_a, masks_b, m_kwargs_a, m_kwargs_b, sample_T,
-                train_model, list_of_losses, quiver_scale):
+                train_model, losses, quiver_scale):
 
     tran = model.observation.transformation
     x_grids = tran.x_grids
@@ -41,7 +41,7 @@ def rslt_saving(rslt_dir, model, Df, data, masks_a, masks_b, m_kwargs_a, m_kwarg
         data_to_predict = data
     else:
         data_to_predict = data[-1000:]
-    x_predict = k_step_prediction_for_grid_model(model, z, data_to_predict, memory_kwargs_a=m_kwargs_a, memory_kwargs_b=m_kwargs_b)
+    x_predict = k_step_prediction_for_artn_model(model, z, data_to_predict, memory_kwargs_a=m_kwargs_a, memory_kwargs_b=m_kwargs_b)
     x_predict_err = np.mean(np.abs(x_predict - data_to_predict.numpy()), axis=0)
 
     print("5 step prediction")
@@ -110,16 +110,15 @@ def rslt_saving(rslt_dir, model, Df, data, masks_a, masks_b, m_kwargs_a, m_kwarg
                    "sample_z_center": sample_z_center, "sample_x_center": sample_x_center}
 
     if train_model:
-        saving_dict['list_of_losses'] = list_of_losses
-        for i, losses in enumerate(list_of_losses):
-            plt.figure()
-            plt.plot(losses)
-            plt.savefig(rslt_dir + "/losses_{}.jpg".format(i))
-            plt.close()
+        saving_dict['losses'] = losses
+        plt.figure()
+        plt.plot(losses)
+        plt.savefig(rslt_dir + "/losses.jpg")
+        plt.close()
     joblib.dump(saving_dict, rslt_dir + "/numbers")
 
     # save figures
-    plot_z(z, K)
+    plot_z(z, K, title="most likely z for the ground truth")
     plt.savefig(rslt_dir + "/z.jpg")
     plt.close()
 
@@ -127,33 +126,36 @@ def rslt_saving(rslt_dir, model, Df, data, masks_a, masks_b, m_kwargs_a, m_kwarg
         os.makedirs(rslt_dir + "/samples")
         print("Making samples directory...")
 
-    plot_z(sample_z, K)
+    plot_z(sample_z, K, title="sample")
     plt.savefig(rslt_dir + "/samples/sample_z_{}.jpg".format(sample_T))
     plt.close()
 
-    plot_z(sample_z_center, K)
+    plot_z(sample_z_center, K, title="sample (starting from center)")
     plt.savefig(rslt_dir + "/samples/sample_z_center_{}.jpg".format(sample_T))
     plt.close()
 
     plt.figure(figsize=(4, 4))
-    plot_2_mice(sample_x)
+    plot_2_mice(sample_x, title="sample")
     plt.legend()
     add_grid(x_grids, y_grids)
     plt.savefig(rslt_dir + "/samples/sample_x_{}.jpg".format(sample_T))
     plt.close()
 
     plt.figure(figsize=(4, 4))
-    plot_2_mice(sample_x_center)
+    plot_2_mice(sample_x_center, title="sample (starting from center)")
     plt.legend()
     add_grid(x_grids, y_grids)
     plt.savefig(rslt_dir + "/samples/sample_x_center_{}.jpg".format(sample_T))
     plt.close()
 
-    plot_realdata_quiver(sample_x, x_grids, y_grids, scale=quiver_scale)
+    plot_realdata_quiver(data, x_grids, y_grids, scale=quiver_scale, title="ground truth")
+    plt.savefig(rslt_dir + "/samples/ground_truth.jpg")
+
+    plot_realdata_quiver(sample_x, x_grids, y_grids, scale=quiver_scale, title="sample")
     plt.savefig(rslt_dir + "/samples/sample_x_quiver_{}.jpg".format(sample_T))
     plt.close()
 
-    plot_realdata_quiver(sample_x_center, x_grids, y_grids, scale=quiver_scale)
+    plot_realdata_quiver(sample_x_center, x_grids, y_grids, scale=quiver_scale, title="sample (starting from center)")
     plt.savefig(rslt_dir + "/samples/sample_x_center_quiver_{}.jpg".format(sample_T))
     plt.close()
 
@@ -161,29 +163,33 @@ def rslt_saving(rslt_dir, model, Df, data, masks_a, masks_b, m_kwargs_a, m_kwarg
         os.makedirs(rslt_dir + "/dynamics")
         print("Making dynamics directory...")
 
-    plot_weights(weights_a, Df, K, x_grids, y_grids, max_weight=tran.transformations_a[0].acc_factor)
+    plot_weights(weights_a, Df, K, x_grids, y_grids, max_weight=tran.transformations_a[0].acc_factor,
+                 title="weights (virgin)")
     plt.savefig(rslt_dir + "/dynamics/weights_a.jpg")
     plt.close()
 
-    plot_weights(weights_b, Df, K, x_grids, y_grids, max_weight=tran.transformations_b[0].acc_factor)
+    plot_weights(weights_b, Df, K, x_grids, y_grids, max_weight=tran.transformations_b[0].acc_factor,
+                 title="weights (mother)")
     plt.savefig(rslt_dir + "/dynamics/weights_b.jpg")
     plt.close()
 
     plot_dynamics(weighted_corner_vecs_a, "virgin", x_grids, y_grids, K=K, scale=quiver_scale,
-                  percentage=grid_z_a_percentage)
+                  percentage=grid_z_a_percentage, title="grid dynamics (virgin)")
     plt.savefig(rslt_dir + "/dynamics/dynamics_a.jpg")
     plt.close()
 
     plot_dynamics(weighted_corner_vecs_b, "mother", x_grids, y_grids, K=K, scale=quiver_scale,
-                  percentage=grid_z_b_percentage)
+                  percentage=grid_z_b_percentage, title="grid dynamics (mother)")
     plt.savefig(rslt_dir + "/dynamics/dynamics_b.jpg")
     plt.close()
 
-    plot_quiver(XY_grids[:, 0:2], dXY[..., 0:2], 'virgin', K=K, scale=quiver_scale, alpha=0.9)
+    plot_quiver(XY_grids[:, 0:2], dXY[..., 0:2], 'virgin', K=K, scale=quiver_scale, alpha=0.9,
+                title="quiver (virgin)")
     plt.savefig(rslt_dir + "/dynamics/quiver_a.jpg")
     plt.close()
 
-    plot_quiver(XY_grids[:, 2:4], dXY[..., 2:4], 'mother', K=K, scale=quiver_scale, alpha=0.9)
+    plot_quiver(XY_grids[:, 2:4], dXY[..., 2:4], 'mother', K=K, scale=quiver_scale, alpha=0.9,
+                title="quiver (mother)")
     plt.savefig(rslt_dir + "/dynamics/quiver_b.jpg")
     plt.close()
 

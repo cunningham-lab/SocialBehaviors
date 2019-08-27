@@ -22,6 +22,7 @@ import os
 import click
 import json
 
+
 ################### specifying default arguments ################
 
 
@@ -31,6 +32,7 @@ import json
 @click.option('--filter_traj', is_flag=True, help='whether or not to filter the trajectory by SPEED')
 @click.option('--load_model', is_flag=True, help='Whether to load the (trained) model')
 @click.option('--load_model_dir', default="", help='Directory of model to load')
+@click.option('--acc_factor', default=None, help="acc factor in direction model")
 @click.option('--train_model', is_flag=True, help='Whether to train the model')
 @click.option('--pbar_update_interval', default=500, help='progress bar update interval')
 @click.option('--load_opt_dir', default="", help='Directory of optimizer to load.')
@@ -48,8 +50,8 @@ import json
               help='a list of checkpoint numbers of iterations for training')
 @click.option('--list_of_lr', default='0.005, 0.005', help='learning rate for training')
 @click.option('--sample_t', default=100, help='length of samples')
-@click.option('--quiver_scale', default=0.3, help='scale for the quiver plots')
-def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_opt_dir, train_model,
+@click.option('--quiver_scale', default=1, help='scale for the quiver plots')
+def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_opt_dir, train_model, acc_factor,
          pbar_update_interval, video_clips, torch_seed, np_seed, k, x_grids, y_grids, n_x, n_y,
          list_of_num_iters, list_of_lr, sample_t, quiver_scale):
     if job_name is None:
@@ -61,8 +63,8 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
     list_of_lr = [float(x) for x in list_of_lr.split(",")]
     assert len(list_of_num_iters) == len(list_of_lr), "Length of list_of_num_iters must match length of list-of_lr."
     for lr in list_of_lr:
-        if lr > 0.5:
-            raise ValueError("Learning rate should not be larger than 0.5!")
+        if lr > 1:
+            raise ValueError("Learning rate should not be larger than 1!")
 
     repo = git.Repo('.', search_parent_directories=True)  # SocialBehaviorectories=True)
     repo_dir = repo.working_tree_dir  # SocialBehavior
@@ -99,6 +101,8 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
         n_x = len(tran.x_grids) - 1
         n_y = len(tran.y_grids) - 1
 
+        acc_factor = tran.transformations_a[0].acc_factor
+
     else:
         print("Creating the model...")
         bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX],
@@ -119,8 +123,11 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
             y_grids = [float(x) for x in y_grids.split(",")]
             n_y = len(y_grids) - 1
 
+        if acc_factor is None:
+            acc_factor = downsample_n * 10
+
         tran = GridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids, unit_transformation="direction",
-                                  Df=Df, feature_vec_func=f_corner_vec_func, acc_factor=10)
+                                  Df=Df, feature_vec_func=f_corner_vec_func, acc_factor=acc_factor)
         obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=1, bounds=bounds, transformation=tran)
 
         model = HMM(K=K, D=D, M=M, observation=obs)
@@ -188,7 +195,7 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
             joblib.dump(opt, checkpoint_dir+"/optimizer")
             # save rest
             rslt_saving(checkpoint_dir, model, Df, data, masks_a, masks_b, m_kwargs_a, m_kwargs_b, sample_T,
-                        train_model, list_of_losses, quiver_scale)
+                        train_model, losses, quiver_scale)
 
     else:
         # only save the results

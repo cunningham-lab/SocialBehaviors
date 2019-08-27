@@ -19,13 +19,15 @@ def get_camp(K):
     return cmap
 
 
-def plot_z(z, K, plot_range=None, ylim=None):
+def plot_z(z, K, plot_range=None, ylim=None, title=None):
     cmap = get_camp(K)
     if plot_range is None:
         plot_range=(0, z.shape[0])
     if ylim is None:
         ylim = (0, 1)
     plt.figure(figsize=(20, 2))
+    if title is not None:
+        plt.title(title)
     plt.imshow(z[None, plot_range[0]:plot_range[1]], aspect="auto", cmap=cmap,
                vmin=0, vmax=K-1, extent=(plot_range[0], plot_range[1], ylim[0], ylim[1]))
     plt.xlim(plot_range[0], plot_range[1])
@@ -37,13 +39,17 @@ def plot_1_mice(data, alpha=0.8, label='virgin'):
     plt.plot(data[:, 0], data[:, 1], label=label, alpha=alpha)
 
 
-def plot_2_mice(data, alpha=0.8):
+def plot_2_mice(data, alpha=0.8, title=None):
+    if title is not None:
+        plt.title(title)
     plt.plot(data[:,0], data[:,1], label='virgin', alpha=alpha)
     plt.plot(data[:,2], data[:,3], label='mother', alpha=alpha)
     #plt.legend()
 
 
-def plot_4_traces(data):
+def plot_4_traces(data, title):
+    if title is not None:
+        plt.title(title)
     plt.plot(data[:, 0], label='x1')
     plt.plot(data[:, 1], label='y1')
     plt.plot(data[:, 2], label='x2')
@@ -51,7 +57,7 @@ def plot_4_traces(data):
     plt.legend()
 
 
-def plot_quiver(XYs, dXYs, mouse, other_mouse_loc=None, scale=1, alpha=1):
+def plot_quiver(XYs, dXYs, mouse, other_mouse_loc=None, scale=1, alpha=1, title=None):
     if mouse == 'virgin':
         i = 0
         j = 1
@@ -60,6 +66,8 @@ def plot_quiver(XYs, dXYs, mouse, other_mouse_loc=None, scale=1, alpha=1):
         j = 3
 
     fig, axs = plt.subplots(2, 2, figsize=(10, 8))
+    if title is not None:
+        plt.suptitle(title)
 
     axs[0][0].quiver(XYs[:, i], XYs[:, j], dXYs[:, 0, i], dXYs[:, 0, j],
                      angles='xy', scale_units='xy', scale=scale, alpha=alpha)

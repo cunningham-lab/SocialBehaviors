@@ -66,7 +66,7 @@ def k_step_prediction_for_direction_model(model, model_z, data, momentum_vecs=No
     return k_step_prediction_for_momentum_feature_model(model, model_z, data, momentum_vecs, features)
 
 
-def k_step_prediction_for_grid_model(model, model_z, data, **memory_kwargs):
+def k_step_prediction_for_artn_model(model, model_z, data, **memory_kwargs):
     data = check_and_convert_to_tensor(data)
 
     memory_kwargs_a = memory_kwargs.get("memory_kwargs_a", None)

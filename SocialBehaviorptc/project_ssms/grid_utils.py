@@ -1,10 +1,10 @@
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import seaborn as sns
 
 from ssm_ptc.utils import check_and_convert_to_tensor
-
 
 
 def add_grid(x_grids, y_grids):
@@ -27,14 +27,19 @@ def add_grid_to_ax(ax, x_grids, y_grids):
         ax.plot([x_grids[i], x_grids[i]], [y_grids[0], y_grids[-1]], '--', color='grey')
 
 
-def plot_realdata_quiver(realdata, x_grids=None, y_grids=None, xlim=None, ylim=None, **quiver_args):
-    assert isinstance(realdata, np.ndarray), "please input ndarray"
+def plot_realdata_quiver(realdata, x_grids=None, y_grids=None, xlim=None, ylim=None, title=None, **quiver_args):
+    if isinstance(realdata, torch.Tensor):
+        realdata = realdata.numpy()
+
     start = realdata[:-1]
     end = realdata[1:]
     dXY = end - start
 
     if realdata.shape[-1] == 2:
         plt.figure(figsize=(7, 7))
+        if title is not None:
+            plt.suptitle(title)
+
         plt.quiver(start[:, 0], start[:, 1], dXY[:, 0], dXY[:, 1],
                    angles='xy', scale_units='xy', **quiver_args)
         add_grid(x_grids, y_grids)
@@ -46,6 +51,8 @@ def plot_realdata_quiver(realdata, x_grids=None, y_grids=None, xlim=None, ylim=N
         assert realdata.shape[-1] == 4
 
         plt.figure(figsize=(15, 7))
+        if title is not None:
+            plt.suptitle(title)
 
         plt.subplot(1, 2, 1)
         plt.quiver(start[:, 0], start[:, 1], dXY[:, 0], dXY[:, 1],
@@ -68,7 +75,7 @@ def plot_realdata_quiver(realdata, x_grids=None, y_grids=None, xlim=None, ylim=N
             plt.ylim(ylim)
 
 
-def plot_weights(weights, Df, K, x_grids, y_grids, max_weight=10):
+def plot_weights(weights, Df, K, x_grids, y_grids, max_weight=10, title=None):
     assert Df == 4
 
     n_grid_x = len(x_grids) - 1
@@ -77,6 +84,8 @@ def plot_weights(weights, Df, K, x_grids, y_grids, max_weight=10):
     assert weights.shape == (n_grid_x*n_grid_y, K, Df)
 
     plt.figure(figsize=(n_grid_x*5, n_grid_y*4))
+    if title is not None:
+        plt.suptitle(title)
 
     gap = 0.8 / (K - 1)
 
@@ -110,7 +119,7 @@ def add_percentage(k, percentage, grid_centers):
         plt.text(c[0] + 20, c[1] + 40, text, fontsize=12, color='k')
 
 
-def plot_dynamics(weighted_corner_vecs, animal, x_grids, y_grids, K, scale=0.1, percentage=None):
+def plot_dynamics(weighted_corner_vecs, animal, x_grids, y_grids, K, scale=0.1, percentage=None, title=None):
     result_corner_vecs = np.sum(weighted_corner_vecs, axis=2)
     n_x = len(x_grids) - 1
     n_y = len(y_grids) - 1
@@ -135,11 +144,15 @@ def plot_dynamics(weighted_corner_vecs, animal, x_grids, y_grids, K, scale=0.1, 
 
     if K <= 4:
         plt.figure(figsize=(20, 5))
+        if title is not None:
+            plt.suptitle(title)
         for k in range(K):
             plt.subplot(1, K, k+1)
             plot_dynamics_k(k)
     elif 4 < K <= 8:
         plt.figure(figsize=(20, 10))
+        if title is not None:
+            plt.suptitle(title)
         for k in range(K):
             plt.subplot(2, int(K/2)+1, k+1)
             plot_dynamics_k(k)
@@ -147,10 +160,12 @@ def plot_dynamics(weighted_corner_vecs, animal, x_grids, y_grids, K, scale=0.1, 
     plt.tight_layout()
 
 
-def plot_quiver(XYs, dXYs, mouse, K,scale=1, alpha=1):
+def plot_quiver(XYs, dXYs, mouse, K,scale=1, alpha=1, title=None):
 
     if K <= 5:
         plt.figure(figsize=(20, 4))
+        if title is not None:
+            plt.suptitle(title)
 
         for k in range(K):
             plt.subplot(1, K, k+1)
@@ -160,6 +175,8 @@ def plot_quiver(XYs, dXYs, mouse, K,scale=1, alpha=1):
 
     elif 5 < K <= 8:
         plt.figure(figsize=(20, 8))
+        if title is not None:
+            plt.suptitle(title)
 
         for k in range(K):
             plt.subplot(2, int(K/2)+1, k+1)
@@ -319,6 +336,11 @@ def plot_list_of_angles(list_of_angles, labels, title_name, n_x, n_y):
     plt.figure(figsize=(16, 12))
     plt.suptitle(title_name, fontsize=20)
 
+    colors = ['C0', 'C1', 'C2']
+    custom_lines = [Line2D([0], [0], color='C0', lw=1),
+                    Line2D([0], [0], color='C1', lw=1),
+                    Line2D([0], [0], color='C2', lw=1)]
+
     for i in range(n_x):
         for j in range(n_y):
             plot_idx = (n_y - j - 1) * n_x + i + 1
@@ -326,10 +348,12 @@ def plot_list_of_angles(list_of_angles, labels, title_name, n_x, n_y):
 
             grid_idx = i * n_y + j
 
-            for angles, label in zip(list_of_angles, labels):
-                sns.kdeplot(angles[grid_idx], label=label)
+            for angles, label, color in zip(list_of_angles, labels, colors):
+                if angles[grid_idx].shape[0] > 10:
+                    sns.kdeplot(angles[grid_idx], label=label, color=color, legend=False)
+            if grid_idx == 0:
+                plt.legend(custom_lines, ['data', 'sample', 'sample_c'])
 
-            plt.legend()
             plt.xlim(0, 2 * np.pi)
             plt.xlim(0, 2 * np.pi)
             plt.xticks([0, np.pi / 2, np.pi, np.pi / 2 * 3, 2 * np.pi],
@@ -368,6 +392,10 @@ def plot_list_of_speed(list_of_speed,  labels, title_name, n_x, n_y):
     plt.figure(figsize=(16, 12))
     plt.suptitle(title_name, fontsize=20)
 
+    colors = ['C0', 'C1', 'C2']
+    custom_lines = [Line2D([0], [0], color='C0', lw=1),
+                    Line2D([0], [0], color='C1', lw=1),
+                    Line2D([0], [0], color='C2', lw=1)]
     for i in range(n_x):
         for j in range(n_y):
             plot_idx = (n_y - j - 1) * n_x + i + 1
@@ -375,10 +403,32 @@ def plot_list_of_speed(list_of_speed,  labels, title_name, n_x, n_y):
 
             grid_idx = i * n_y + j
 
-            for speed, label in zip(list_of_speed, labels):
-                sns.kdeplot(speed[grid_idx], label=label)
+            for speed, label, color in zip(list_of_speed, labels, colors):
+                if speed[grid_idx].shape[0] > 10:
+                    sns.kdeplot(speed[grid_idx], label=label, color=color, legend=False)
 
-            plt.legend()
+            if grid_idx == 0:
+                plt.legend(custom_lines, ['data', 'sample_x', 'sample_x_center'])
+
+
+def plot_space_dist(data, x_grids, y_grids):
+    if isinstance(data, torch.Tensor):
+        data = data.numpy()
+    T = data.shape[0]
+    n_levels = int(T / 36)
+    plt.figure(figsize=(15, 7))
+
+    plt.subplot(1, 2, 1)
+    sns.kdeplot(data[:, 0], data[:, 1], n_levels=n_levels)
+    add_grid(x_grids, y_grids)
+    plt.title("virgin")
+
+    plt.subplot(1, 2, 2)
+    sns.kdeplot(data[:, 2], data[:, 3], n_levels=n_levels)
+    add_grid(x_grids, y_grids)
+    plt.title("mother")
+
+    plt.tight_layout()
 
 
 def test_plot_grid_and_weight_idx(n_x, n_y):

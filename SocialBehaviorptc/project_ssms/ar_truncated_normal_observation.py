@@ -39,7 +39,7 @@ class ARTruncatedNormalObservation(BaseObservation):
                 raise Exception("Invalid transformation model: {}. Must be one of {}".
                                 format(transformation, list(TRANSFORMATION_CLASSES.keys())))
 
-            transformation_kwargs = transformation_kwargs or None
+            transformation_kwargs = transformation_kwargs or {}
             self.transformation = TRANSFORMATION_CLASSES[transformation](K=self.K, D=self.D, M=self.M, lags=self.lags,
                                                                          **transformation_kwargs)
 

@@ -5,7 +5,7 @@ from project_ssms.ar_truncated_normal_observation import ARTruncatedNormalObserv
 from project_ssms.single_transformations.grid_single_transformation import GridSingleTransformation
 from project_ssms.feature_funcs import f_corner_vec_func
 from project_ssms.momentum_utils import filter_traj_by_speed
-from project_ssms.utils import k_step_prediction_for_grid_model, downsample
+from project_ssms.utils import k_step_prediction_for_artn_model, downsample
 from project_ssms.plot_utils import plot_1_mice, plot_z
 from project_ssms.grid_utils import plot_weights, plot_dynamics, plot_quiver, add_grid
 from project_ssms.constants import ARENA_XMIN, ARENA_XMAX, ARENA_YMIN, ARENA_YMAX
@@ -160,7 +160,7 @@ def main(job_name, downsample_n, load_model, load_model_dir, train_model, pbar_u
         data_to_predict = data
     else:
         data_to_predict = data[-1000:]
-    x_predict = k_step_prediction_for_grid_model(model, z, data_to_predict, memory_kwargs_a=m_kwargs_a)
+    x_predict = k_step_prediction_for_artn_model(model, z, data_to_predict, memory_kwargs_a=m_kwargs_a)
     x_predict_err = np.mean(np.abs(x_predict - data_to_predict.numpy()), axis=0)
 
     print("5 step prediction")

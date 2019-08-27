@@ -8,7 +8,7 @@ from project_ssms.coupled_transformations.direction_observation import Direction
 from project_ssms.momentum_utils import filter_traj_by_speed, get_momentum_in_batch, get_momentum
 from project_ssms.feature_funcs import unit_vector_to_fixed_loc, unit_vector_to_other, feature_vec_func
 from project_ssms.ar_truncated_normal_observation import ARTruncatedNormalObservation
-from project_ssms.utils import k_step_prediction_for_grid_model
+from project_ssms.utils import k_step_prediction_for_artn_model
 
 import joblib
 import git
@@ -121,7 +121,7 @@ z = model.most_likely_states(data, masks=(masks_a, masks_b),
                              memory_kwargs_a=m_kwargs_a, memory_kwargs_b=m_kwargs_b)
 
 print("0 step prediction")
-x_predict = k_step_prediction_for_grid_model(model, z, data, memory_kwargs_a=m_kwargs_a, memory_kwargs_b=m_kwargs_b)
+x_predict = k_step_prediction_for_artn_model(model, z, data, memory_kwargs_a=m_kwargs_a, memory_kwargs_b=m_kwargs_b)
 
 print("k step prediction")
 x_predict_10 = k_step_prediction(model, z, data, 10)
