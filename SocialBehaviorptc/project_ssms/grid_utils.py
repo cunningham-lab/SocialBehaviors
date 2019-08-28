@@ -447,3 +447,5 @@ def test_plot_grid_and_weight_idx(n_x, n_y):
             plt.xticks(np.arange(0, 4, 1), ["lower L", "upper L", "lower R", "upper R"])
 
     plt.tight_layout()
+
+

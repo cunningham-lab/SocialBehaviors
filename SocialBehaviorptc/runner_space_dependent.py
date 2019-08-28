@@ -1,15 +1,14 @@
 from ssm_ptc.models.hmm import HMM
 
 from project_ssms.ar_truncated_normal_observation import ARTruncatedNormalObservation
-from project_ssms.coupled_transformations.grid_transformation import GridTransformation
-from project_ssms.unit_transformations import unit_direction_transformation
+from project_ssms.coupled_transformations.space_dependent_transformation import SpaceDependentTransformation
 from project_ssms.feature_funcs import f_corner_vec_func
 from project_ssms.momentum_utils import filter_traj_by_speed
 from project_ssms.utils import downsample
 from project_ssms.constants import ARENA_XMIN, ARENA_XMAX, ARENA_YMIN, ARENA_YMAX
 
 from saver.rslts_saving import addDateTime, NumpyEncoder
-from saver.runner_rslt_saving import rslt_saving
+from saver.runner_space_dependent_rslt_saving import rslt_saving
 
 import torch
 import numpy as np
@@ -30,6 +29,7 @@ import json
 @click.option('--filter_traj', is_flag=True, help='whether or not to filter the trajectory by SPEED')
 @click.option('--load_model', is_flag=True, help='Whether to load the (trained) model')
 @click.option('--load_model_dir', default="", help='Directory of model to load')
+@click.option('--dhs', default='5,5', help="Number of hidden units in space-dependent weight model")
 @click.option('--acc_factor', default=None, help="acc factor in direction model")
 @click.option('--train_model', is_flag=True, help='Whether to train the model')
 @click.option('--pbar_update_interval', default=500, help='progress bar update interval')
@@ -38,25 +38,22 @@ import json
 @click.option('--torch_seed', default=0, help='torch random seed')
 @click.option('--np_seed', default=0, help='numpy random seed')
 @click.option('--k', default=4, help='number of hidden states. Would be overwritten if load model.')
-@click.option('--x_grids', default=None, help='x coordinates to specify the grids')
-@click.option('--y_grids', default=None, help='y coordinates to specify the grids')
-@click.option('--n_x', default=3, help='number of grids in x axis.'
-                                       ' Would be overwritten if x_grids is provided, or load model.')
-@click.option('--n_y', default=3, help='number of grids in y_axis.'
-                                       ' Would be overwritten if y_grids is provided, or load model.')
 @click.option('--list_of_num_iters', default='5000,5000',
               help='a list of checkpoint numbers of iterations for training')
 @click.option('--list_of_lr', default='0.005, 0.005', help='learning rate for training')
 @click.option('--sample_t', default=100, help='length of samples')
-@click.option('--quiver_scale', default=0.5, help='scale for the quiver plots')
-def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_opt_dir, train_model, acc_factor,
-         pbar_update_interval, video_clips, torch_seed, np_seed, k, x_grids, y_grids, n_x, n_y,
-         list_of_num_iters, list_of_lr, sample_t, quiver_scale):
+@click.option('--quiver_scale', default=0.1, help='scale for the quiver plots')
+@click.option('--n_x', default=4, help='number of x_grids (for distribution checks)')
+@click.option('--n_y', default=4, help='number of y_grids (for distribution checks')
+def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_opt_dir, train_model, dhs, acc_factor,
+         pbar_update_interval, video_clips, torch_seed, np_seed, k,
+         list_of_num_iters, list_of_lr, sample_t, quiver_scale, n_x, n_y):
     if job_name is None:
         raise ValueError("Please provide the job name.")
     K = k
     sample_T = sample_t
     video_clip_start, video_clip_end = [int(x) for x in video_clips.split(",")]
+    dhs = [int(x) for x in dhs.split(",")]
     list_of_num_iters = [int(x) for x in list_of_num_iters.split(",")]
     list_of_lr = [float(x) for x in list_of_lr.split(",")]
     assert len(list_of_num_iters) == len(list_of_lr), "Length of list_of_num_iters must match length of list-of_lr."
@@ -95,36 +92,19 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
 
         K = model.K
 
-        n_x = len(tran.x_grids) - 1
-        n_y = len(tran.y_grids) - 1
-
-        acc_factor = tran.transformations_a[0].acc_factor
+        dhs = tran.dhs
+        acc_factor = tran.acc_factor
 
     else:
         print("Creating the model...")
         bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX],
                            [ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX]])
 
-        # grids
-        if x_grids is None:
-            x_grid_gap = (ARENA_XMAX - ARENA_XMIN) / n_x
-            x_grids = [ARENA_XMIN + i * x_grid_gap for i in range(n_x + 1)]
-        else:
-            x_grids = [float(x) for x in x_grids.split(",")]
-            n_x = len(x_grids) - 1
-
-        if y_grids is None:
-            y_grid_gap = (ARENA_YMAX - ARENA_YMIN) / n_y
-            y_grids = [ARENA_YMIN + i * y_grid_gap for i in range(n_y + 1)]
-        else:
-            y_grids = [float(x) for x in y_grids.split(",")]
-            n_y = len(y_grids) - 1
-
         if acc_factor is None:
             acc_factor = downsample_n * 10
 
-        tran = GridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids, unit_transformation="direction",
-                                  Df=Df, feature_vec_func=f_corner_vec_func, acc_factor=acc_factor)
+        tran = SpaceDependentTransformation(K=K, D=D, Df=Df, feature_vec_func=f_corner_vec_func, dhs=dhs,
+                                            acc_factor=acc_factor)
         obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=1, bounds=bounds, transformation=tran)
 
         model = HMM(K=K, D=D, M=M, observation=obs)
@@ -139,10 +119,8 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
                   "train_model": train_model,
                   "pbar_update_interval": pbar_update_interval,
                   "K": K,
-                  "n_x": n_x,
-                  "n_y": n_y,
-                  "x_grids": x_grids,
-                  "y_grids": y_grids,
+                  "dhs": dhs,
+                  "acc_factor": acc_factor,
                   "list_of_num_iters": list_of_num_iters,
                   "list_of_lr": list_of_lr,
                   "video_clip_start": video_clip_start,
@@ -162,7 +140,6 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
         json.dump(exp_params, f, indent=4, cls=NumpyEncoder)
 
     # compute memories
-    masks_a, masks_b = tran.get_masks(data[:-1])
     feature_vecs_a = f_corner_vec_func(data[:-1, 0:2])
     feature_vecs_b = f_corner_vec_func(data[:-1, 2:4])
 
@@ -180,7 +157,7 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
             opt = None
         for i, (num_iters, lr) in enumerate(zip(list_of_num_iters, list_of_lr)):
             losses, opt = model.fit(data, optimizer=opt, method='adam', num_iters=num_iters, lr=lr,
-                                    masks=(masks_a, masks_b), pbar_update_interval=pbar_update_interval,
+                                    pbar_update_interval=pbar_update_interval,
                                     memory_kwargs_a=m_kwargs_a, memory_kwargs_b=m_kwargs_b)
             list_of_losses.append(losses)
 
@@ -193,13 +170,13 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
             joblib.dump(model, checkpoint_dir+"/model")
             joblib.dump(opt, checkpoint_dir+"/optimizer")
             # save rest
-            rslt_saving(checkpoint_dir, model, Df, data, masks_a, masks_b, m_kwargs_a, m_kwargs_b, sample_T,
-                        train_model, losses, quiver_scale)
+            rslt_saving(checkpoint_dir, model, Df, data, m_kwargs_a, m_kwargs_b, sample_T,
+                        train_model, losses, quiver_scale, n_x, n_y)
 
     else:
         # only save the results
-        rslt_saving(rslt_dir, model, Df, data, masks_a, masks_b, m_kwargs_a, m_kwargs_b, sample_T,
-                    False, [], quiver_scale)
+        rslt_saving(rslt_dir, model, Df, data, m_kwargs_a, m_kwargs_b, sample_T,
+                    False, [], quiver_scale, n_x, n_y)
 
     print("Finish running!")
 

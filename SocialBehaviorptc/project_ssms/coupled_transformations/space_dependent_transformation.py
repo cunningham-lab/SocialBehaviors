@@ -96,9 +96,9 @@ class SpaceDependentTransformation(BaseTransformation):
         feature_vecs_b = memory_kwargs_b.get("feature_vecs", None)
 
         if feature_vecs_a is None:
-            feature_vecs_a = self.feature_vec_func(inputs[:,0:2])
+            feature_vecs_a = self.feature_vec_func(inputs[:, 0:2])
         if feature_vecs_b is None:
-            feature_vecs_b = self.feature_vec_func(inputs[:,2:4])
+            feature_vecs_b = self.feature_vec_func(inputs[:, 2:4])
 
         assert feature_vecs_a.shape == (T, self.Df, self.d), \
             "Feature vec a shape is " + str(feature_vecs_a.shape) \
@@ -107,22 +107,23 @@ class SpaceDependentTransformation(BaseTransformation):
             "Feature vec b shape is " + str(feature_vecs_a.shape) \
             + ". It should have shape ({}, {}, {}).".format(T, self.Df, self.d)
 
-        # (K, Df)
-        weights_a = torch.stack([w_a.forward(inputs[-1, 0:2]) for w_a in self.weights_a], dim=0)
-        weights_b = torch.stack([w_b.forward(inputs[-1, 2:4]) for w_b in self.weights_b], dim=0)
-        assert weights_a.shape == (self.K, self.Df)
-        assert weights_b.shape == (self.K, self.Df)
+        # (T, K, Df)
+        weights_a = torch.stack([w_a.forward(inputs[:, 0:2]) for w_a in self.weights_a], dim=1)
+        weights_b = torch.stack([w_b.forward(inputs[:, 2:4]) for w_b in self.weights_b], dim=1)
+        assert weights_a.shape == (T, self.K, self.Df)
+        assert weights_b.shape == (T, self.K, self.Df)
 
-        # (K, Df) * (T, Df, d) -> (T, K, d)
+        # (T, K, Df) * (T, Df, d) -> (T, K, d)
         out_a = torch.matmul(weights_a, feature_vecs_a)
         assert out_a.shape == (T, self.K, self.d)
         out_b = torch.matmul(weights_b, feature_vecs_b)
         assert out_b.shape == (T, self.K, self.d)
 
-        outputs = torch.cat((out_a, out_b), dim=-1)
-        assert outputs.shape == (T, self.K, self.D)
+        out = torch.cat((out_a, out_b), dim=-1) # (T, K, D)
+        out = inputs[:, None, ] + out
+        assert out.shape == (T, self.K, self.D)
 
-        return outputs
+        return out
 
     def transform_condition_on_z(self, z, inputs, memory_kwargs_a=None, memory_kwargs_b=None):
         """
@@ -165,6 +166,7 @@ class SpaceDependentTransformation(BaseTransformation):
 
         out = torch.cat((out_a, out_b), dim=-1)
         out = torch.squeeze(out, dim=0)
+        out = inputs[-1] + out
         assert out.shape == (self.D,)
         return out
 

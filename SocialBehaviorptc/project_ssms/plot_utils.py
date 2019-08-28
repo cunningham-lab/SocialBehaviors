@@ -1,4 +1,6 @@
 import numpy as np
+import torch
+
 import matplotlib.pyplot as plt
 import matplotlib.colors
 
@@ -39,11 +41,17 @@ def plot_1_mice(data, alpha=0.8, label='virgin'):
     plt.plot(data[:, 0], data[:, 1], label=label, alpha=alpha)
 
 
-def plot_2_mice(data, alpha=0.8, title=None):
+def plot_2_mice(data, alpha=0.8, title=None, xlim=None, ylim=None):
+    if isinstance(data, torch.Tensor):
+        data = data.numpy()
     if title is not None:
         plt.title(title)
     plt.plot(data[:,0], data[:,1], label='virgin', alpha=alpha)
     plt.plot(data[:,2], data[:,3], label='mother', alpha=alpha)
+    if xlim is not None:
+        plt.xlim(xlim)
+    if ylim is not None:
+        plt.ylim(ylim)
     #plt.legend()
 
 
@@ -55,45 +63,3 @@ def plot_4_traces(data, title):
     plt.plot(data[:, 2], label='x2')
     plt.plot(data[:, 3], label='y2')
     plt.legend()
-
-
-def plot_quiver(XYs, dXYs, mouse, other_mouse_loc=None, scale=1, alpha=1, title=None):
-    if mouse == 'virgin':
-        i = 0
-        j = 1
-    elif mouse == 'mother':
-        i = 2
-        j = 3
-
-    fig, axs = plt.subplots(2, 2, figsize=(10, 8))
-    if title is not None:
-        plt.suptitle(title)
-
-    axs[0][0].quiver(XYs[:, i], XYs[:, j], dXYs[:, 0, i], dXYs[:, 0, j],
-                     angles='xy', scale_units='xy', scale=scale, alpha=alpha)
-    axs[0][0].set_title('K=0')
-
-    axs[0][1].quiver(XYs[:, i], XYs[:, j], dXYs[:, 1, i], dXYs[:, 1, j],
-                     angles='xy', scale_units='xy', scale=scale, alpha=alpha)
-    axs[0][1].set_title('K=1')
-
-    axs[1][0].quiver(XYs[:, i], XYs[:, j], dXYs[:, 2, i], dXYs[:, 2, j],
-                     angles='xy', scale_units='xy', scale=scale, alpha=alpha)
-    axs[1][0].set_title('K=2')
-
-    axs[1][1].quiver(XYs[:, i], XYs[:, j], dXYs[:, 3, i], dXYs[:, 3, j],
-                     angles='xy', scale_units='xy', scale=scale, alpha=alpha)
-    axs[1][1].set_title('K=3')
-
-    if other_mouse_loc is not None:
-        axs[0][0].plot(*other_mouse_loc, 'ro')
-        axs[0][1].plot(*other_mouse_loc, 'ro')
-        axs[1][0].plot(*other_mouse_loc, 'ro')
-        axs[1][1].plot(*other_mouse_loc, 'ro')
-    """
-    for row_axs in axs:
-        for ax in row_axs:
-            ax.set_xlim([0, 330])
-            ax.set_ylim([0, 380])
-    """
-    plt.tight_layout()
