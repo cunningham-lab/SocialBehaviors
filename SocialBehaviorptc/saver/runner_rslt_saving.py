@@ -96,7 +96,9 @@ def rslt_saving(rslt_dir, model, Df, data, masks_a, masks_b, m_kwargs_a, m_kwarg
     avg_sample_center_speed = np.average(np.abs(np.diff(sample_x_center, axis=0)), axis=0)
     avg_data_speed = np.average(np.abs(np.diff(data.numpy(), axis=0)), axis=0)
 
-    summary_dict = {"x_predict_err": x_predict_err, "x_predict_5_err": x_predict_5_err,
+    summary_dict = {"init_dist": model.init_dist,
+                    "transition_matrix": model.transition.stationary_transition_matrix,
+                    "x_predict_err": x_predict_err, "x_predict_5_err": x_predict_5_err,
                     "variance": torch.exp(model.observation.log_sigmas).detach().numpy(),
                     "log_likes": model.log_likelihood(data).detach().numpy(),
                     "grid_z_a_percentage": grid_z_a_percentage, "grid_z_b_percentage": grid_z_b_percentage,
