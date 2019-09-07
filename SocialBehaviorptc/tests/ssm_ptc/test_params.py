@@ -15,7 +15,7 @@ np.random.seed(0)
 
 K = 3
 D = 2
-lags= 10
+lags = 10
 
 # AR Gaussian
 
