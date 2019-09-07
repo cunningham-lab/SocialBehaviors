@@ -8,7 +8,7 @@ import numpy.random as npr
 
 from ssm_ptc.transitions.base_transition import BaseTransition
 from ssm_ptc.transitions.stationary_transition import StationaryTransition
-from ssm_ptc.transitions.sticky_transition import InputDrivenTransition
+from ssm_ptc.transitions.sticky_transition import StickyTransition, InputDrivenTransition
 from ssm_ptc.observations.base_observation import BaseObservation
 from ssm_ptc.observations.ar_gaussian_observation import ARGaussianObservation
 from ssm_ptc.observations.ar_logit_normal_observation import ARLogitNormalObservation
@@ -19,11 +19,19 @@ from ssm_ptc.utils import check_and_convert_to_tensor, set_param, ensure_args_ar
 
 from tqdm import trange
 
+TRANSITION_CLASSES = dict(stationary=StationaryTransition,
+                          sticky=StickyTransition,
+                          inputdriven=InputDrivenTransition)
+
+OBSERVATION_CLASSES = dict(gaussian=ARGaussianObservation,
+                           logitnormal=ARLogitNormalObservation,
+                           truncatednormal=ARTruncatedNormalObservation)
+
 
 class HMM:
 
     def __init__(self, K, D, M=0, transition='stationary', observation="gaussian", pi0=None, Pi=None,
-                 observation_kwargs=None):
+                 transition_kwargs=None, observation_kwargs=None):
         """
         :param K: number of hidden states
         :param D: dimension of observations
@@ -44,12 +52,16 @@ class HMM:
             self.pi0 = check_and_convert_to_tensor(pi0, dtype=torch.float64)
 
         if isinstance(transition, str):
-            if transition == 'stationary':
-                self.transition = StationaryTransition(self.K, self.D, self.M, Pi=Pi)
-            elif transition == 'inputdriven':
-                self.transition = InputDrivenTransition(self.K, self.D, self.M, Pi=Pi)
-            else:
-                raise ValueError("Please select from 'stationary' and 'inputdriven'.")
+            transition = transition.lower()
+
+            transition_kwargs = transition_kwargs or {}
+
+            if transition not in TRANSITION_CLASSES:
+                raise ValueError("Invalid transition model: {}. Please select from {}.".format(
+                    transition, list(TRANSITION_CLASSES.keys())))
+
+            self.transition = TRANSITION_CLASSES[transition](self.K, self.D, self.M, Pi, **transition_kwargs)
+
         elif isinstance(transition, BaseTransition):
             self.transition = transition
         else:
@@ -59,14 +71,13 @@ class HMM:
             observation = observation.lower()
 
             observation_kwargs = observation_kwargs or {}
-            if observation == "gaussian":
-                self.observation = ARGaussianObservation(self.K, self.D, self.M, transformation='linear', **observation_kwargs)
-            elif observation == "logitnormal":
-                self.observation = ARLogitNormalObservation(self.K, self.D, self.M, **observation_kwargs)
-            elif observation == "truncatednormal":
-                self.observation = ARTruncatedNormalObservation(self.K, self.D, self.M, **observation_kwargs)
-            else:
-                raise ValueError("Please select from 'gaussian', 'logitnormal' and 'truncatednormal'.")
+
+            if observation not in OBSERVATION_CLASSES:
+                raise ValueError("Invalid observaiton model: {}. Please select from {}.".format(
+                    observation, list(OBSERVATION_CLASSES.keys())))
+
+            self.observation = OBSERVATION_CLASSES[observation](self.K, self.D, self.M, **observation_kwargs)
+
         elif isinstance(observation, BaseObservation):
             self.observation = observation
         else:
@@ -177,7 +188,10 @@ class HMM:
             return z[T_pre:], data[T_pre:]
 
     def loss(self, data, input=None, **memory_kwargs):
-        return -1. * self.log_likelihood(data, input, **memory_kwargs)
+        return -1. * self.log_probability(data, input, **memory_kwargs)
+
+    def log_prior(self):
+        return self.transition.log_prior() + self.observation.log_prior()
 
     @ensure_args_are_lists_of_tensors
     def log_likelihood(self, datas, inputs=None, **memory_kwargs):
@@ -229,6 +243,10 @@ class HMM:
             ll = ll + hmmnorm_cython(log_pi0, log_Ps, log_likes)
 
         return ll
+
+    @ensure_args_are_lists_of_tensors
+    def log_probability(self, datas, inputs=None, **memory_kwargs):
+        return self.log_likelihood(datas, inputs, **memory_kwargs) + self.log_prior()
 
     @property
     def params(self):

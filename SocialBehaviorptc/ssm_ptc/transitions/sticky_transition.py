@@ -2,18 +2,24 @@ import torch
 import numpy as np
 import numpy.random as npr
 
-from ssm_ptc.transitions.base_transition import BaseTransition
+from ssm_ptc.transitions.stationary_transition import StationaryTransition
 from ssm_ptc.utils import set_param, ensure_args_are_lists_of_tensors
 
 
 def dirichlet_logpdf(ps, alpha):
-    # TODO: test this method
-    return ((torch.log(ps) * torch.sum(alpha - 1.0, dim=-1)) +
-                torch.lgamma(torch.sum(alpha, dim=-1)) -
-                torch.sum(torch.lgamma(alpha), dim=-1))
+    """
+    torch version
+    :param ps: data, a vector of length K
+    :param alpha: concentration parameters of the dirichlet distribution, a vector of length K
+    :return: log pdf, a scalar
+    """
+    assert torch.all(alpha > 0), "The concentration parameters alpha should be all positive."
+    assert torch.allclose(torch.sum(ps), torch.tensor(1, dtype=ps.dtype)), "The summation of probabilities should be 1."
+    return torch.sum(torch.log(ps) * (alpha - 1.0), dim=-1) + torch.lgamma(torch.sum(alpha, dim=-1)) -\
+           torch.sum(torch.lgamma(alpha), dim=-1)
 
 
-class StickyTransition(BaseTransition):
+class StickyTransition(StationaryTransition):
     """
         Upweight the self transition prior.
 
@@ -21,29 +27,12 @@ class StickyTransition(BaseTransition):
     """
 
     def __init__(self, K, D, M=0, Pi=None, alpha=1, kappa=10):
-        super(StickyTransition, self).__init__(K, D, M)
-
-        if Pi is None:
-            Pi = 2 * np.eye(K) + .05 * npr.rand(K, K)
-        else:
-            assert isinstance(Pi, np.ndarray)
-            assert Pi.shape == (K, K)
-
-        self.Pi = torch.tensor(Pi, dtype=torch.float64, requires_grad=True)
+        super(StickyTransition, self).__init__(K, D, M, Pi)
 
         # not tensor
         self.alpha = alpha
         self.kappa = kappa
 
-    @property
-    def params(self):
-        return self.Pi,
-
-    @params.setter
-    def params(self, values):
-        self.Pi = set_param(self.Pi, values[0])
-
-    # TODO: add log prior to log probability
     def log_prior(self):
         K = self.K
 
@@ -53,12 +42,6 @@ class StickyTransition(BaseTransition):
             alpha = torch.tensor(self.alpha * np.ones(K) + self.kappa * (np.arange(K) == k), dtype=torch.float64)
             lp += dirichlet_logpdf(Ps[k], alpha)
         return lp
-
-    def permute(self, perm):
-        self.Pi = self.Pi[np.ix_(perm, perm)]
-
-    def transition_matrix(self, data, input, log=False):
-        raise NotImplementedError
 
 
 class InputDrivenTransition(StickyTransition):
@@ -70,7 +53,7 @@ class InputDrivenTransition(StickyTransition):
         P(z_t | v_t, z_{t-1}) \sim Softmax(W v_t + P_{z_{t-1}})
     """
 
-    def __init__(self, K, D, M=0, Pi=None, alpha=1, kappa=10, l2_penalty=0.0, use_bias=False):
+    def __init__(self, K, D, M=0, Pi=None, alpha=1, kappa=100, l2_penalty=0.0, use_bias=False):
         super(InputDrivenTransition, self).__init__(K, D, M, Pi, alpha, kappa)
 
         self.Ws = torch.tensor(npr.rand(K, M), dtype=torch.float64, requires_grad=True)
@@ -82,7 +65,7 @@ class InputDrivenTransition(StickyTransition):
 
     @property
     def params(self):
-        return (self.Pi, self.Ws, self.bs)
+        return self.Pi, self.Ws, self.bs
 
     @params.setter
     def params(self, values):

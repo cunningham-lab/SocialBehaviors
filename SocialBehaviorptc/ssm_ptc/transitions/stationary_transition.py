@@ -8,7 +8,7 @@ from ssm_ptc.utils import set_param
 
 class StationaryTransition(BaseTransition):
 
-    def __init__(self, K, D, M=0, Pi=None):
+    def __init__(self, K, D, M=0, Pi=None, **kwargs):
         super(StationaryTransition, self).__init__(K, D, M)
 
         if Pi is None:
