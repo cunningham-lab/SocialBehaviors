@@ -30,6 +30,9 @@ import json
 @click.option('--filter_traj', is_flag=True, help='whether or not to filter the trajectory by SPEED')
 @click.option('--load_model', is_flag=True, help='Whether to load the (trained) model')
 @click.option('--load_model_dir', default="", help='Directory of model to load')
+@click.option('--transition', default="stationary", help='type of transition (str)')
+@click.option('--sticky_alpha', default=1, help='value of alpha in sticky transition')
+@click.option('--sticky_kappa', default=100, help='value of kappa in sticky transition')
 @click.option('--acc_factor', default=None, help="acc factor in direction model")
 @click.option('--train_model', is_flag=True, help='Whether to train the model')
 @click.option('--pbar_update_interval', default=500, help='progress bar update interval')
@@ -49,8 +52,9 @@ import json
 @click.option('--list_of_lr', default='0.005, 0.005', help='learning rate for training')
 @click.option('--sample_t', default=100, help='length of samples')
 @click.option('--quiver_scale', default=0.5, help='scale for the quiver plots')
-def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_opt_dir, train_model, acc_factor,
-         pbar_update_interval, video_clips, torch_seed, np_seed, k, x_grids, y_grids, n_x, n_y,
+def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_opt_dir,
+         transition, sticky_alpha, sticky_kappa, acc_factor, k, x_grids, y_grids, n_x, n_y,
+         train_model,  pbar_update_interval, video_clips, torch_seed, np_seed,
          list_of_num_iters, list_of_lr, sample_t, quiver_scale):
     if job_name is None:
         raise ValueError("Please provide the job name.")
@@ -127,7 +131,11 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
                                   Df=Df, feature_vec_func=f_corner_vec_func, acc_factor=acc_factor)
         obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=1, bounds=bounds, transformation=tran)
 
-        model = HMM(K=K, D=D, M=M, observation=obs)
+        if transition == 'sticky':
+            transition_kwargs = dict(alpha=sticky_alpha, kappa=sticky_kappa)
+        else:
+            transition_kwargs = None
+        model = HMM(K=K, D=D, M=M, transition=transition, observation=obs, transition_kwargs=transition_kwargs)
         model.observation.mus_init = data[0] * torch.ones(K, D, dtype=torch.float64)
 
     # save experiment params
@@ -136,13 +144,17 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
                   "load_model": load_model,
                   "load_model_dir": load_model_dir,
                   "load_opt_dir": load_opt_dir,
-                  "train_model": train_model,
-                  "pbar_update_interval": pbar_update_interval,
+                  "transition": transition,
+                  "sticky_alpha": sticky_alpha,
+                  "sticky_kappa": sticky_kappa,
+                  "acc_factor": acc_factor,
                   "K": K,
                   "n_x": n_x,
                   "n_y": n_y,
                   "x_grids": x_grids,
                   "y_grids": y_grids,
+                  "train_model": train_model,
+                  "pbar_update_interval": pbar_update_interval,
                   "list_of_num_iters": list_of_num_iters,
                   "list_of_lr": list_of_lr,
                   "video_clip_start": video_clip_start,
