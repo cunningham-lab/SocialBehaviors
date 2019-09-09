@@ -163,14 +163,14 @@ def rslt_saving(rslt_dir, model, Df, data, masks_a, masks_b, m_kwargs_a, m_kwarg
     plt.savefig(rslt_dir + "/samples/sample_x_center_{}.jpg".format(sample_T))
     plt.close()
 
-    plot_realdata_quiver(data, x_grids, y_grids, scale=quiver_scale, title="ground truth")
+    plot_realdata_quiver(data, x_grids, y_grids, scale=1, title="ground truth")
     plt.savefig(rslt_dir + "/samples/ground_truth_quiver.jpg")
 
-    plot_realdata_quiver(sample_x, x_grids, y_grids, scale=quiver_scale, title="sample")
+    plot_realdata_quiver(sample_x, x_grids, y_grids, scale=1, title="sample")
     plt.savefig(rslt_dir + "/samples/sample_x_quiver_{}.jpg".format(sample_T))
     plt.close()
 
-    plot_realdata_quiver(sample_x_center, x_grids, y_grids, scale=quiver_scale, title="sample (starting from center)")
+    plot_realdata_quiver(sample_x_center, x_grids, y_grids, scale=1, title="sample (starting from center)")
     plt.savefig(rslt_dir + "/samples/sample_x_center_quiver_{}.jpg".format(sample_T))
     plt.close()
 
@@ -238,23 +238,27 @@ def rslt_saving(rslt_dir, model, Df, data, masks_a, masks_b, m_kwargs_a, m_kwarg
     plt.savefig(rslt_dir + "/distributions/speed_b.jpg")
     plt.close()
 
-    if 100 < data.shape[0] <= 36000:
-        plot_space_dist(data, x_grids, y_grids)
-    elif data.shape[0] > 36000:
-        plot_space_dist(data[:36000], x_grids, y_grids)
-    plt.savefig(rslt_dir + "/distributions/space_data.jpg")
-    plt.close()
+    try:
+        if 100 < data.shape[0] <= 36000:
+            plot_space_dist(data, x_grids, y_grids)
+        elif data.shape[0] > 36000:
+            plot_space_dist(data[:36000], x_grids, y_grids)
+        plt.savefig(rslt_dir + "/distributions/space_data.jpg")
+        plt.close()
 
-    if 100 < sample_x.shape[0] <= 36000:
-        plot_space_dist(sample_x, x_grids, y_grids)
-    elif sample_x.shape[0] > 36000:
-        plot_space_dist(sample_x[:36000], x_grids, y_grids)
-    plt.savefig(rslt_dir + "/distributions/space_sample_x.jpg")
-    plt.close()
+        if 100 < sample_x.shape[0] <= 36000:
+            plot_space_dist(sample_x, x_grids, y_grids)
+        elif sample_x.shape[0] > 36000:
+            plot_space_dist(sample_x[:36000], x_grids, y_grids)
+        plt.savefig(rslt_dir + "/distributions/space_sample_x.jpg")
+        plt.close()
 
-    if 100 < sample_x_center.shape[0] <= 36000:
-        plot_space_dist(sample_x_center, x_grids, y_grids)
-    elif sample_x_center.shape[0] > 36000:
-        plot_space_dist(sample_x_center[:36000], x_grids, y_grids)
-    plt.savefig(rslt_dir + "/distributions/space_sample_x_center.jpg")
-    plt.close()
+        if 100 < sample_x_center.shape[0] <= 36000:
+            plot_space_dist(sample_x_center, x_grids, y_grids)
+        elif sample_x_center.shape[0] > 36000:
+            plot_space_dist(sample_x_center[:36000], x_grids, y_grids)
+        plt.savefig(rslt_dir + "/distributions/space_sample_x_center.jpg")
+        plt.close()
+    except:
+        print("plot_space_dist unsuccessful")
+

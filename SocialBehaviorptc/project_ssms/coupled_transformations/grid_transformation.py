@@ -71,23 +71,6 @@ class GridTransformation(BaseTransformation):
         :return: outputs (T, K, 4)
         """
 
-        """
-        # a map: inputs -> grids, (T, 2), should be index (integer-valued)
-
-        # get batches data, a list of length G
-        grid_data_a = []
-        grid_data_b = []
-        # get time index, a list of length G
-        grid_time_a = []  #  gird_time[0] is an array of time index when the point is in grid 0
-        grid_time_b = []
-
-        # transform in batch
-        for g in range(G):
-            x_a = T[0][g](grid_data_a[g])  # during grid_time_a
-            x_b = T[1][g](grid_data_b[g])  # during grid_time_b
-            # make it back to thhe grid
-            
-        """
         inputs = check_and_convert_to_tensor(inputs)
         T, _ = inputs.shape
 

@@ -412,6 +412,7 @@ def plot_list_of_speed(list_of_speed,  labels, title_name, n_x, n_y):
 
 
 def plot_space_dist(data, x_grids, y_grids):
+    # TODO: there are some
     if isinstance(data, torch.Tensor):
         data = data.numpy()
     T = data.shape[0]
