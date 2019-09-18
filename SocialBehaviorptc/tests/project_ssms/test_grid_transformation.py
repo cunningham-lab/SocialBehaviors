@@ -44,7 +44,7 @@ y_grids = np.array([ARENA_YMIN + j * y_grid_gap for j in range(3)])
 
 """
 # fake data
-T= 2
+T = 2
 x_grids = np.array([0.0, 5.0, 10.0])
 y_grids = np.array([0.0, 4.0, 8.0])
 

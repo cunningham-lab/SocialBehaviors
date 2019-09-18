@@ -6,6 +6,10 @@ from ssm_ptc.utils import check_and_convert_to_tensor
 
 
 class GridTransformation(BaseTransformation):
+    """
+    Learnable parameters: weights of each grid vertex
+    weights of any random point = a weighted combination of weights of all the grid vertices
+    """
     def __init__(self, K, D, x_grids, y_grids):
         super(GridTransformation, self).__init__(K, D)
         self.d = int(self.D / 2)

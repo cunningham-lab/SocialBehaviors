@@ -83,7 +83,7 @@ class UnitDirectionTransformation(BaseUnitTransformation):
         :param z: an integer
         :param inputs_self: (T_pre, d)
         :param inputs_other: (T_pre, d)
-        :return:
+        :return: (d, )
         """
         feature_vec = memory_kwargs.get("feature_vec", None)
 

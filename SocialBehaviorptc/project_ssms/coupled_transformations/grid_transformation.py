@@ -105,7 +105,7 @@ class GridTransformation(BaseTransformation):
 
     def transform_condition_on_z(self, z, inputs, memory_kwargs_a=None, memory_kwargs_b=None):
         """
-
+        Condition on x_pre and current z, output one observation
         :param z: an integer
         :param inputs: (T_pre, D)
         :param memory_kwargs_a:

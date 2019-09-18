@@ -2,7 +2,6 @@ from ssm_ptc.models.hmm import HMM
 
 from project_ssms.ar_truncated_normal_observation import ARTruncatedNormalObservation
 from project_ssms.coupled_transformations.grid_transformation import GridTransformation
-from project_ssms.unit_transformations import unit_direction_transformation
 from project_ssms.feature_funcs import f_corner_vec_func
 from project_ssms.momentum_utils import filter_traj_by_speed
 from project_ssms.utils import downsample
