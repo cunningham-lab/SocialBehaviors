@@ -11,6 +11,11 @@ from project_ssms.plot_utils import get_cmap
 def add_grid(x_grids, y_grids):
     if x_grids is None or y_grids is None:
         return
+    if isinstance(x_grids, torch.Tensor):
+        x_grids = x_grids.numpy()
+    if isinstance(y_grids, torch.Tensor):
+        y_grids = y_grids.numpy()
+
     plt.scatter([x_grids[0], x_grids[0], x_grids[-1], x_grids[-1]], [-10, 390, -10, 390])
     for j in range(len(y_grids)):
         plt.plot([x_grids[0], x_grids[-1]], [y_grids[j], y_grids[j]], '--', color='grey')
@@ -20,6 +25,11 @@ def add_grid(x_grids, y_grids):
 
 
 def add_grid_to_ax(ax, x_grids, y_grids):
+    if isinstance(x_grids, torch.Tensor):
+        x_grids = x_grids.numpy()
+    if isinstance(y_grids, torch.Tensor):
+        y_grids = y_grids.numpy()
+
     ax.scatter([x_grids[0], x_grids[0], x_grids[-1], x_grids[-1]], [y_grids[0], y_grids[-1], y_grids[0], y_grids[-1]])
     for j in range(len(y_grids)):
         ax.plot([x_grids[0], x_grids[-1]], [y_grids[j], y_grids[j]], '--', color='grey')
@@ -133,6 +143,11 @@ def add_percentage(k, percentage, grid_centers):
 
 
 def plot_dynamics(weighted_corner_vecs, animal, x_grids, y_grids, K, scale=0.1, percentage=None, title=None):
+    if isinstance(x_grids, torch.Tensor):
+        x_grids = x_grids.numpy()
+    if isinstance(y_grids, torch.Tensor):
+        y_grids = y_grids.numpy()
+
     result_corner_vecs = np.sum(weighted_corner_vecs, axis=2)
     n_x = len(x_grids) - 1
     n_y = len(y_grids) - 1

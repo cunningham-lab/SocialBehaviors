@@ -91,7 +91,7 @@ class ARTruncatedNormalObservation(BaseObservation):
         mus = self.transformation.transform(data)
         return data
 
-    def _compute_mus_for(self, data):
+    def _compute_mus_for(self, data, **kwargs):
         """
         compute the mean vector for each observation (using the previous observation, or mus_init)
         :param data: (T,D)
@@ -103,7 +103,7 @@ class ARTruncatedNormalObservation(BaseObservation):
         if T < self.lags:
             mus = self.mus_init * torch.ones(T, self.K, self.D, dtype=torch.float64)
         else:
-            mus_rest = self.transformation.transform(data[:-1])  # (T-momentum_lags, K, D)
+            mus_rest = self.transformation.transform(data[:-1], **kwargs)  # (T-momentum_lags, K, D)
             assert mus_rest.shape == (T-1-self.lags+1, self.K, D)
 
             mus = torch.cat((self.mus_init * torch.ones(self.lags, self.K, self.D, dtype=torch.float64), mus_rest))
@@ -118,7 +118,7 @@ class ARTruncatedNormalObservation(BaseObservation):
         :return: log prob under each possible z_t: shape (T, K)
         """
 
-        mus = self._compute_mus_for(data)  # (T, K, D)
+        mus = self._compute_mus_for(data, **kwargs)  # (T, K, D)
         T = data.shape[0]
 
         p_init = TruncatedNormal(mus=mus[0], log_sigmas=self.log_sigmas_init, bounds=self.bounds)  # mus[0] (K, D)

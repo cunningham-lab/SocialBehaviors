@@ -5,7 +5,7 @@ import os
 import json
 import joblib
 
-from project_ssms.utils import k_step_prediction_for_artn_model
+from project_ssms.utils import k_step_prediction_for_grid_model
 from project_ssms.plot_utils import plot_z, plot_2_mice
 from project_ssms.grid_utils import plot_quiver, plot_realdata_quiver, \
     get_all_angles, get_speed, plot_list_of_angles, plot_list_of_speed, plot_space_dist
@@ -33,7 +33,7 @@ def rslt_saving(rslt_dir, model, Df, data, m_kwargs_a, m_kwargs_b, sample_T,
         data_to_predict = data
     else:
         data_to_predict = data[-1000:]
-    x_predict = k_step_prediction_for_artn_model(model, z, data_to_predict, memory_kwargs_a=m_kwargs_a, memory_kwargs_b=m_kwargs_b)
+    x_predict = k_step_prediction_for_grid_model(model, z, data_to_predict, memory_kwargs_a=m_kwargs_a, memory_kwargs_b=m_kwargs_b)
     x_predict_err = np.mean(np.abs(x_predict - data_to_predict.numpy()), axis=0)
 
     print("5 step prediction")

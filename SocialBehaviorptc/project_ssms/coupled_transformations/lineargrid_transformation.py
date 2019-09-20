@@ -23,9 +23,12 @@ class LinearGridTransformation(BaseTransformation):
         self.feature_vec_func = feature_vec_func
         self.acc_factor = acc_factor
 
+        # shape: (d, GP)
         self.gridpoints = torch.tensor([(x_grid, y_grid) for x_grid in self.x_grids for y_grid in self.y_grids])
+        self.gridpoints = torch.transpose(self.gridpoints, 0, 1)
+
         # number of basis grid points
-        self.GP = self.gridpoints.shape[0]
+        self.GP = self.gridpoints.shape[1]
         self.Ws = torch.rand(self.K, self.GP, self.Df, dtype=torch.float64, requires_grad=True)
 
     @property
@@ -39,7 +42,7 @@ class LinearGridTransformation(BaseTransformation):
     def permute(self, perm):
         self.Ws = self.Ws[perm]
 
-    def transform(self, inputs, memory_kwargs=None):
+    def transform(self, inputs, gridpoints=None, grid_points_idx=None, feature_vecs=None):
         # do a 2D interpolation of weights, and use that for transformation
 
         # first, find the grid basis and then compute the weights
@@ -49,23 +52,44 @@ class LinearGridTransformation(BaseTransformation):
         T, D = inputs.shape
         assert D == self.D, "input should have last dimension = {}".format(self.D)
 
-        weights_a = self.get_weights(inputs[:, 0:2])
-        weights_b = self.get_weights(inputs[:, 2:4])
-        assert weights_a.shape == (T, self.K, self.Df)
-        assert weights_b.shape == (T, self.K, self.Df)
+        if grid_points_idx is None:
+            # one hot vectors
+            gridpoints_idx_a = self.get_gridpoints_idx_for_batch(inputs[:, 0:2])
+            gridpoints_idx_b = self.get_gridpoints_idx_for_batch(inputs[:, 2:4])
+        else:
+            assert isinstance(grid_points_idx, tuple)
+            gridpoints_idx_a, gridpoints_idx_b = grid_points_idx
+            print("Using grid points idx memory!")
+        assert gridpoints_idx_a.shape == (T, self.GP, 4), "gridpoints_idx_a.shape = " + str(gridpoints_idx_a.shape) \
+                                                          + ". The correct shape is ({}, {}, {})".format(T, self.GP, 4)
+        assert gridpoints_idx_b.shape == (T, self.GP, 4), "gridpoints_idx_b.shape = " + str(gridpoints_idx_b.shape) \
+                                                          + ". The correct shape is ({}, {}, {})".format(T, self.GP, 4)
 
-        memory_kwargs = memory_kwargs or {}
-        feature_vecs = memory_kwargs.get("feature_vecs", None)
+        if gridpoints is None:
+            gridpoints_a = self.get_gridpoints_for_batch(gridpoints_idx_a)
+            gridpoints_b = self.get_gridpoints_for_batch(gridpoints_idx_b)
+        else:
+            assert isinstance(gridpoints, tuple)
+            gridpoints_a, gridpoints_b = gridpoints
+            print("Using grid points memory!")
+        assert gridpoints_a.shape == (T, self.d, 2)
+        assert gridpoints_b.shape == (T, self.d, 2)
+
+        weights_a = self.get_weights_for_batch(inputs[:, 0:2], gridpoints_a, gridpoints_idx_a)  # (T, K, Df)
+        weights_b = self.get_weights_for_batch(inputs[:, 2:4], gridpoints_b, gridpoints_idx_b)
+
         if feature_vecs is None:
             feature_vecs_a = self.feature_vec_func(inputs[:, 0:2])  # (T, Df, 2)
             feature_vecs_b = self.feature_vec_func(inputs[:, 2:4])  # (T, Df, 2)
         else:
+            assert isinstance(feature_vecs, tuple)
             feature_vecs_a, feature_vecs_b = feature_vecs
+            print("Using feature vec memory!")
         assert feature_vecs_a.shape == (T, self.Df, self.d)
         assert feature_vecs_b.shape == (T, self.Df, self.d)
 
-        out_a = torch.matmul(weights_a, feature_vecs_a)  # (T, K, 2)
-        out_b = torch.matmul(weights_b, feature_vecs_b)  # (T, K, 2)
+        out_a = torch.matmul(torch.sigmoid(weights_a), feature_vecs_a)  # (T, K, 2)
+        out_b = torch.matmul(torch.sigmoid(weights_b), feature_vecs_b)  # (T, K, 2)
         assert out_a.shape == (T, self.K, self.d)
         assert out_b.shape == (T, self.K, self.d)
 
@@ -73,37 +97,57 @@ class LinearGridTransformation(BaseTransformation):
         assert out.shape == (T, self.K, self.D)
         return out
 
-    def transform_condition_on_z(self, z, inputs, memory_kwargs=None):
+    def transform_condition_on_z(self, z, inputs, gridpoints=None, grid_points_idx=None, feature_vec=None):
         """
 
         :param z: an integer
         :param inputs: (T_pre, D)
-        :param memory_kwargs:
+        :param grid_points_idx:
+        :param feature_vec:
         :return:
         """
 
         _, D = inputs.shape
         assert D == self.D, "input should have last dimension = {}".format(self.D)
 
-        memory_kwargs = memory_kwargs or {}
-        feature_vec = memory_kwargs.get("feature_vec", None)
+        if grid_points_idx is None:
+            gridpoints_idx_a = self.get_gridpoints_idx_for_single(inputs[-1, 0:2])  # (4,)
+            gridpoints_idx_b = self.get_gridpoints_idx_for_single(inputs[-1, 2:4])  # (4,)
+        else:
+            assert isinstance(grid_points_idx, tuple)
+            gridpoints_idx_a, gridpoints_idx_b = grid_points_idx
+            print("Using grid points idx memory!")
+        assert gridpoints_idx_a.shape == (self.GP, 4)
+        assert gridpoints_idx_b.shape == (self.GP, 4)
+
+        if gridpoints is None:
+            gridpoints_a = self.get_gridpoints_for_single(gridpoints_idx_a)
+            gridpoints_b = self.get_gridpoints_for_single(gridpoints_idx_b)
+        else:
+            assert isinstance(gridpoints, tuple)
+            gridpoints_a, gridpoints_b = gridpoints
+            print("Using grid points memory!")
+        assert gridpoints_a.shape == (self.d, 2)
+        assert gridpoints_b.shape == (self.d, 2)
+
+        weights_a = self.get_weights_for_single(inputs[-1, 0:2], gridpoints_a, gridpoints_idx_a, z)  # (1, Df)
+        weights_b = self.get_weights_for_single(inputs[-1, 2:4], gridpoints_b, gridpoints_idx_b, z)  # (1, Df)
+        assert weights_a.shape == (1, self.Df)
+        assert weights_b.shape == (1, self.Df)
 
         if feature_vec is None:
             feature_vec_a = self.feature_vec_func(inputs[-1:, 0:2])
             feature_vec_b = self.feature_vec_func(inputs[-1:, 2:4])
         else:
             feature_vec_a, feature_vec_b = feature_vec
+            print("Using feature vec memory!")
 
         assert feature_vec_a.shape == (1, self.Df, self.d)
         assert feature_vec_b.shape == (1, self.Df, self.d)
 
-        weights_a = self.get_weights_for_single_point(inputs[-1, 0:2], z)  # (1, 1, Df)
-        weights_b = self.get_weights_for_single_point(inputs[-1, 2:4], z)  # (1, 1, Df)
-        assert weights_a.shape == (1, 1, self.Df)
-        assert weights_b.shape == (1, 1, self.Df)
-
-        out_a = torch.matmul(weights_a, feature_vec_a)  # (1, 1, 2)
-        out_b = torch.matmul(weights_b, feature_vec_b)  # (1, 1, 2)
+        # (1, Df), (1, Df, d) --> (1, 1, d)
+        out_a = torch.matmul(torch.sigmoid(weights_a), feature_vec_a)  # (1, 1, 2)
+        out_b = torch.matmul(torch.sigmoid(weights_b), feature_vec_b)  # (1, 1, 2)
         assert out_a.shape == (1, 1, self.d)
         assert out_b.shape == (1, 1, self.d)
 
@@ -114,18 +158,28 @@ class LinearGridTransformation(BaseTransformation):
         assert out.shape == (self.D, )
         return out
 
-    @staticmethod
-    def get_grid_point_idx(point, x_grids, y_grids):
+    def get_gridpoints_idx_for_single(self, point):
+        """
+
+        :param point: (2,)
+        :return: idx (GP, 4)
+        """
+        assert point.shape == (2, )
         find = False
 
-        l_y = len(y_grids)
-        for i in range(len(x_grids)-1):
-            for j in range(len(y_grids)-1):
-                cond_x = x_grids[i] <= point[0] <= x_grids[i+1]
-                cond_y = y_grids[j] <= point[1] <= y_grids[j+1]
+        idx = torch.zeros((self.GP, 4), dtype=torch.float64)
+
+        l_y = len(self.y_grids)
+        for i in range(len(self.x_grids)-1):
+            for j in range(len(self.y_grids)-1):
+                cond_x = self.x_grids[i] <= point[0] <= self.x_grids[i+1]
+                cond_y = self.y_grids[j] <= point[1] <= self.y_grids[j+1]
                 if cond_x & cond_y:
                     find = True
-                    idx = [i*l_y+j, i*l_y+j+1, (i+1)*l_y+j, (i+1)*l_y+j+1]  # (Q11, Q12, Q21, Q22)
+                    idx[i*l_y+j, 0] = 1  # Q11
+                    idx[i*l_y+j+1, 1] = 1  # Q12
+                    idx[(i+1)*l_y+j, 2] = 1  # Q21
+                    idx[(i+1)*l_y+j+1, 3] = 1  # Q22
                     break
             if find:
                 break
@@ -133,97 +187,115 @@ class LinearGridTransformation(BaseTransformation):
             raise ValueError("value {} out of the grid world.".format(point.numpy()))
         return idx
 
-    def get_basis_point_and_weight(self, point, z=None):
+    def get_gridpoints_idx_for_batch(self, points):
+        idx = list(map(self.get_gridpoints_idx_for_single, points))
+        idx = torch.stack(idx, dim=0)
+        return idx
+
+    def get_gridpoints_for_single(self, idx):
+        """
+
+        :param idx: (GP, 4)
+        :return: gridpoints: (d, 2)
+        """
+        # (d, GP) * (GP, 2) --> (d, 2)
+        out = torch.matmul(self.gridpoints, idx[:, [0, -1]])
+        return out
+
+    def get_gridpoints_for_batch(self, idx):
+        """
+
+        :param idx: (T, GP, 4)
+        :return: gridpoints: (T, d, 2)
+        """
+        # (d, GP) * (T, GP, 4) --> (T, d, 2)
+        out = torch.matmul(self.gridpoints, idx[:, :, [0, -1]])
+        return out
+
+    def get_weights_for_single(self, point, grid_points, grid_points_idx, z):
         """
 
         :param point: (2, )
-        :param z: a scalar
-        :return:
+        :param grid_points: (d, 2)
+        :param grid_points_idx: (GP, 4)
+        :param z: scalar
+        :return: (1, Df)
         """
-        grid_points_idx = self.get_grid_point_idx(point, self.x_grids, self.y_grids)
+        assert point.shape == (self.d, )
+        assert grid_points.shape == (self.d, 2)
 
-        Qs = [self.gridpoints[grid_points_idx[0]], self.gridpoints[grid_points_idx[-1]]]  # (Q11, Q22), each is (2,)
-        if z is not None:
-            ws = [self.Ws[z, i] for i in grid_points_idx]  # w_Q11, w_Q12, w_Q21, w_Q22, each is (Df, )
-            assert ws[0].shape == (self.Df, )
-        else:
-            ws = [self.Ws[:, i] for i in grid_points_idx]  # w_Q11, w_Q12, w_Q21, w_Q22, each is (K, Df)
-            assert ws[0].shape == (self.K, self.Df)
+        # (Df,GP) * (GP, 4) -->  (Df, 4)
+        grid_points_weights = torch.matmul(torch.transpose(self.Ws[z], 0, 1), grid_points_idx)
 
-        return Qs + ws
-
-    def get_weights_for_single_point(self, point, z):
-        out = self.get_basis_point_and_weight(point, z)
-
-        Q11 = out[0]  # (2,)
-        Q22 = out[1]  # (2,)
-
-        w_Q11 = out[2]  # (Df,)
-        w_Q12 = out[3]  # (Df, )
-        w_Q21 = out[4]  # (Df,)
-        w_Q22 = out[5]  # (Df,)
-
-        weight = two_d_interpolation(point[None, ], Q11[None,], Q22[None,],
-                                     w_Q11[None, None, ], w_Q12[None, None, ], w_Q21[None, None, ], w_Q22[None, None, ])
-        assert weight.shape == (1, 1, self.Df)
+        weight = two_d_interpolation(point, grid_points[:,0], grid_points[:,1],
+                                     grid_points_weights[:,0][None,], grid_points_weights[:,1][None, ],
+                                     grid_points_weights[:,2][None, ], grid_points_weights[:,3][None, ])
+        assert weight.shape == (1, self.Df)
         return weight
 
-    def get_weights(self, points):
+    def get_weights_for_batch(self, points, grid_points, grid_points_idx):
         """
 
         :param points: (T, 2)
+        :param grid_points: nearby grid points: (T, d, 2)
+        :param grid_points_idx: (T, GP, 4)
         :return: (T, Df)
         """
         T, d = points.shape
         assert d == self.d
 
-        out = list(map(self.get_basis_point_and_weight, points))
+        # (1, K, Df, GP)* (T, 1, GP, 4)  --> (T, K, Df, 4)
+        grid_point_weights = torch.matmul(torch.transpose(self.Ws, 1, 2)[None, ], grid_points_idx[:, None])
 
-        Q11 = torch.stack([item[0] for item in out], dim=0)  # (T, 2)
-        Q22 = torch.stack([item[1] for item in out], dim=0)  # (T, 2)
-        assert Q11.shape == (T, 2)
-        assert Q22.shape == (T, 2)
+        # (T, K, Df)
+        weights = two_d_interpolation(points, grid_points[..., 0], grid_points[..., 1],
+                                      grid_point_weights[..., 0], grid_point_weights[..., 1],
+                                      grid_point_weights[..., 2], grid_point_weights[..., 3])
 
-        w_Q11 = torch.stack([item[2] for item in out], dim=0)  # (T, K, Df)
-        w_Q12 = torch.stack([item[3] for item in out], dim=0)
-        w_Q21 = torch.stack([item[4] for item in out], dim=0)
-        w_Q22 = torch.stack([item[5] for item in out], dim=0)
-        assert w_Q11.shape == (T, self.K, self.Df)
-
-        weights = two_d_interpolation(points, Q11, Q22, w_Q11, w_Q12, w_Q21, w_Q22)
+        assert weights.shape == (T, self.K, self.Df)
         return weights
 
 
 def one_d_interpolation(x, x1, x2, f_x1, f_x2):
     """
 
-    :param x: (T, 1)
-    :param x1: (T, 1)
-    :param x2: (T, 1)
-    :param f_x1: (T, K, Df)
-    :param f_x2: (T, K, Df)
-    :return: (T, K, Df)
+    :param x: (T, 1)  or (1, )
+    :param x1: (T, 1) or (1, )
+    :param x2: (T, 1) or (1, )
+    :param f_x1: (T, K, Df) or (K, Df)
+    :param f_x2: (T, K, Df) or (K, Df)
+    :return: (T, K, Df) or (K, Df)
     """
 
-    factor_1 = (x2 - x) / (x2 - x1) # (T, 1)
-    factor_2 = (x - x1) / (x2 - x1) # (T, 1)
+    factor_1 = (x2 - x) / (x2 - x1)  # (T, 1) or (1, )
+    factor_2 = (x - x1) / (x2 - x1)  # (T, 1) or (1, )
 
-    return factor_1[..., None] * f_x1 + factor_2[..., None] * f_x2
+    out =  factor_1[..., None] * f_x1 + factor_2[..., None] * f_x2
+    assert out.shape == f_x1.shape
+    return out
 
 
 def two_d_interpolation(points, Q11, Q22, f_Q11, f_Q12, f_Q21, f_Q22):
+    """
 
+    :param points: (T, 2) or (2, )
+    :param Q11: (T, 2) or (2, )
+    :param Q22: (T, 2) or (2, )
+    :param f_Q11: (T, K, Df) or (K, Df)
+    :param f_Q12: (T, K, Df) or (K, Df)
+    :param f_Q21: (T, K, Df) or (K, Df)
+    :param f_Q22: (T, K, Df) or (K, Df)
+    :return: (T, K, Df)
+    """
 
-    T, K, Df = f_Q11.shape
+    x, y = points[..., 0:1], points[..., 1:2]  # each is (T, 1) or (1, )
+    x1, y1 = Q11[..., 0:1], Q11[..., 1:2]  # each is (T, 1) or (1, )
+    x2, y2 = Q22[..., 0:1], Q22[..., 1:2]  # each is (T, 1) or (1, )
 
-    x, y = points[:, 0:1], points[:, 1:2]  # each is (T, 1)
-    x1, y1 = Q11[:, 0:1], Q11[:, 1:2]  # each is (T, 1)
-    x2, y2 = Q22[:, 0:1], Q22[:, 1:2]  # each is (T, 1)
-
-    f_Qxy1 = one_d_interpolation(x, x1, x2, f_Q11, f_Q21)  # (T, K, Df)
-    f_Qxy2 = one_d_interpolation(x, x1, x2, f_Q12, f_Q22)  # (T, K, Df)
-    out = one_d_interpolation(y, y1, y2, f_Qxy1, f_Qxy2)  # (T, K, Df)
-    assert out.shape == (T, K, Df)
+    f_Qxy1 = one_d_interpolation(x, x1, x2, f_Q11, f_Q21)  # (T, K, Df) or (K, Df)
+    f_Qxy2 = one_d_interpolation(x, x1, x2, f_Q12, f_Q22)  # (T, K, Df) or (K, Df)
+    out = one_d_interpolation(y, y1, y2, f_Qxy1, f_Qxy2)  # (T, K, Df) or(K, Df)
+    assert out.shape == f_Q11.shape
     return out
 
 

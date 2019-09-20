@@ -66,7 +66,7 @@ def k_step_prediction_for_direction_model(model, model_z, data, momentum_vecs=No
     return k_step_prediction_for_momentum_feature_model(model, model_z, data, momentum_vecs, features)
 
 
-def k_step_prediction_for_artn_model(model, model_z, data, **memory_kwargs):
+def k_step_prediction_for_grid_model(model, model_z, data, **memory_kwargs):
     data = check_and_convert_to_tensor(data)
 
     memory_kwargs_a = memory_kwargs.get("memory_kwargs_a", None)
@@ -75,7 +75,6 @@ def k_step_prediction_for_artn_model(model, model_z, data, **memory_kwargs):
         print("Did not provide memory information")
         return k_step_prediction(model, model_z, data)
     else:
-
         momentum_vecs_a = memory_kwargs_a.get("momentum_vecs", None)
         feature_vecs_a = memory_kwargs_a.get("feature_vecs", None)
 
@@ -95,6 +94,31 @@ def k_step_prediction_for_artn_model(model, model_z, data, **memory_kwargs):
 
             x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True,
                                                    memory_kwargs_a=m_kwargs_a, memory_kwargs_b=m_kwargs_b)
+            x_predict_arr.append(x_predict)
+
+        x_predict_arr = np.array(x_predict_arr)
+        return x_predict_arr
+
+
+def k_step_prediction_for_lineargrid_model(model, model_z, data, grid_points_idx=None, feature_vecs=None):
+    data = check_and_convert_to_tensor(data)
+
+    if feature_vecs is None or grid_points_idx is None:
+        print("Did not provide memory information")
+        return k_step_prediction(model, model_z, data)
+    else:
+        grid_points_idx_a, grid_points_idx_b = grid_points_idx
+        feature_vecs_a, feature_vecs_b = feature_vecs
+
+        x_predict_arr = []
+        x_predict = model.observation.sample_x(model_z[0], data[:0], return_np=True)
+        x_predict_arr.append(x_predict)
+        for t in range(1, data.shape[0]):
+            grid_points_idx_t = (grid_points_idx_a[t - 1], grid_points_idx_b[t - 1])
+            feature_vec_t = (feature_vecs_a[t - 1:t], feature_vecs_b[t - 1:t])
+
+            x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True,
+                                                 grid_points_idx=grid_points_idx_t, feature_vec=feature_vec_t)
             x_predict_arr.append(x_predict)
 
         x_predict_arr = np.array(x_predict_arr)

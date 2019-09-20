@@ -8,7 +8,7 @@ from ssm_ptc.utils import k_step_prediction
 from project_ssms.coupled_transformations.space_dependent_transformation import SpaceDependentTransformation
 from project_ssms.feature_funcs import feature_direction_vec, f_corner_vec_func
 from project_ssms.ar_truncated_normal_observation import ARTruncatedNormalObservation
-from project_ssms.utils import k_step_prediction_for_artn_model, downsample
+from project_ssms.utils import k_step_prediction_for_grid_model, downsample
 from project_ssms.constants import ARENA_XMIN, ARENA_XMAX, ARENA_YMIN, ARENA_YMAX
 from project_ssms.grid_utils import plot_realdata_quiver
 
@@ -168,7 +168,7 @@ joblib.dump(z, "z")
 
 data_to_predict = data[-1000:]
 print("0 step prediction")
-x_predict = k_step_prediction_for_artn_model(model, z, data_to_predict, memory_kwargs_a=m_kwargs_a, memory_kwargs_b=m_kwargs_b)
+x_predict = k_step_prediction_for_grid_model(model, z, data_to_predict, memory_kwargs_a=m_kwargs_a, memory_kwargs_b=m_kwargs_b)
 err = np.mean(np.abs(x_predict - data_to_predict.numpy()), axis=0)
 print(err)
 

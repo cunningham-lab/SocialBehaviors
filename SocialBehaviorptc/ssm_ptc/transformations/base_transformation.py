@@ -17,11 +17,11 @@ class BaseTransformation:
         raise NotImplementedError
 
     @abstractmethod
-    def transform(self, inputs):
+    def transform(self, inputs, **kwargs):
         pass
 
     @abstractmethod
-    def transform_condition_on_z(self, z, inputs):
+    def transform_condition_on_z(self, z, inputs, **kwargs):
         pass
 
     @abstractmethod
