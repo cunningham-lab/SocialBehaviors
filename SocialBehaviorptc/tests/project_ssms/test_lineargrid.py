@@ -152,9 +152,9 @@ def test_weights():
     true_grid_points = torch.tensor([[0, 1], [0, 1]], dtype=torch.float64)   # (2, 2)
     assert torch.all(torch.eq(grid_points, true_grid_points))
 
-    weights = tran.get_weights_for_single(point=point, grid_points=grid_points, grid_points_idx=idx, z=1)
+    weights = tran.get_weights_for_single(point=point, animal_idx=0, grid_points=grid_points, grid_points_idx=idx, z=1)
 
-    grid_points_weights = tran.Ws[1, [0, 1, 4, 5], :]  # (4, Df)
+    grid_points_weights = tran.Ws[1, 0, [0, 1, 4, 5], :]  # (4, Df)
     true_weights = torch.mean(grid_points_weights, dim=0, keepdim=True)  # (1, Df)
 
     assert torch.allclose(weights, true_weights)
@@ -171,13 +171,13 @@ def test_weights():
     true_grid_points = torch.tensor([[[0, 1], [0, 1]], [[1, 2], [1, 2]], [[3, 4], [2, 3]]], dtype=torch.float64)
     assert torch.all(torch.eq(grid_points, true_grid_points))
 
-    weights = tran.get_weights_for_batch(points=points, grid_points=grid_points, grid_points_idx=idx)
+    weights = tran.get_weights_for_batch(points=points, animal_idx=0, grid_points=grid_points, grid_points_idx=idx)
     assert weights.shape == (T, tran.K, tran.Df)
 
-    true_weights_0 = tran.Ws[:, [0, 1, 4, 5], :]  # (K, 4, Df)
+    true_weights_0 = tran.Ws[:, 0, [0, 1, 4, 5], :]  # (K, 4, Df)
     true_weights_0 = torch.mean(true_weights_0, dim=1)  # (K, Df)
-    true_weights_1 = tran.Ws[:, 10]  # (K, Df)
-    true_weights_2 = tran.Ws[:, 19]  # (K, Df)
+    true_weights_1 = tran.Ws[:, 0, 10]  # (K, Df)
+    true_weights_2 = tran.Ws[:, 0, 19]  # (K, Df)
 
     true_weights = torch.stack([true_weights_0, true_weights_1, true_weights_2], dim=0) # (T, K, Df)
     assert torch.allclose(weights, true_weights)
@@ -222,15 +222,15 @@ def test_tran():
     grid_points_idx_b = tran.get_gridpoints_idx_for_batch(data[:, 2:4])  # (T, GP, 4)
     grid_points_idx = (grid_points_idx_a, grid_points_idx_b)
 
-    gridpoints_a = tran.get_gridpoints_for_batch(grid_points_idx_a)  #  (T, d, 2)
-    gridpoints_b = tran.get_gridpoints_for_batch(grid_points_idx_b)  #  (T, d, 2)
+    gridpoints_a = tran.get_gridpoints_for_batch(grid_points_idx_a)  # (T, d, 2)
+    gridpoints_b = tran.get_gridpoints_for_batch(grid_points_idx_b)  # (T, d, 2)
 
     feature_vecs_a = toy_feature_vec_func(data[:, 0:2])
     feature_vecs_b = toy_feature_vec_func(data[:, 2:4])
     feature_vecs = (feature_vecs_a, feature_vecs_b)
 
     transformed_data_2 = tran.transform(data, gridpoints=(gridpoints_a, gridpoints_b),
-                                        grid_points_idx=grid_points_idx, feature_vecs=feature_vecs)
+                                        gridpoints_idx=grid_points_idx, feature_vecs=feature_vecs)
 
     assert torch.all(torch.eq(transformed_data, transformed_data_2))
 
@@ -242,7 +242,7 @@ def test_tran():
     gridpoints_last = (gridpoints_a[-1], gridpoints_b[-1])
     feature_vec_last = (feature_vecs_a[-1:], feature_vecs_b[-1:])
     transform_data_condition_on_z_2 = tran.transform_condition_on_z(0, data, gridpoints=gridpoints_last,
-                                                                    grid_points_idx=grid_points_idx_last,
+                                                                    gridpoints_idx=grid_points_idx_last,
                                                                     feature_vec=feature_vec_last)
 
     assert torch.all(torch.eq(transform_data_condition_on_z, transform_data_condition_on_z_2))
@@ -284,18 +284,22 @@ def test_model():
     model.observation.mus_init = data[0] * torch.ones(K, D, dtype=torch.float64)
 
     # calculate memory
-    grid_points_idx_a = list(map(tran.get_gridpoints_idx_for_single, data[:-1, 0:2]))
-    grid_points_idx_b = list(map(tran.get_gridpoints_idx_for_single, data[:-1, 2:4]))
-    grid_points_idx = (grid_points_idx_a, grid_points_idx_b)
-
+    gridpoints_idx_a = tran.get_gridpoints_idx_for_batch(data[:-1, 0:2])
+    gridpoints_idx_b = tran.get_gridpoints_idx_for_batch(data[:-1, 2:4])
+    gridpoints_a = tran.get_gridpoints_for_batch(gridpoints_idx_a)
+    gridpoints_b = tran.get_gridpoints_for_batch(gridpoints_idx_b)
     feature_vecs_a = toy_feature_vec_func(data[:-1, 0:2])
     feature_vecs_b = toy_feature_vec_func(data[:-1, 2:4])
+
+    gridpoints_idx = (gridpoints_idx_a, gridpoints_idx_b)
+    gridpoints = (gridpoints_a, gridpoints_b)
     feature_vecs = (feature_vecs_a, feature_vecs_b)
 
     # fit
     losses, opt = model.fit(data, optimizer=None, method='adam', num_iters=100, lr=0.01,
                             pbar_update_interval=10,
-                            grid_points_idx=grid_points_idx, feature_vecs=feature_vecs)
+                            gridpoints=gridpoints,
+                            gridpoints_idx=gridpoints_idx, feature_vecs=feature_vecs)
 
     plt.figure()
     plt.plot(losses)
@@ -303,7 +307,7 @@ def test_model():
 
     # most-likely-z
     print("Most likely z...")
-    z = model.most_likely_states(data, grid_points_idx=grid_points_idx, feature_vecs=feature_vecs)
+    z = model.most_likely_states(data, gridpoints_idx=gridpoints_idx, feature_vecs=feature_vecs)
 
     # prediction
     print("0 step prediction")
@@ -312,7 +316,7 @@ def test_model():
     else:
         data_to_predict = data[-1000:]
     x_predict = k_step_prediction_for_lineargrid_model(model, z, data_to_predict,
-                                                       grid_points_idx=grid_points_idx, feature_vecs=feature_vecs)
+                                                       gridpoints_idx=gridpoints_idx, feature_vecs=feature_vecs)
     x_predict_err = np.mean(np.abs(x_predict - data_to_predict.numpy()), axis=0)
 
     print("2 step prediction")
@@ -331,4 +335,4 @@ test_two_d_interpolation()
 test_get_grid_point_idx()
 test_weights()
 test_tran()
-#test_model()
+test_model()

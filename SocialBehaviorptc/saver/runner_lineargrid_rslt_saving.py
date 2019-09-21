@@ -16,7 +16,7 @@ from ssm_ptc.utils import k_step_prediction
 from saver.rslts_saving import NumpyEncoder
 
 
-def rslt_saving(rslt_dir, model, data, grid_points_idx, feature_vecs, sample_T,
+def rslt_saving(rslt_dir, model, data, gridpoints, gridpoints_idx, feature_vecs, sample_T,
                 train_model, losses, quiver_scale):
 
     tran = model.observation.transformation
@@ -32,7 +32,7 @@ def rslt_saving(rslt_dir, model, data, grid_points_idx, feature_vecs, sample_T,
     #################### inference ###########################
 
     print("\ninferring most likely states...")
-    z = model.most_likely_states(data, grid_points_idx=grid_points_idx, feature_vecs=feature_vecs)
+    z = model.most_likely_states(data, gridpoints=gridpoints, gridpoints_idx=gridpoints_idx, feature_vecs=feature_vecs)
 
     print("0 step prediction")
     if data.shape[0] <= 1000:
@@ -40,7 +40,8 @@ def rslt_saving(rslt_dir, model, data, grid_points_idx, feature_vecs, sample_T,
     else:
         data_to_predict = data[-1000:]
     x_predict = k_step_prediction_for_lineargrid_model(model, z, data_to_predict,
-                                                       grid_points_idx=grid_points_idx, feature_vecs=feature_vecs)
+                                                       gridpoints=gridpoints,
+                                                       gridpoints_idx=gridpoints_idx, feature_vecs=feature_vecs)
     x_predict_err = np.mean(np.abs(x_predict - data_to_predict.numpy()), axis=0)
 
     print("5 step prediction")

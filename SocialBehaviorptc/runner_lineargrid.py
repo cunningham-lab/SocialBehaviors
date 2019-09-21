@@ -173,11 +173,16 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
         json.dump(exp_params, f, indent=4, cls=NumpyEncoder)
 
     # compute memory
-    grid_points_idx_a = list(map(tran.get_gridpoints_idx_for_single, data[:-1, 0:2]))
-    grid_points_idx_b = list(map(tran.get_gridpoints_idx_for_single, data[:-1, 2:4]))
-    grid_points_idx = (grid_points_idx_a, grid_points_idx_b)
-    feature_vecs_a = f_corner_vec_func(data[:-1, 0:2])
-    feature_vecs_b = f_corner_vec_func(data[:-1, 2:4])
+    print("Computing memory...")
+    gridpoints_idx_a = tran.get_gridpoints_idx_for_batch(data[:-1, 0:2])  # (T-1, GP, 4)
+    gridpoints_idx_b = tran.get_gridpoints_idx_for_batch(data[:-1, 2:4])  # (T-1, GP, 4)
+    gridpoints_a = tran.get_gridpoints_for_batch(gridpoints_idx_a)  # (T-1, d, 2)
+    gridpoints_b = tran.get_gridpoints_for_batch(gridpoints_idx_b)  # (T-1, d, 2)
+    feature_vecs_a = f_corner_vec_func(data[:-1, 0:2])  # (T, Df, 2)
+    feature_vecs_b = f_corner_vec_func(data[:-1, 2:4])  # (T, Df, 2)
+
+    gridpoints_idx = (gridpoints_idx_a, gridpoints_idx_b)
+    gridpoints = (gridpoints_a, gridpoints_b)
     feature_vecs = (feature_vecs_a, feature_vecs_b)
 
     ##################### training ############################
@@ -191,7 +196,8 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
         for i, (num_iters, lr) in enumerate(zip(list_of_num_iters, list_of_lr)):
             losses, opt = model.fit(data, optimizer=opt, method='adam', num_iters=num_iters, lr=lr,
                                     pbar_update_interval=pbar_update_interval,
-                                    grid_points_idx=grid_points_idx, feature_vecs=feature_vecs)
+                                    gridpoints=gridpoints,
+                                    gridpoints_idx=gridpoints_idx, feature_vecs=feature_vecs)
             list_of_losses.append(losses)
 
             checkpoint_dir = rslt_dir + "/checkpoint_{}".format(i)
@@ -203,12 +209,12 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
             joblib.dump(model, checkpoint_dir+"/model")
             joblib.dump(opt, checkpoint_dir+"/optimizer")
             # save rest
-            rslt_saving(checkpoint_dir, model, data, grid_points_idx, feature_vecs, sample_T,
+            rslt_saving(checkpoint_dir, model, data, gridpoints, gridpoints_idx, feature_vecs, sample_T,
                         train_model, losses, quiver_scale)
 
     else:
         # only save the results
-        rslt_saving(rslt_dir, model, data, grid_points_idx, feature_vecs, sample_T,
+        rslt_saving(rslt_dir, model, data, gridpoints, gridpoints_idx, feature_vecs, sample_T,
                     False, [], quiver_scale)
 
     print("Finish running!")
@@ -216,3 +222,10 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
 
 if __name__ == "__main__":
     main()
+
+# --train_model --downsample_n=2 --job_name=local/test_general --video_clips=0,1 --transition=stationary
+# --n_x=4 --n_y=4 --list_of_num_iters=50 --list_of_lr=0.005 --sample_t=100 --pbar_update_interval=10
+
+# --train_model --downsample_n=2 --job_name=local/train_v01 --video_clips=0,1 --transition=stationary
+# --n_x=4 --n_y=4 --list_of_num_iters=3000,2000 --list_of_lr=0.1,0.05 --sample_t=10000 --pbar_update_interval=10
+
