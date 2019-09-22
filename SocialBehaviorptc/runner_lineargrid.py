@@ -101,7 +101,7 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
         n_x = len(tran.x_grids) - 1
         n_y = len(tran.y_grids) - 1
 
-        acc_factor = tran.transformations_a[0].acc_factor
+        acc_factor = tran.acc_factor
 
     else:
         print("Creating the model...")
