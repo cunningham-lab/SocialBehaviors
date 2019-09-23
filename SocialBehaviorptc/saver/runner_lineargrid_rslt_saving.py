@@ -155,15 +155,15 @@ def rslt_saving(rslt_dir, model, data, gridpoints, gridpoints_idx, feature_vecs,
     colors_sample_z_center = list(map(z_to_color, sample_z_center))
 
     plot_realdata_quiver(data, K, x_grids, y_grids, scale=1, title="ground truth", color=colors_data_z)
-    plt.savefig(rslt_dir + "/samples/ground_truth_quiver.jpg")
+    plt.savefig(rslt_dir + "/samples/quiver_ground_truth.jpg", dpi=200)
 
     plot_realdata_quiver(sample_x, K, x_grids, y_grids, scale=1, title="sample", color=colors_sample_z)
-    plt.savefig(rslt_dir + "/samples/sample_x_quiver_{}.jpg".format(sample_T))
+    plt.savefig(rslt_dir + "/samples/quiver_sample_x_{}.jpg".format(sample_T), dpi=200)
     plt.close()
 
     plot_realdata_quiver(sample_x_center, K, x_grids, y_grids, scale=1, title="sample (starting from center)",
                          color=colors_sample_z_center)
-    plt.savefig(rslt_dir + "/samples/sample_x_center_quiver_{}.jpg".format(sample_T))
+    plt.savefig(rslt_dir + "/samples/quiver_sample_x_center_{}.jpg".format(sample_T), dpi=200)
     plt.close()
 
     if not os.path.exists(rslt_dir + "/dynamics"):
@@ -171,13 +171,13 @@ def rslt_saving(rslt_dir, model, data, gridpoints, gridpoints_idx, feature_vecs,
         print("Making dynamics directory...")
 
     plot_quiver(XY_grids[:, 0:2], dXY[..., 0:2], 'virgin', K=K, scale=quiver_scale, alpha=0.9,
-                title="quiver (virgin)")
-    plt.savefig(rslt_dir + "/dynamics/quiver_a.jpg")
+                title="quiver (virgin)", x_grids=x_grids, y_grids=y_grids, grid_alpha=0.2)
+    plt.savefig(rslt_dir + "/dynamics/quiver_a.jpg", dpi=200)
     plt.close()
 
     plot_quiver(XY_grids[:, 2:4], dXY[..., 2:4], 'mother', K=K, scale=quiver_scale, alpha=0.9,
-                title="quiver (mother)")
-    plt.savefig(rslt_dir + "/dynamics/quiver_b.jpg")
+                title="quiver (mother)", x_grids=x_grids, y_grids=y_grids, grid_alpha=0.2)
+    plt.savefig(rslt_dir + "/dynamics/quiver_b.jpg", dpi=200)
     plt.close()
 
     if not os.path.exists(rslt_dir + "/distributions"):

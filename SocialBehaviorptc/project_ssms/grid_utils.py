@@ -8,7 +8,7 @@ from ssm_ptc.utils import check_and_convert_to_tensor
 from project_ssms.plot_utils import get_cmap
 
 
-def add_grid(x_grids, y_grids):
+def add_grid(x_grids, y_grids, grid_alpha=1):
     if x_grids is None or y_grids is None:
         return
     if isinstance(x_grids, torch.Tensor):
@@ -16,12 +16,12 @@ def add_grid(x_grids, y_grids):
     if isinstance(y_grids, torch.Tensor):
         y_grids = y_grids.numpy()
 
-    plt.scatter([x_grids[0], x_grids[0], x_grids[-1], x_grids[-1]], [-10, 390, -10, 390])
+    plt.scatter([x_grids[0], x_grids[0], x_grids[-1], x_grids[-1]], [-10, 390, -10, 390], alpha=grid_alpha)
     for j in range(len(y_grids)):
-        plt.plot([x_grids[0], x_grids[-1]], [y_grids[j], y_grids[j]], '--', color='grey')
+        plt.plot([x_grids[0], x_grids[-1]], [y_grids[j], y_grids[j]], '--', color='grey', alpha=grid_alpha)
 
     for i in range(len(x_grids)):
-        plt.plot([x_grids[i], x_grids[i]], [y_grids[0], y_grids[-1]], '--', color='grey')
+        plt.plot([x_grids[i], x_grids[i]], [y_grids[0], y_grids[-1]], '--', color='grey', alpha=grid_alpha)
 
 
 def add_grid_to_ax(ax, x_grids, y_grids):
@@ -38,7 +38,8 @@ def add_grid_to_ax(ax, x_grids, y_grids):
         ax.plot([x_grids[i], x_grids[i]], [y_grids[0], y_grids[-1]], '--', color='grey')
 
 
-def plot_realdata_quiver(realdata, K, x_grids=None, y_grids=None, xlim=None, ylim=None, title=None, **quiver_args):
+def plot_realdata_quiver(realdata, K, x_grids=None, y_grids=None,
+                         xlim=None, ylim=None, title=None, grid_alpha=1, **quiver_args):
     if isinstance(realdata, torch.Tensor):
         realdata = realdata.numpy()
 
@@ -57,7 +58,7 @@ def plot_realdata_quiver(realdata, K, x_grids=None, y_grids=None, xlim=None, yli
 
         plt.quiver(start[:, 0], start[:, 1], dXY[:, 0], dXY[:, 1],
                    angles='xy', scale_units='xy', cmap=cm, **quiver_args)
-        add_grid(x_grids, y_grids)
+        add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
         if xlim is not None:
             plt.xlim(xlim)
         if ylim is not None:
@@ -77,7 +78,7 @@ def plot_realdata_quiver(realdata, K, x_grids=None, y_grids=None, xlim=None, yli
         cb = plt.colorbar(label='k', ticks=ticks)
         cb.set_ticklabels(range(K))
 
-        add_grid(x_grids, y_grids)
+        add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
         plt.title("virgin")
         if xlim is not None:
             plt.xlim(xlim)
@@ -90,7 +91,7 @@ def plot_realdata_quiver(realdata, K, x_grids=None, y_grids=None, xlim=None, yli
         cb = plt.colorbar(label='k', ticks=ticks)
         cb.set_ticklabels(range(K))
 
-        add_grid(x_grids, y_grids)
+        add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
         plt.title("mother")
         if xlim is not None:
             plt.xlim(xlim)
@@ -142,7 +143,8 @@ def add_percentage(k, percentage, grid_centers):
         plt.text(c[0] + 20, c[1] + 40, text, fontsize=12, color='k')
 
 
-def plot_dynamics(weighted_corner_vecs, animal, x_grids, y_grids, K, scale=0.1, percentage=None, title=None):
+def plot_dynamics(weighted_corner_vecs, animal, x_grids, y_grids, K, scale=0.1, percentage=None, title=None,
+                  grid_alpha=1):
     if isinstance(x_grids, torch.Tensor):
         x_grids = x_grids.numpy()
     if isinstance(y_grids, torch.Tensor):
@@ -157,7 +159,7 @@ def plot_dynamics(weighted_corner_vecs, animal, x_grids, y_grids, K, scale=0.1, 
     Df = 4
 
     def plot_dynamics_k(k):
-        add_grid(x_grids, y_grids)
+        add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
 
         add_percentage(k, percentage=percentage, grid_centers=grid_centers)
 
@@ -188,7 +190,7 @@ def plot_dynamics(weighted_corner_vecs, animal, x_grids, y_grids, K, scale=0.1, 
     plt.tight_layout()
 
 
-def plot_quiver(XYs, dXYs, mouse, K,scale=1, alpha=1, title=None):
+def plot_quiver(XYs, dXYs, mouse, K,scale=1, alpha=1, title=None, x_grids=None, y_grids=None, grid_alpha=1):
 
     if K <= 5:
         plt.figure(figsize=(20, 4))
@@ -200,6 +202,7 @@ def plot_quiver(XYs, dXYs, mouse, K,scale=1, alpha=1, title=None):
             plt.quiver(XYs[:, 0], XYs[:, 1], dXYs[:, k, 0], dXYs[:, k, 1],
                       angles='xy', scale_units='xy', scale=scale, alpha=alpha)
             plt.title('K={} '.format(k) + mouse)
+            add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
 
     elif 5 < K <= 8:
         plt.figure(figsize=(20, 8))
@@ -210,6 +213,7 @@ def plot_quiver(XYs, dXYs, mouse, K,scale=1, alpha=1, title=None):
             plt.subplot(2, int(K/2)+1, k+1)
             plt.quiver(XYs[:, 0], XYs[:, 1], dXYs[:, k, 0], dXYs[:, k, 1],
                        angles='xy', scale_units='xy', scale=scale, alpha=alpha)
+            add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
             plt.title('K={} '.format(k) + mouse)
 
     plt.tight_layout()
@@ -439,7 +443,7 @@ def plot_list_of_speed(list_of_speed,  labels, title_name, n_x, n_y):
                 plt.legend(custom_lines, ['data', 'sample_x', 'sample_x_center'])
 
 
-def plot_space_dist(data, x_grids, y_grids):
+def plot_space_dist(data, x_grids, y_grids, grid_alpha=1):
     # TODO: there are some
     if isinstance(data, torch.Tensor):
         data = data.numpy()
@@ -449,12 +453,12 @@ def plot_space_dist(data, x_grids, y_grids):
 
     plt.subplot(1, 2, 1)
     sns.kdeplot(data[:, 0], data[:, 1], n_levels=n_levels)
-    add_grid(x_grids, y_grids)
+    add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
     plt.title("virgin")
 
     plt.subplot(1, 2, 2)
     sns.kdeplot(data[:, 2], data[:, 3], n_levels=n_levels)
-    add_grid(x_grids, y_grids)
+    add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
     plt.title("mother")
 
     plt.tight_layout()

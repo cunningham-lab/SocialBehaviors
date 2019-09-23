@@ -50,7 +50,7 @@ import json
               help='a list of checkpoint numbers of iterations for training')
 @click.option('--list_of_lr', default='0.005, 0.005', help='learning rate for training')
 @click.option('--sample_t', default=100, help='length of samples')
-@click.option('--quiver_scale', default=0.5, help='scale for the quiver plots')
+@click.option('--quiver_scale', default=0.8, help='scale for the quiver plots')
 def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_opt_dir,
          transition, sticky_alpha, sticky_kappa, acc_factor, k, x_grids, y_grids, n_x, n_y,
          train_model,  pbar_update_interval, video_clips, torch_seed, np_seed,
