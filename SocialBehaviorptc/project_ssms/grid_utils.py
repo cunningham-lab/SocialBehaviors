@@ -5,7 +5,7 @@ from matplotlib.lines import Line2D
 import seaborn as sns
 
 from ssm_ptc.utils import check_and_convert_to_tensor
-from project_ssms.plot_utils import get_cmap
+from project_ssms.plot_utils import get_colors_and_cmap
 
 
 def add_grid(x_grids, y_grids, grid_alpha=1):
@@ -38,7 +38,7 @@ def add_grid_to_ax(ax, x_grids, y_grids):
         ax.plot([x_grids[i], x_grids[i]], [y_grids[0], y_grids[-1]], '--', color='grey')
 
 
-def plot_realdata_quiver(realdata, K, x_grids=None, y_grids=None,
+def plot_realdata_quiver(realdata, z, K, x_grids=None, y_grids=None,
                          xlim=None, ylim=None, title=None, grid_alpha=1, **quiver_args):
     if isinstance(realdata, torch.Tensor):
         realdata = realdata.numpy()
@@ -49,7 +49,7 @@ def plot_realdata_quiver(realdata, K, x_grids=None, y_grids=None,
 
     h = 1 / K
     ticks = [(1 / 2 + k) * h for k in range(K)]
-    cm = get_cmap(K)
+    colors, cm = get_colors_and_cmap(K)
 
     if realdata.shape[-1] == 2:
         plt.figure(figsize=(8, 7))
@@ -57,7 +57,7 @@ def plot_realdata_quiver(realdata, K, x_grids=None, y_grids=None,
             plt.suptitle(title)
 
         plt.quiver(start[:, 0], start[:, 1], dXY[:, 0], dXY[:, 1],
-                   angles='xy', scale_units='xy', cmap=cm, **quiver_args)
+                   angles='xy', scale_units='xy', cmap=cm, color=colors[z], **quiver_args)
         add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
         if xlim is not None:
             plt.xlim(xlim)
@@ -74,7 +74,7 @@ def plot_realdata_quiver(realdata, K, x_grids=None, y_grids=None,
 
         plt.subplot(1, 2, 1)
         plt.quiver(start[:, 0], start[:, 1], dXY[:, 0], dXY[:, 1],
-               angles='xy', scale_units='xy', cmap=cm, **quiver_args)
+               angles='xy', scale_units='xy', cmap=cm, color=colors[z], **quiver_args)
         cb = plt.colorbar(label='k', ticks=ticks)
         cb.set_ticklabels(range(K))
 
@@ -87,7 +87,7 @@ def plot_realdata_quiver(realdata, K, x_grids=None, y_grids=None,
 
         plt.subplot(1, 2, 2)
         plt.quiver(start[:, 2], start[:, 3], dXY[:, 2], dXY[:, 3],
-                   angles='xy', scale_units='xy', cmap=cm, **quiver_args)
+                   angles='xy', scale_units='xy', cmap=cm, color=colors[z], **quiver_args)
         cb = plt.colorbar(label='k', ticks=ticks)
         cb.set_ticklabels(range(K))
 

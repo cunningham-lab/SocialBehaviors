@@ -145,24 +145,14 @@ def rslt_saving(rslt_dir, model, data, gridpoints, gridpoints_idx, feature_vecs,
     plt.savefig(rslt_dir + "/samples/sample_x_center_{}.jpg".format(sample_T))
     plt.close()
 
-    def z_to_color(z):
-        for k in range(model.K):
-            if z == k:
-                return 'C{}'.format(k)
-
-    colors_data_z = list(map(z_to_color, z))
-    colors_sample_z = list(map(z_to_color, sample_z))
-    colors_sample_z_center = list(map(z_to_color, sample_z_center))
-
-    plot_realdata_quiver(data, K, x_grids, y_grids, scale=1, title="ground truth", color=colors_data_z)
+    plot_realdata_quiver(data, z, K, x_grids, y_grids, scale=1, title="ground truth")
     plt.savefig(rslt_dir + "/samples/quiver_ground_truth.jpg", dpi=200)
 
-    plot_realdata_quiver(sample_x, K, x_grids, y_grids, scale=1, title="sample", color=colors_sample_z)
+    plot_realdata_quiver(sample_x, sample_z, K, x_grids, y_grids, scale=1, title="sample")
     plt.savefig(rslt_dir + "/samples/quiver_sample_x_{}.jpg".format(sample_T), dpi=200)
     plt.close()
 
-    plot_realdata_quiver(sample_x_center, K, x_grids, y_grids, scale=1, title="sample (starting from center)",
-                         color=colors_sample_z_center)
+    plot_realdata_quiver(sample_x_center, sample_z_center, K, x_grids, y_grids, scale=1, title="sample (starting from center)")
     plt.savefig(rslt_dir + "/samples/quiver_sample_x_center_{}.jpg".format(sample_T), dpi=200)
     plt.close()
 

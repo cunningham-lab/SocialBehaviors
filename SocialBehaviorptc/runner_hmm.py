@@ -80,7 +80,7 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
     if filter_traj:
         traj = filter_traj_by_speed(traj, q1=0.99, q2=0.99)
 
-    data = torch.tensor(traj[:10], dtype=torch.float64)
+    data = torch.tensor(traj, dtype=torch.float64)
 
     ######################### model ####################
 
@@ -91,7 +91,6 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
     if load_model:
         print("Loading the model from ", load_model_dir)
         model = joblib.load(load_model_dir)
-        tran = model.observation.transformation
 
         K = model.K
 
@@ -194,8 +193,8 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
 if __name__ == "__main__":
     main()
 
-# --train_model --downsample_n=2 --job_name=local/test_general --video_clips=0,1 --transition=stationary
-# --n_x=4 --n_y=4 --list_of_num_iters=50 --list_of_lr=0.005 --sample_t=100 --pbar_update_interval=10
+# --train_model --downsample_n=2 --job_name=local/test_general --video_clips=0,1 --k=20 --n_x=6 --n_y=6
+# --list_of_num_iters=10,20 --list_of_lr=0.1,0.05 --sample_t=10 --pbar_update_interval=10
 
 # --train_model --downsample_n=2 --job_name=local/train_v01 --video_clips=0,1 --transition=stationary
 # --n_x=4 --n_y=4 --list_of_num_iters=3000,2000 --list_of_lr=0.1,0.05 --sample_t=10000 --pbar_update_interval=10

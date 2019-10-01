@@ -26,7 +26,7 @@ if __name__ == "__main__":
     params_dict["train_model"] = [True]
     params_dict["k"] = [10]
     params_dict["downsample_n"] = [2]
-    params_dict["video_clip"] = [[0,5]]
+    params_dict["video_clips"] = [[0,5]]
     params_dict["n_x"] = [8]
     params_dict["n_y"] = [8]
     params_dict["list_of_num_iters"] = [[20,10]]
@@ -59,7 +59,7 @@ if __name__ == "__main__":
 
             args += " --{0}={1} ".format(param_name, param_val)
 
-        arg_dict["job_name"] += "/v{}{}_K{}_{}by{}".format(arg_dict["video_clip"][0], arg_dict["video_clip"][2],
+        arg_dict["job_name"] += "/v{}{}_K{}_{}by{}".format(arg_dict["video_clips"][0], arg_dict["video_clips"][2],
                                                            arg_dict["k"], arg_dict["n_x"], arg_dict["n_y"])
 
         args += " --job_name={0}".format(arg_dict["job_name"])

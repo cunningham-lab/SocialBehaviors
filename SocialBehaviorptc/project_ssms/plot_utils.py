@@ -9,20 +9,26 @@ x,y,c = zip(*np.random.rand(30,3)*4)
 default_colors = ["C0","C1","C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9"]
 # C0: blue, C1: orange, C2: green, C3: red, C4: purple, C5: brown, C6: pink, C7: grey, C8: yellow, C9: cyan
 
+def get_colors_and_cmap(K):
+    if K <= 10:
+        colors_list = default_colors
+        colors = np.array(default_colors)
+    else:
+        vals = np.linspace(0, 1, 10 * K)[10 * np.arange(K)]
+        colors = plt.cm.tab20(vals)
+        colors_list = colors.tolist()
 
-def get_cmap(K):
     cvals = np.arange(K)
-    colors = default_colors[:K]
 
     norm=plt.Normalize(min(cvals),max(cvals))
-    tuples = list(zip(map(norm,cvals), colors))
+    tuples = list(zip(map(norm,cvals), colors_list))
     cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", tuples, K)
 
-    return cmap
+    return colors, cmap
 
 
 def plot_z(z, K, plot_range=None, ylim=None, title=None):
-    cmap = get_cmap(K)
+    _, cmap = get_colors_and_cmap(K)
     if plot_range is None:
         plot_range=(0, z.shape[0])
     if ylim is None:

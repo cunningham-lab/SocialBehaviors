@@ -79,15 +79,13 @@ class DynamicLocationTransformation(BaseTransformation):
         # (K, D) * (T, K, D) --> (T, K, D)
         # (K, D) * (K, D) --> (K, D)
         # (T, K, D) + (K, D) --> (T, K, D)
-        sigma_loc_square = torch.exp(self.log_sigmas_loc)**2
-        sigma_dyn_square - torch.exp(self.loc)
-        mu_combined = torch.exp(self.log_sigmas_loc)**2 * mu_dyn + torch.exp(self.log_sigmas_dyn)**2 * self.mus_loc
-        mu_combined = mu_combined / ()
+        mu_combined = self.sigma_loc_square * mu_dyn + self.sigma_dyn_square * self.mus_loc
+        mu_combined = mu_combined / (self.sigma_loc_square + self.sigma_dyn_square)
+        assert mu_combined.shape == (T, self.K, self.D)
 
-        assert out.shape == (T, self.K, self.D)
-        return out
+        return mu_combined
 
-    def transform_condition_on_z(self, z, inputs, gridpoints=None, gridpoints_idx=None, feature_vec=None):
+    def transform_condition_on_z(self, z, inputs):
         """
 
         :param z: an integer
