@@ -26,18 +26,18 @@ class BaseObservation:
     def log_prob(self, data, **kwargs):
         raise NotImplementedError
 
-    def sample_x(self, z, xhist=None, transformation=False, return_np=True):
+    def sample_x(self, z, xhist=None, expectation=False, return_np=True):
         """
         generate samples
         """
 
         with torch.no_grad():
-            x = self.rsample_x(z, xhist, transformation=transformation)
+            x = self.rsample_x(z, xhist, expectation=expectation)
         if return_np:
             return x.numpy()
         return x
 
-    def rsample_x(self, z, xhist, transformation=False):
+    def rsample_x(self, z, xhist, expectation=False):
         raise NotImplementedError
 
     @ensure_args_are_lists_of_tensors

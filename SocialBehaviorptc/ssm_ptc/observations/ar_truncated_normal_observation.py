@@ -135,7 +135,7 @@ class ARTruncatedNormalObservation(BaseObservation):
 
         return torch.cat((log_prob_init[None,], log_prob_ar))
 
-    def sample_x(self, z, xhist=None, transformation=False, return_np=True):
+    def sample_x(self, z, xhist=None, expectation=False, return_np=True):
         """
 
         :param z: ()
@@ -155,7 +155,7 @@ class ARTruncatedNormalObservation(BaseObservation):
             mu = self.transformation.transform_condition_on_z(z, xhist[-self.lags:])  # (D, )
             assert mu.shape == (self.D,)
 
-        if transformation:
+        if expectation:
             samples = mu
             # some ad-hoc way to address bound issue
             for d in range(self.D):
@@ -173,7 +173,7 @@ class ARTruncatedNormalObservation(BaseObservation):
             return samples.numpy()
         return samples
 
-    def rsample_x(self, z, xhist=None, transformation=False):
+    def rsample_x(self, z, xhist=None, expectation=False):
         """
         generate reparameterized samples
         :param z: shape ()

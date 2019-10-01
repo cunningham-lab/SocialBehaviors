@@ -68,7 +68,7 @@ class ARTruncatedNormalObservation(BaseObservation):
         out = torch.sum(out, dim=-1)  # (T, K)
         return out
 
-    def sample_x(self, z, xhist=None, transformation=False, return_np=True, **memory_kwargs):
+    def sample_x(self, z, xhist=None, expectation=False, return_np=True, **memory_kwargs):
         """
 
         :param z: an integer
@@ -89,7 +89,7 @@ class ARTruncatedNormalObservation(BaseObservation):
                 mu = self.transformation.transform_condition_on_z(z, xhist[-self.lags:], **memory_kwargs)  # (D, )
             assert mu.shape == (self.D,)
 
-        if transformation:
+        if expectation:
             samples = mu
             # some ad-hoc way to address bound issue
             for d in range(self.D):
@@ -129,7 +129,7 @@ class ARTruncatedNormalObservation(BaseObservation):
         assert mus.shape == (T, self.K, self.D)
         return mus
 
-    def rsample_x(self, z, xhist, transformation=False):
+    def rsample_x(self, z, xhist, expectation=False):
         raise NotImplementedError
 
 
