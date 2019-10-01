@@ -11,6 +11,7 @@ class BaseCoupledTransformation(BaseTransformation):
 
     def __init__(self, K, D):
         super(BaseCoupledTransformation, self).__init__(K=K, D=D)
+        assert D == 4
 
     @abstractmethod
     def transform_a(self, inputs, **memory_kwargs):
