@@ -192,29 +192,20 @@ def plot_dynamics(weighted_corner_vecs, animal, x_grids, y_grids, K, scale=0.1, 
 
 def plot_quiver(XYs, dXYs, mouse, K,scale=1, alpha=1, title=None, x_grids=None, y_grids=None, grid_alpha=1):
 
-    if K <= 5:
-        plt.figure(figsize=(20, 4))
-        if title is not None:
-            plt.suptitle(title)
+    n_row = int(K/5)
+    if K % 5 > 0:
+        n_row += 1
 
-        for k in range(K):
-            plt.subplot(1, K, k+1)
-            plt.quiver(XYs[:, 0], XYs[:, 1], dXYs[:, k, 0], dXYs[:, k, 1],
-                      angles='xy', scale_units='xy', scale=scale, alpha=alpha)
-            plt.title('K={} '.format(k) + mouse)
-            add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
+    plt.figure(figsize=(20, 4*n_row))
+    if title is not None:
+        plt.suptitle(title)
 
-    elif 5 < K <= 8:
-        plt.figure(figsize=(20, 8))
-        if title is not None:
-            plt.suptitle(title)
-
-        for k in range(K):
-            plt.subplot(2, int(K/2)+1, k+1)
-            plt.quiver(XYs[:, 0], XYs[:, 1], dXYs[:, k, 0], dXYs[:, k, 1],
-                       angles='xy', scale_units='xy', scale=scale, alpha=alpha)
-            add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
-            plt.title('K={} '.format(k) + mouse)
+    for k in range(K):
+        plt.subplot(n_row, 5, k+1)
+        plt.quiver(XYs[:, 0], XYs[:, 1], dXYs[:, k, 0], dXYs[:, k, 1],
+                   angles='xy', scale_units='xy', scale=scale, alpha=alpha)
+        add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
+        plt.title('K={} '.format(k) + mouse)
 
     plt.tight_layout()
 

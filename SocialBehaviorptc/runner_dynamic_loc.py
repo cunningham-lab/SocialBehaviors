@@ -1,12 +1,12 @@
 from ssm_ptc.models.hmm import HMM
-from ssm_ptc.observations.truncated_normal_observation import TruncatedNormalObservation
 
 from project_ssms.momentum_utils import filter_traj_by_speed
 from project_ssms.utils import downsample
 from project_ssms.constants import ARENA_XMIN, ARENA_XMAX, ARENA_YMIN, ARENA_YMAX
+from project_ssms.dynamic_loc_observation import DynamicLocationObservation
 
 from saver.rslts_saving import addDateTime, NumpyEncoder
-from saver.runner_hmm_rslt_saving import rslt_saving
+from saver.runner_dynamic_loc_saving import rslt_saving
 
 import torch
 import numpy as np
@@ -50,7 +50,7 @@ import json
 @click.option('--quiver_scale', default=0.8, help='scale for the quiver plots')
 def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_opt_dir,
          transition, sticky_alpha, sticky_kappa, k, x_grids, y_grids, n_x, n_y,
-         train_model,  pbar_update_interval, video_clips, torch_seed, np_seed,
+         train_model, pbar_update_interval, video_clips, torch_seed, np_seed,
          list_of_num_iters, list_of_lr, sample_t, quiver_scale):
     if job_name is None:
         raise ValueError("Please provide the job name.")
@@ -69,12 +69,12 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
 
     torch.manual_seed(torch_seed)
     np.random.seed(np_seed)
-    
+
     ########################## data ########################
     data_dir = repo_dir + '/SocialBehaviorptc/data/trajs_all'
     trajs = joblib.load(data_dir)
 
-    traj = trajs[36000*video_clip_start:36000*video_clip_end]
+    traj = trajs[36000 * video_clip_start:36000 * video_clip_end]
     traj = downsample(traj, downsample_n)
     if filter_traj:
         traj = filter_traj_by_speed(traj, q1=0.99, q2=0.99)
@@ -97,15 +97,15 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
         print("Creating the model...")
         bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX],
                            [ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX]])
-        
+
         if transition == 'sticky':
             transition_kwargs = dict(alpha=sticky_alpha, kappa=sticky_kappa)
         else:
             transition_kwargs = None
-            
-        obs = TruncatedNormalObservation(K=K, D=D, M=M, bounds=bounds)
+
+        obs = DynamicLocationObservation(K=K, D=D, M=M, bounds=bounds)
         model = HMM(K=K, D=D, M=M, transition=transition, observation=obs, transition_kwargs=transition_kwargs)
-    
+
     # specify grids for sanity checks and plotting
     if x_grids is None:
         x_grid_gap = (ARENA_XMAX - ARENA_XMIN) / n_x
@@ -120,9 +120,9 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
     else:
         y_grids = np.array([float(x) for x in y_grids.split(",")])
         n_y = len(y_grids) - 1
-            
+
     # save experiment params
-    exp_params = {"job_name":   job_name,
+    exp_params = {"job_name": job_name,
                   'downsample_n': downsample_n,
                   "load_model": load_model,
                   "load_model_dir": load_model_dir,
@@ -134,7 +134,7 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
                   "n_x": n_x,
                   "n_y": n_y,
                   "x_grids": x_grids,
-                  "y_grids": y_grids, 
+                  "y_grids": y_grids,
                   "train_model": train_model,
                   "pbar_update_interval": pbar_update_interval,
                   "list_of_num_iters": list_of_num_iters,
@@ -146,13 +146,13 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
     print("Experiment params:")
     print(exp_params)
 
-    rslt_dir = addDateTime("rslts/hmm/" + job_name)
+    rslt_dir = addDateTime("rslts/dynamic_loc/" + job_name)
     rslt_dir = os.path.join(repo_dir, rslt_dir)
     if not os.path.exists(rslt_dir):
         os.makedirs(rslt_dir)
         print("Making result directory...")
     print("Saving to rlst_dir: ", rslt_dir)
-    with open(rslt_dir+"/exp_params.json", "w") as f:
+    with open(rslt_dir + "/exp_params.json", "w") as f:
         json.dump(exp_params, f, indent=4, cls=NumpyEncoder)
 
     ##################### training ############################
@@ -174,8 +174,8 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
                 os.makedirs(checkpoint_dir)
                 print("Creating checkpoint_{} directory...".format(i))
             # save model and opt
-            joblib.dump(model, checkpoint_dir+"/model")
-            joblib.dump(opt, checkpoint_dir+"/optimizer")
+            joblib.dump(model, checkpoint_dir + "/model")
+            joblib.dump(opt, checkpoint_dir + "/optimizer")
             # save rest
             rslt_saving(checkpoint_dir, model, data, sample_T,
                         train_model, losses, quiver_scale, x_grids, y_grids)
