@@ -154,7 +154,8 @@ def main(job_name, downsample_n, mouse, filter_traj, load_model, load_model_dir,
 
             assert cluster_locations.shape == (K, D)
             train_mu = not not_train_mu
-            model.observation.mus = torch.tensor(cluster_locations, dtype=torch.float64, requires_grad=train_mu)
+            model.observation.transformation.mus_loc = \
+                torch.tensor(cluster_locations, dtype=torch.float64, requires_grad=train_mu)
         else:
             cluster_locations = get_np(model.observation.transformation.mus_loc)
 
