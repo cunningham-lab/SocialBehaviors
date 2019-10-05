@@ -6,8 +6,8 @@ import json
 import joblib
 
 from project_ssms.utils import k_step_prediction_for_lineargrid_model
-from project_ssms.plot_utils import plot_z, plot_2_mice
-from project_ssms.grid_utils import plot_weights, plot_quiver, plot_realdata_quiver, \
+from project_ssms.plot_utils import plot_z, plot_mouse
+from project_ssms.grid_utils import plot_quiver, plot_realdata_quiver, \
     get_all_angles, get_speed, plot_list_of_angles, plot_list_of_speed, plot_space_dist
 from project_ssms.constants import *
 
@@ -125,22 +125,22 @@ def rslt_saving(rslt_dir, model, data, gridpoints, gridpoints_idx, feature_vecs,
     plt.close()
 
     plt.figure(figsize=(4, 4))
-    plot_2_mice(data, title="ground truth", xlim=[ARENA_XMIN - 20, ARENA_XMAX + 20],
-                ylim=[ARENA_YMIN - 20, ARENA_YMAX + 20])
+    plot_mouse(data, title="ground truth", xlim=[ARENA_XMIN - 20, ARENA_YMAX + 20],
+               ylim=[ARENA_YMIN - 20, ARENA_YMAX + 20])
     plt.legend()
     plt.savefig(rslt_dir + "/samples/ground_truth.jpg")
     plt.close()
 
     plt.figure(figsize=(4, 4))
-    plot_2_mice(sample_x, title="sample", xlim=[ARENA_XMIN - 20, ARENA_XMAX + 20],
-                ylim=[ARENA_YMIN - 20, ARENA_YMAX + 20])
+    plot_mouse(sample_x, title="sample", xlim=[ARENA_XMIN - 20, ARENA_YMAX + 20],
+               ylim=[ARENA_YMIN - 20, ARENA_YMAX + 20])
     plt.legend()
     plt.savefig(rslt_dir + "/samples/sample_x_{}.jpg".format(sample_T))
     plt.close()
 
     plt.figure(figsize=(4, 4))
-    plot_2_mice(sample_x_center, title="sample (starting from center)",
-                xlim=[ARENA_XMIN - 20, ARENA_XMAX + 20], ylim=[ARENA_YMIN - 20, ARENA_YMAX + 20])
+    plot_mouse(sample_x_center, title="sample (starting from center)", xlim=[ARENA_XMIN - 20, ARENA_YMAX + 20],
+               ylim=[ARENA_YMIN - 20, ARENA_YMAX + 20])
     plt.legend()
     plt.savefig(rslt_dir + "/samples/sample_x_center_{}.jpg".format(sample_T))
     plt.close()

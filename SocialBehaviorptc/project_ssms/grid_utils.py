@@ -8,7 +8,7 @@ from ssm_ptc.utils import check_and_convert_to_tensor
 from project_ssms.plot_utils import get_colors_and_cmap
 
 
-def add_grid(x_grids, y_grids, grid_alpha=1):
+def add_grid(x_grids, y_grids, grid_alpha=1.0):
     if x_grids is None or y_grids is None:
         return
     if isinstance(x_grids, torch.Tensor):
@@ -39,9 +39,12 @@ def add_grid_to_ax(ax, x_grids, y_grids):
 
 
 def plot_realdata_quiver(realdata, z, K, x_grids=None, y_grids=None,
-                         xlim=None, ylim=None, title=None, grid_alpha=1, **quiver_args):
+                         xlim=None, ylim=None, title=None, cluster_centers=None, grid_alpha=1, **quiver_args):
     if isinstance(realdata, torch.Tensor):
         realdata = realdata.numpy()
+
+    _, D = realdata.shape
+    assert D == 4 or D == 2
 
     start = realdata[:-1]
     end = realdata[1:]
@@ -51,22 +54,26 @@ def plot_realdata_quiver(realdata, z, K, x_grids=None, y_grids=None,
     ticks = [(1 / 2 + k) * h for k in range(K)]
     colors, cm = get_colors_and_cmap(K)
 
-    if realdata.shape[-1] == 2:
+    if D == 2:
         plt.figure(figsize=(8, 7))
         if title is not None:
-            plt.suptitle(title)
+            plt.title(title)
 
         plt.quiver(start[:, 0], start[:, 1], dXY[:, 0], dXY[:, 1],
                    angles='xy', scale_units='xy', cmap=cm, color=colors[z], **quiver_args)
+        cb = plt.colorbar(label='k', ticks=ticks)
+        cb.set_ticklabels(range(K))
+
         add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
         if xlim is not None:
             plt.xlim(xlim)
         if ylim is not None:
             plt.ylim(ylim)
-        cb = plt.colorbar(label='k', ticks=ticks)
-        cb.set_ticklabels(range(K))
+
+        if cluster_centers is not None:
+            assert isinstance(cluster_centers, np.ndarray), "cluster_centers should be ndarray."
+            plt.scatter(cluster_centers[:,0], cluster_centers[:,1], color='k', marker='*')
     else:
-        assert realdata.shape[-1] == 4
 
         plt.figure(figsize=(16, 7))
         if title is not None:
@@ -85,6 +92,10 @@ def plot_realdata_quiver(realdata, z, K, x_grids=None, y_grids=None,
         if ylim is not None:
             plt.ylim(ylim)
 
+        if cluster_centers is not None:
+            assert isinstance(cluster_centers, np.ndarray), "cluster_centers should be ndarray."
+            plt.scatter(cluster_centers[:,0], cluster_centers[:,1], color='k', marker='*')
+
         plt.subplot(1, 2, 2)
         plt.quiver(start[:, 2], start[:, 3], dXY[:, 2], dXY[:, 3],
                    angles='xy', scale_units='xy', cmap=cm, color=colors[z], **quiver_args)
@@ -97,6 +108,61 @@ def plot_realdata_quiver(realdata, z, K, x_grids=None, y_grids=None,
             plt.xlim(xlim)
         if ylim is not None:
             plt.ylim(ylim)
+
+        if cluster_centers is not None:
+            assert isinstance(cluster_centers, np.ndarray), "cluster_centers should be ndarray."
+            plt.scatter(cluster_centers[:,2], cluster_centers[:,3], color='k', marker='*')
+
+
+def plot_cluster_centers(cluster_centers, x_grids, y_grids, grid_alpha=0.8):
+    assert isinstance(cluster_centers, np.ndarray), "cluster_centers should be ndarray."
+
+    K, D = cluster_centers.shape
+    assert D == 2 or D == 4
+
+    h = 1 / K
+    ticks = [(1 / 2 + k) * h for k in range(K)]
+    colors, cm = get_colors_and_cmap(K)
+
+    xlim = (x_grids[0] - 20, x_grids[-1] + 20)
+    ylim = (y_grids[0] - 20, y_grids[-1] + 20)
+
+    if D == 2:
+        plt.figure(figsize=(8, 7))
+
+        plt.scatter(cluster_centers[:, 0], cluster_centers[:, 1], marker='*', color=colors, s=80)
+        plt.quiver([xlim[0] - 50], [ylim[0] - 50], [-1, -1], [-1, -1], cmap=cm)
+        cb = plt.colorbar(label='k', ticks=ticks)
+        cb.set_ticklabels(range(K))
+
+        add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
+
+        plt.xlim(xlim)
+        plt.ylim(ylim)
+
+    else:
+
+        plt.figure(figsize=(16, 7))
+
+        plt.subplot(1, 2, 1)
+        plt.scatter(cluster_centers[:, 0], cluster_centers[:, 1], marker='*', color=colors, s=80)
+        plt.quiver([xlim[0] - 50], [ylim[0] - 50], [-1, -1], [-1, -1], cmap=cm)
+        cb = plt.colorbar(label='k', ticks=ticks)
+        cb.set_ticklabels(range(K))
+        add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
+        plt.title("virgin")
+        plt.xlim(xlim)
+        plt.ylim(ylim)
+
+        plt.subplot(1, 2, 2)
+        plt.scatter(cluster_centers[:, 2], cluster_centers[:, 3], marker='*', color=colors, s=80)
+        plt.quiver([xlim[0] - 50], [ylim[0] - 50], [-1, -1], [-1, -1], cmap=cm)
+        cb = plt.colorbar(label='k', ticks=ticks)
+        cb.set_ticklabels(range(K))
+        add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
+        plt.title("mother")
+        plt.xlim(xlim)
+        plt.ylim(ylim)
 
 
 def plot_weights(weights, Df, K, x_grids, y_grids, max_weight=10, title=None):
@@ -221,7 +287,7 @@ def get_z_percentage_by_grid(masks_a, z, K, G):
     return grid_z_a_percentage
 
 
-def get_masks(data, x_grids, y_grids):
+def get_masks_for_two_animals(data, x_grids, y_grids):
     """
     :param data: (T, 4)
     :param x_grids
@@ -230,10 +296,27 @@ def get_masks(data, x_grids, y_grids):
     """
 
     data = check_and_convert_to_tensor(data)
+
+    _, D = data.shape
+    assert D == 4
+    masks_a = get_masks_for_single_animal(data[:, 0:2], x_grids, y_grids)
+    masks_b = get_masks_for_single_animal(data[:, 2:4], x_grids, y_grids)
+    return masks_a, masks_b
+
+
+def get_masks_for_single_animal(data_a, x_grids, y_grids):
+    """
+        :param data: (T, 2)
+        :param x_grids
+        :param y_grids
+        :return: a lists which contains G masks, where each mask is a binary-valued array of length T
+        """
+
+    data = check_and_convert_to_tensor(data_a)
+
     masks_a = []
-    masks_b = []
-    for i in range(len(x_grids)-1):
-        for j in range(len(y_grids)-1):
+    for i in range(len(x_grids) - 1):
+        for j in range(len(y_grids) - 1):
             if i == 0:
                 cond_x = (x_grids[i] <= data[:, 0]) & (data[:, 0] <= x_grids[i + 1])
             else:
@@ -245,36 +328,23 @@ def get_masks(data, x_grids, y_grids):
             mask = (cond_x & cond_y).double()
             masks_a.append(mask)
 
-            if i == 0:
-                cond_x = (x_grids[i] <= data[:, 2]) & (data[:, 2] <= x_grids[i + 1])
-            else:
-                cond_x = (x_grids[i] < data[:, 2]) & (data[:, 2] <= x_grids[i + 1])
-            if j == 0:
-                cond_y = (y_grids[j] <= data[:, 3]) & (data[:, 3] <= y_grids[j + 1])
-            else:
-                cond_y = (y_grids[j] < data[:, 3]) & (data[:, 3] <= y_grids[j + 1])
-            mask = (cond_x & cond_y).double()
-            masks_b.append(mask)
-
     masks_a = torch.stack(masks_a, dim=0)
     assert torch.all(masks_a.sum(dim=0) == 1)
-    masks_b = torch.stack(masks_b, dim=0)
-    assert torch.all(masks_b.sum(dim=0) == 1)
 
-    return masks_a, masks_b
+    return masks_a
 
 
 def find_Q_masks(angles):
     # mask the angles by quadrants
     # Put origin in the first quadrant
     assert angles.shape[1] == 2  # (T, 2)
-    q1 = ((angles[:, 0] >= 0) & (angles[:, 1] >= 0))
-    q2 = (angles[:, 0] <= 0) & (angles[:, 1] > 0)
-    q3 = (angles[:, 0] < 0) & (angles[:, 1] <= 0)
-    q4 = (angles[:, 0] >= 0) & (angles[:, 1] < 0)
-    qs = np.stack((q1, q2, q3, q4), axis=0)
-    #print(qs)
-    assert np.all(qs.sum(axis=0) == 1)
+    q1 = ((angles[:, 0] >= 0) & (angles[:, 1] >= 0)) # (T, )
+    q2 = (angles[:, 0] < 0) & (angles[:, 1] > 0) # (T, )
+    q3 = (angles[:, 0] < 0) & (angles[:, 1] <= 0) # (T, )
+    q4 = (angles[:, 0] >= 0) & (angles[:, 1] < 0) # (T, )
+    qs = np.stack((q1, q2, q3, q4), axis=0)  # (4, T)
+
+    assert np.all(qs.sum(axis=0) == 1), "qs = {}, \n qs.sum(axis=0) = {}".format(qs, qs.sum(axis=0))
     return qs
 
 
@@ -318,21 +388,38 @@ def get_all_angles_from_quiver(XY, dXY, x_grids, y_grids):
     # XY and dXY should have the same shape
     if isinstance(XY, np.ndarray):
         XY = torch.tensor(XY, dtype=torch.float64)
-    masks_a, masks_b = get_masks(XY, x_grids, y_grids)
-    masks_a = masks_a.numpy()
-    masks_b = masks_b.numpy()
 
-    angles_a = []
-    angles_b = []
-    G = (len(x_grids) - 1) * (len(y_grids) - 1)
-    for g in range(G):
-        dXY_a_g = dXY[masks_a[g] == 1][:, 0:2]
-        dXY_b_g = dXY[masks_b[g] == 1][:, 2:4]
+    _, D = XY.shape
 
-        angles_a.append(get_angles_single_from_quiver(dXY_a_g))
-        angles_b.append(get_angles_single_from_quiver(dXY_b_g))
+    if D == 4:
+        masks_a, masks_b = get_masks_for_two_animals(XY, x_grids, y_grids)
+        masks_a = masks_a.numpy()
+        masks_b = masks_b.numpy()
 
-    return angles_a, angles_b
+        angles_a = []
+        angles_b = []
+        G = (len(x_grids) - 1) * (len(y_grids) - 1)
+        for g in range(G):
+            dXY_a_g = dXY[masks_a[g] == 1][:, 0:2]
+            dXY_b_g = dXY[masks_b[g] == 1][:, 2:4]
+
+            angles_a.append(get_angles_single_from_quiver(dXY_a_g))
+            angles_b.append(get_angles_single_from_quiver(dXY_b_g))
+
+        return angles_a, angles_b
+    elif D == 2:
+        masks_a = get_masks_for_single_animal(XY, x_grids, y_grids)
+        masks_a = masks_a.numpy()
+
+        angles_a = []
+        G = (len(x_grids) - 1) * (len(y_grids) - 1)
+        for g in range(G):
+            dXY_a_g = dXY[masks_a[g] == 1][:, 0:2]
+            angles_a.append(get_angles_single_from_quiver(dXY_a_g))
+
+        return angles_a
+    else:
+        raise ValueError("Invalid data shape")
 
 
 def plot_angles(angles, title_name, n_x, n_y, bins=50, hist=True):
@@ -385,30 +472,42 @@ def plot_list_of_angles(list_of_angles, labels, title_name, n_x, n_y):
 
 def get_speed(data, x_grids, y_grids):
     # data (T, 4)
+    _, D = data.shape
+    assert D == 4 or D == 2
+    if D == 4:
+        speed_a = get_speed_for_single_animal(data[:, 0:2], x_grids, y_grids)
+        speed_b = get_speed_for_single_animal(data[:, 2:4], x_grids, y_grids)
+        return speed_a, speed_b
+    else:
+        speed_a = get_speed_for_single_animal(data, x_grids, y_grids)
+        return speed_a
+
+
+def get_speed_for_single_animal(data, x_grids, y_grids):
+    # data: (T, 2)
+    _, D = data.shape
+    assert D == 2
+
     if isinstance(data, np.ndarray):
-        diff = np.diff(data, axis=0)  # (T-1, 4)
+        diff = np.diff(data, axis=0)  # (T-1, 2)
         data = torch.tensor(data, dtype=torch.float64)
-        masks_a, masks_b = get_masks(data[:-1], x_grids, y_grids)
+        masks_a = get_masks_for_single_animal(data[:-1], x_grids, y_grids)
     elif isinstance(data, torch.Tensor):
-        masks_a, masks_b = get_masks(data[:-1], x_grids, y_grids)
-        diff = np.diff(data.numpy(), axis=0)  # (T-1, 4)
+        masks_a = get_masks_for_single_animal(data[:-1], x_grids, y_grids)
+        diff = np.diff(data.numpy(), axis=0)  # (T-1, 2)
     else:
         raise ValueError("Data must be either np.ndarray or torch.Tensor")
 
     speed_a_all = np.sqrt(diff[:, 0] ** 2 + diff[:, 1] ** 2)  # (T-1, 2)
-    speed_b_all = np.sqrt(diff[:, 2] ** 2 + diff[:, 3] ** 2)  # (T-1, 2)
 
     speed_a = []
-    speed_b = []
     G = (len(x_grids) - 1) * (len(y_grids) - 1)
     for g in range(G):
         speed_a_g = speed_a_all[masks_a[g].numpy() == 1]
-        speed_b_g = speed_b_all[masks_b[g].numpy() == 1]
 
         speed_a.append(speed_a_g)
-        speed_b.append(speed_b_g)
 
-    return speed_a, speed_b
+    return speed_a
 
 
 def plot_list_of_speed(list_of_speed,  labels, title_name, n_x, n_y):
@@ -436,23 +535,32 @@ def plot_list_of_speed(list_of_speed,  labels, title_name, n_x, n_y):
 
 def plot_space_dist(data, x_grids, y_grids, grid_alpha=1):
     # TODO: there are some
+    T, D = data.shape
+    assert D == 2 or D == 4
     if isinstance(data, torch.Tensor):
         data = data.numpy()
-    T = data.shape[0]
+
     n_levels = int(T / 36)
-    plt.figure(figsize=(15, 7))
 
-    plt.subplot(1, 2, 1)
-    sns.kdeplot(data[:, 0], data[:, 1], n_levels=n_levels)
-    add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
-    plt.title("virgin")
+    if D == 4:
+        plt.figure(figsize=(15, 7))
 
-    plt.subplot(1, 2, 2)
-    sns.kdeplot(data[:, 2], data[:, 3], n_levels=n_levels)
-    add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
-    plt.title("mother")
+        plt.subplot(1, 2, 1)
+        sns.kdeplot(data[:, 0], data[:, 1], n_levels=n_levels)
+        add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
+        plt.title("virgin")
 
-    plt.tight_layout()
+        plt.subplot(1, 2, 2)
+        sns.kdeplot(data[:, 2], data[:, 3], n_levels=n_levels)
+        add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
+        plt.title("mother")
+
+        plt.tight_layout()
+    else:
+        plt.figure(figsize=(8,7))
+
+        sns.kdeplot(data[:,0], data[:,1], n_levels=n_levels)
+        add_grid(x_grids, y_grids)
 
 
 def test_plot_grid_and_weight_idx(n_x, n_y):

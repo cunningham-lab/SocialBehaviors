@@ -1,4 +1,5 @@
 from ssm_ptc.models.hmm import HMM
+from ssm_ptc.utils import get_np
 
 from project_ssms.momentum_utils import filter_traj_by_speed
 from project_ssms.utils import downsample
@@ -24,12 +25,15 @@ import json
 @click.command()
 @click.option('--job_name', default=None, help='name of the job')
 @click.option('--downsample_n', default=1, help='downsample factor. Data size will reduce to 1/downsample_n')
+@click.option('--mouse', default='both', help='choose from virgin, mother or both')
 @click.option('--filter_traj', is_flag=True, help='whether or not to filter the trajectory by SPEED')
 @click.option('--load_model', is_flag=True, help='Whether to load the (trained) model')
 @click.option('--load_model_dir', default="", help='Directory of model to load')
 @click.option('--transition', default="stationary", help='type of transition (str)')
 @click.option('--sticky_alpha', default=1, help='value of alpha in sticky transition')
 @click.option('--sticky_kappa', default=100, help='value of kappa in sticky transition')
+@click.option('--not_train_mu', is_flag=True, help='whether to train mu')
+@click.option('--initialize_mu', is_flag=True, help='whether to initialize mu')
 @click.option('--train_model', is_flag=True, help='Whether to train the model')
 @click.option('--pbar_update_interval', default=500, help='progress bar update interval')
 @click.option('--load_opt_dir', default="", help='Directory of optimizer to load.')
@@ -48,9 +52,9 @@ import json
 @click.option('--list_of_lr', default='0.005, 0.005', help='learning rate for training')
 @click.option('--sample_t', default=100, help='length of samples')
 @click.option('--quiver_scale', default=0.8, help='scale for the quiver plots')
-def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_opt_dir,
+def main(job_name, downsample_n, mouse, filter_traj, load_model, load_model_dir, load_opt_dir,
          transition, sticky_alpha, sticky_kappa, k, x_grids, y_grids, n_x, n_y,
-         train_model, pbar_update_interval, video_clips, torch_seed, np_seed,
+         not_train_mu, initialize_mu, train_model, pbar_update_interval, video_clips, torch_seed, np_seed,
          list_of_num_iters, list_of_lr, sample_t, quiver_scale):
     if job_name is None:
         raise ValueError("Please provide the job name.")
@@ -70,42 +74,6 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
     torch.manual_seed(torch_seed)
     np.random.seed(np_seed)
 
-    ########################## data ########################
-    data_dir = repo_dir + '/SocialBehaviorptc/data/trajs_all'
-    trajs = joblib.load(data_dir)
-
-    traj = trajs[36000 * video_clip_start:36000 * video_clip_end]
-    traj = downsample(traj, downsample_n)
-    if filter_traj:
-        traj = filter_traj_by_speed(traj, q1=0.99, q2=0.99)
-
-    data = torch.tensor(traj, dtype=torch.float64)
-
-    ######################### model ####################
-
-    # model
-    D = 4
-    M = 0
-
-    if load_model:
-        print("Loading the model from ", load_model_dir)
-        model = joblib.load(load_model_dir)
-
-        K = model.K
-
-    else:
-        print("Creating the model...")
-        bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX],
-                           [ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX]])
-
-        if transition == 'sticky':
-            transition_kwargs = dict(alpha=sticky_alpha, kappa=sticky_kappa)
-        else:
-            transition_kwargs = None
-
-        obs = DynamicLocationObservation(K=K, D=D, M=M, bounds=bounds)
-        model = HMM(K=K, D=D, M=M, transition=transition, observation=obs, transition_kwargs=transition_kwargs)
-
     # specify grids for sanity checks and plotting
     if x_grids is None:
         x_grid_gap = (ARENA_XMAX - ARENA_XMIN) / n_x
@@ -121,9 +89,80 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
         y_grids = np.array([float(x) for x in y_grids.split(",")])
         n_y = len(y_grids) - 1
 
+    ########################## data ########################
+    data_dir = repo_dir + '/SocialBehaviorptc/data/trajs_all'
+    trajs = joblib.load(data_dir)
+
+    traj = trajs[36000 * video_clip_start:36000 * video_clip_end]
+    traj = downsample(traj, downsample_n)
+    if filter_traj:
+        traj = filter_traj_by_speed(traj, q1=0.99, q2=0.99)
+
+    if mouse == "both":
+        data = torch.tensor(traj, dtype=torch.float64)
+        D = 4
+    elif mouse == "virgin":
+        data = torch.tensor(traj[:, 0:2], dtype=torch.float64)
+        D = 2
+    elif mouse == "mother":
+        data = torch.tensor(traj[:, 2:4], dtype=torch.float64)
+        D = 2
+    else:
+        raise ValueError("mouse must be chosen from 'both', 'virgin', 'mother'.")
+
+    ######################### model ####################
+
+    # model
+    M = 0
+
+    if load_model:
+        print("Loading the model from ", load_model_dir)
+        model = joblib.load(load_model_dir)
+
+        K = model.K
+
+        cluster_locations = get_np(model.observation.mus)
+
+    else:
+        print("Creating the model...")
+        if D == 4:
+            bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX],
+                               [ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX]])
+        else:
+            bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX]])
+
+        if transition == 'sticky':
+            transition_kwargs = dict(alpha=sticky_alpha, kappa=sticky_kappa)
+        else:
+            transition_kwargs = None
+
+        obs = DynamicLocationObservation(K=K, D=D, M=M, bounds=bounds)
+        model = HMM(K=K, D=D, M=M, transition=transition, observation=obs, transition_kwargs=transition_kwargs)
+
+        if initialize_mu:
+            if mouse == 'both':
+                assert K == (n_x * n_y) ** 2, "K should be equal to (n_x*n_y)**2"
+            else:
+                assert K == n_x * n_y, "K should be equal to n_x * n_y"
+
+            cluster_locations = np.array(
+                [((x_grids[i] + x_grids[i + 1]) / 2, (y_grids[j] + y_grids[j + 1]) / 2) for i in range(n_x) for j in
+                 range(n_y)])
+            if mouse == "both":
+                cluster_locations = np.array([np.concatenate((loc_a, loc_b))
+                                           for loc_a in cluster_locations for loc_b in cluster_locations])
+
+            assert cluster_locations.shape == (K, D)
+            train_mu = not not_train_mu
+            model.observation.mus = torch.tensor(cluster_locations, dtype=torch.float64, requires_grad=train_mu)
+        else:
+            cluster_locations = get_np(model.observation.transformation.mus_loc)
+
+
     # save experiment params
     exp_params = {"job_name": job_name,
                   'downsample_n': downsample_n,
+                  "mouse": mouse,
                   "load_model": load_model,
                   "load_model_dir": load_model_dir,
                   "load_opt_dir": load_opt_dir,
@@ -135,6 +174,9 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
                   "n_y": n_y,
                   "x_grids": x_grids,
                   "y_grids": y_grids,
+                  "cluster_locations": cluster_locations,
+                  "not_train_mu": not_train_mu,
+                  "initialize_mu": initialize_mu,
                   "train_model": train_model,
                   "pbar_update_interval": pbar_update_interval,
                   "list_of_num_iters": list_of_num_iters,
@@ -157,6 +199,13 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
 
     ##################### training ############################
     if train_model:
+        initial_dir = rslt_dir + "/initial"
+        if not os.path.exists(initial_dir):
+            os.makedirs(initial_dir)
+            print("\nCreating initial directory...")
+        rslt_saving(initial_dir, model, data, mouse, sample_T,
+                    False, [], quiver_scale, x_grids, y_grids)
+
         print("start training")
         list_of_losses = []
         if load_opt_dir != "":
@@ -177,12 +226,12 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
             joblib.dump(model, checkpoint_dir + "/model")
             joblib.dump(opt, checkpoint_dir + "/optimizer")
             # save rest
-            rslt_saving(checkpoint_dir, model, data, sample_T,
+            rslt_saving(checkpoint_dir, model, data, mouse, sample_T,
                         train_model, losses, quiver_scale, x_grids, y_grids)
 
     else:
         # only save the results
-        rslt_saving(rslt_dir, model, data, sample_T,
+        rslt_saving(rslt_dir, model, data, mouse, sample_T,
                     False, [], quiver_scale, x_grids, y_grids)
 
     print("Finish running!")

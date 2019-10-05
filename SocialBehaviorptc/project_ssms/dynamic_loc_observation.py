@@ -3,14 +3,15 @@ import numpy as np
 
 from ssm_ptc.observations.base_observation import BaseObservation
 from ssm_ptc.distributions.truncatednormal import TruncatedNormal
-from ssm_ptc.utils import check_and_convert_to_tensor, set_param
+from ssm_ptc.utils import check_and_convert_to_tensor, set_param, get_np
 
 from project_ssms.coupled_transformations.dynamic_loc_transformation import DynamicLocationTransformation
+from project_ssms.single_transformations.single_dynamic_location_transformation import SingleDynamicLocationTransformation
 
 
 class DynamicLocationObservation(BaseObservation):
     def __init__(self, K, D, M=0, bounds=None):
-
+        assert D == 2 or D == 4, "D muse be either 2 or 4."
         super(DynamicLocationObservation, self).__init__(K, D, M)
 
         if bounds is None:
@@ -20,7 +21,10 @@ class DynamicLocationObservation(BaseObservation):
 
         self.mus_init = torch.eye(self.K, self.D, dtype=torch.float64, requires_grad=True)
 
-        self.transformation = DynamicLocationTransformation(K=self.K, D=self.D)
+        if self.D == 2:
+            self.transformation = SingleDynamicLocationTransformation(K=self.K, D=self.D, bounds=get_np(self.bounds))
+        else:
+            self.transformation = DynamicLocationTransformation(K=self.K, D=self.D)
 
     @property
     def params(self):

@@ -5,24 +5,26 @@ import os
 import json
 import joblib
 
-from project_ssms.plot_utils import plot_z, plot_2_mice
-from project_ssms.grid_utils import plot_quiver, plot_realdata_quiver, \
+from ssm_ptc.utils import k_step_prediction, get_np
+
+from project_ssms.plot_utils import plot_z, plot_mouse
+from project_ssms.grid_utils import plot_quiver, plot_realdata_quiver, plot_cluster_centers, \
     get_all_angles, get_speed, plot_list_of_angles, plot_list_of_speed, plot_space_dist
 from project_ssms.constants import *
-
-from ssm_ptc.utils import k_step_prediction
 
 from saver.rslts_saving import NumpyEncoder
 
 
-def rslt_saving(rslt_dir, model, data, sample_T, train_model, losses, quiver_scale, x_grids, y_grids):
+def rslt_saving(rslt_dir, model, data, mouse, sample_T, train_model, losses, quiver_scale, x_grids, y_grids):
     tran = model.observation.transformation
+
+    _, D = data.shape
+    assert D == 2 or D == 4, "D must be either 2 or 4."
+
     n_x = len(x_grids) - 1
     n_y = len(y_grids) - 1
 
     K = model.K
-
-
 
     #################### inference ###########################
 
@@ -47,7 +49,10 @@ def rslt_saving(rslt_dir, model, data, sample_T, train_model, losses, quiver_sca
     sample_z, sample_x = model.sample(sample_T)
 
     center_z = torch.tensor([0], dtype=torch.int)
-    center_x = torch.tensor([[150, 190, 200, 200]], dtype=torch.float64)
+    if D == 4:
+        center_x = torch.tensor([[150, 190, 200, 200]], dtype=torch.float64)
+    else:
+        center_x = torch.tensor([[150, 190]], dtype=torch.float64)
     sample_z_center, sample_x_center = model.sample(sample_T, prefix=(center_z, center_x))
 
     ################## dynamics #####################
@@ -56,7 +61,10 @@ def rslt_saving(rslt_dir, model, data, sample_T, train_model, losses, quiver_sca
     XX, YY = np.meshgrid(np.linspace(20, 310, 30),
                          np.linspace(0, 380, 30))
     XY = np.column_stack((np.ravel(XX), np.ravel(YY)))  # shape (900,2) grid values
-    XY_grids = np.concatenate((XY, XY), axis=1)
+    if D == 2:
+        XY_grids = XY
+    else:
+        XY_grids = np.concatenate((XY, XY), axis=1)
 
     XY_next = tran.transform(torch.tensor(XY_grids, dtype=torch.float64))
     dXY = XY_next.detach().numpy() - XY_grids[:, None]
@@ -77,10 +85,12 @@ def rslt_saving(rslt_dir, model, data, sample_T, train_model, losses, quiver_sca
     else:
         transition_matrix = transition_matrix.numpy()
 
+    cluster_centers = get_np(tran.mus_loc)
 
     summary_dict = {"init_dist": model.init_dist.detach().numpy(),
                     "transition_matrix": transition_matrix,
                     "x_predict_err": x_predict_err, "x_predict_5_err": x_predict_5_err,
+                    "mus": cluster_centers,
                     "variance": torch.exp(model.observation.log_sigmas).detach().numpy(),
                     "log_likes": model.log_likelihood(data).detach().numpy(),
                     "avg_transform_speed": avg_transform_speed, "avg_data_speed": avg_data_speed,
@@ -120,80 +130,111 @@ def rslt_saving(rslt_dir, model, data, sample_T, train_model, losses, quiver_sca
     plt.close()
     
     plt.figure(figsize=(4, 4))
-    plot_2_mice(data, title="ground truth", xlim=[ARENA_XMIN - 20, ARENA_XMAX + 20],
+    plot_mouse(data, title="ground truth_{}".format(mouse), xlim=[ARENA_XMIN - 20, ARENA_XMAX + 20],
                 ylim=[ARENA_YMIN - 20, ARENA_YMAX + 20])
     plt.legend()
     plt.savefig(rslt_dir + "/samples/ground_truth.jpg")
     plt.close()
 
     plt.figure(figsize=(4, 4))
-    plot_2_mice(sample_x, title="sample", xlim=[ARENA_XMIN - 20, ARENA_XMAX + 20],
+    plot_mouse(sample_x, title="sample_{}".format(mouse), xlim=[ARENA_XMIN - 20, ARENA_XMAX + 20],
                 ylim=[ARENA_YMIN - 20, ARENA_YMAX + 20])
     plt.legend()
     plt.savefig(rslt_dir + "/samples/sample_x_{}.jpg".format(sample_T))
     plt.close()
 
     plt.figure(figsize=(4, 4))
-    plot_2_mice(sample_x_center, title="sample (starting from center)",
+    plot_mouse(sample_x_center, title="sample (starting from center)_{}".format(mouse),
                 xlim=[ARENA_XMIN - 20, ARENA_XMAX + 20], ylim=[ARENA_YMIN - 20, ARENA_YMAX + 20])
     plt.legend()
     plt.savefig(rslt_dir + "/samples/sample_x_center_{}.jpg".format(sample_T))
     plt.close()
 
-    plot_realdata_quiver(data, z, K, x_grids, y_grids, scale=1, title="ground truth")
+    plot_realdata_quiver(data, z, K, x_grids, y_grids, scale=1, title="ground truth", cluster_centers=cluster_centers)
     plt.savefig(rslt_dir + "/samples/quiver_ground_truth.jpg", dpi=200)
 
-    plot_realdata_quiver(sample_x, sample_z, K, x_grids, y_grids, scale=1, title="sample")
+    plot_realdata_quiver(sample_x, sample_z, K, x_grids, y_grids, scale=1, title="sample",
+                         cluster_centers=cluster_centers)
     plt.savefig(rslt_dir + "/samples/quiver_sample_x_{}.jpg".format(sample_T), dpi=200)
     plt.close()
 
-    plot_realdata_quiver(sample_x_center, sample_z_center, K, x_grids, y_grids, scale=1, title="sample (starting from center)")
+    plot_realdata_quiver(sample_x_center, sample_z_center, K, x_grids, y_grids, scale=1,
+                         title="sample (starting from center)", cluster_centers=cluster_centers)
     plt.savefig(rslt_dir + "/samples/quiver_sample_x_center_{}.jpg".format(sample_T), dpi=200)
     plt.close()
+
+    # plot mus
+    plot_cluster_centers(cluster_centers, x_grids, y_grids)
+    plt.savefig(rslt_dir + "/samples/cluster_centers.jpg", dpi=200)
 
     if not os.path.exists(rslt_dir + "/dynamics"):
         os.makedirs(rslt_dir + "/dynamics")
         print("Making dynamics directory...")
 
-    plot_quiver(XY_grids[:, 0:2], dXY[..., 0:2], 'virgin', K=K, scale=quiver_scale, alpha=0.9,
-                title="quiver (virgin)", x_grids=x_grids, y_grids=y_grids, grid_alpha=0.2)
-    plt.savefig(rslt_dir + "/dynamics/quiver_a.jpg", dpi=200)
-    plt.close()
+    if D == 2:
+        plot_quiver(XY_grids, dXY,  mouse, K=K, scale=quiver_scale, alpha=0.9,
+                    title="quiver ({})".format(mouse), x_grids=x_grids, y_grids=y_grids, grid_alpha=0.2)
+        plt.savefig(rslt_dir + "/dynamics/quiver_{}.jpg".format(mouse), dpi=200)
+        plt.close()
+    else:
+        plot_quiver(XY_grids[:, 0:2], dXY[..., 0:2], 'virgin', K=K, scale=quiver_scale, alpha=0.9,
+                    title="quiver (virgin)", x_grids=x_grids, y_grids=y_grids, grid_alpha=0.2)
+        plt.savefig(rslt_dir + "/dynamics/quiver_a.jpg", dpi=200)
+        plt.close()
 
-    plot_quiver(XY_grids[:, 2:4], dXY[..., 2:4], 'mother', K=K, scale=quiver_scale, alpha=0.9,
-                title="quiver (mother)", x_grids=x_grids, y_grids=y_grids, grid_alpha=0.2)
-    plt.savefig(rslt_dir + "/dynamics/quiver_b.jpg", dpi=200)
-    plt.close()
+        plot_quiver(XY_grids[:, 2:4], dXY[..., 2:4], 'mother', K=K, scale=quiver_scale, alpha=0.9,
+                    title="quiver (mother)", x_grids=x_grids, y_grids=y_grids, grid_alpha=0.2)
+        plt.savefig(rslt_dir + "/dynamics/quiver_b.jpg", dpi=200)
+        plt.close()
 
     if not os.path.exists(rslt_dir + "/distributions"):
         os.makedirs(rslt_dir + "/distributions")
         print("Making distributions directory...")
 
-    data_angles_a, data_angles_b = get_all_angles(data, x_grids, y_grids)
-    sample_angles_a, sample_angles_b = get_all_angles(sample_x, x_grids, y_grids)
-    sample_x_center_angles_a, sample_x_center_angles_b = get_all_angles(sample_x_center, x_grids, y_grids)
+    if D == 4:
+        data_angles_a, data_angles_b = get_all_angles(data, x_grids, y_grids)
+        sample_angles_a, sample_angles_b = get_all_angles(sample_x, x_grids, y_grids)
+        sample_x_center_angles_a, sample_x_center_angles_b = get_all_angles(sample_x_center, x_grids, y_grids)
 
-    plot_list_of_angles([data_angles_a, sample_angles_a, sample_x_center_angles_a],
-                        ['data', 'sample', 'sample_c'], "direction distribution (virgin)", n_x, n_y)
-    plt.savefig(rslt_dir + "/distributions/angles_a.jpg")
-    plt.close()
-    plot_list_of_angles([data_angles_b, sample_angles_b, sample_x_center_angles_b],
-                        ['data', 'sample', 'sample_c'], "direction distribution (mother)", n_x, n_y)
-    plt.savefig(rslt_dir + "/distributions/angles_b.jpg")
-    plt.close()
+        plot_list_of_angles([data_angles_a, sample_angles_a, sample_x_center_angles_a],
+                            ['data', 'sample', 'sample_c'], "direction distribution (virgin)", n_x, n_y)
+        plt.savefig(rslt_dir + "/distributions/angles_a.jpg")
+        plt.close()
+        plot_list_of_angles([data_angles_b, sample_angles_b, sample_x_center_angles_b],
+                            ['data', 'sample', 'sample_c'], "direction distribution (mother)", n_x, n_y)
+        plt.savefig(rslt_dir + "/distributions/angles_b.jpg")
+        plt.close()
 
-    data_speed_a, data_speed_b = get_speed(data, x_grids, y_grids)
-    sample_speed_a, sample_speed_b = get_speed(sample_x, x_grids, y_grids)
-    sample_x_center_speed_a, sample_x_center_speed_b = get_speed(sample_x_center, x_grids, y_grids)
+        data_speed_a, data_speed_b = get_speed(data, x_grids, y_grids)
+        sample_speed_a, sample_speed_b = get_speed(sample_x, x_grids, y_grids)
+        sample_x_center_speed_a, sample_x_center_speed_b = get_speed(sample_x_center, x_grids, y_grids)
 
-    plot_list_of_speed([data_speed_a, sample_speed_a, sample_x_center_speed_a],
-                       ['data', 'sample', 'sample_c'], "speed distribution (virgin)", n_x, n_y)
-    plt.savefig(rslt_dir + "/distributions/speed_a.jpg")
-    plt.close()
-    plot_list_of_speed([data_speed_b, sample_speed_b, sample_x_center_speed_b],
-                       ['data', 'sample', 'sample_c'], "speed distribution (mother)", n_x, n_y)
-    plt.savefig(rslt_dir + "/distributions/speed_b.jpg")
-    plt.close()
+        plot_list_of_speed([data_speed_a, sample_speed_a, sample_x_center_speed_a],
+                           ['data', 'sample', 'sample_c'], "speed distribution (virgin)", n_x, n_y)
+        plt.savefig(rslt_dir + "/distributions/speed_a.jpg")
+        plt.close()
+        plot_list_of_speed([data_speed_b, sample_speed_b, sample_x_center_speed_b],
+                           ['data', 'sample', 'sample_c'], "speed distribution (mother)", n_x, n_y)
+        plt.savefig(rslt_dir + "/distributions/speed_b.jpg")
+        plt.close()
+    else:
+        data_angles_a = get_all_angles(data, x_grids, y_grids)
+        sample_angles_a = get_all_angles(sample_x, x_grids, y_grids)
+        sample_x_center_angles_a = get_all_angles(sample_x_center, x_grids, y_grids)
+
+        plot_list_of_angles([data_angles_a, sample_angles_a, sample_x_center_angles_a],
+                            ['data', 'sample', 'sample_c'], "direction distribution (virgin)", n_x, n_y)
+        plt.savefig(rslt_dir + "/distributions/angles_{}.jpg".format(mouse))
+        plt.close()
+
+        data_speed_a = get_speed(data, x_grids, y_grids)
+        sample_speed_a = get_speed(sample_x, x_grids, y_grids)
+        sample_x_center_speed_a = get_speed(sample_x_center, x_grids, y_grids)
+
+        plot_list_of_speed([data_speed_a, sample_speed_a, sample_x_center_speed_a],
+                           ['data', 'sample', 'sample_c'], "speed distribution (virgin)", n_x, n_y)
+        plt.savefig(rslt_dir + "/distributions/speed_{}.jpg".format(mouse))
+        plt.close()
 
     try:
         if 100 < data.shape[0] <= 36000:

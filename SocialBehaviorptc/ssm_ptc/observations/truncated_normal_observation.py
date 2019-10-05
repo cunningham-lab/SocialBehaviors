@@ -5,18 +5,22 @@ from ssm_ptc.observations.base_observation import BaseObservation
 from ssm_ptc.distributions.truncatednormal import TruncatedNormal
 from ssm_ptc.utils import check_and_convert_to_tensor, set_param
 
+
 class TruncatedNormalObservation(BaseObservation):
     def __init__(self, K, D, M=0, bounds=None, train_sigma=True):
 
         super(TruncatedNormalObservation, self).__init__(K, D, M)
 
-
         if bounds is None:
             raise ValueError("Must provide bounds.")
         self.bounds = check_and_convert_to_tensor(bounds)
-        assert self.bounds.shape == (self.D, 2)
+        assert self.bounds.shape == (self.D, 2)  # min max
 
-        self.mus = torch.eye(self.K, self.D, dtype=torch.float64, requires_grad=True)
+        # random init between bounds
+        mus_val = np.random.rand(K, D)
+        for d in range(D):
+            mus_val[:, d] = (bounds[d, 1] - bounds[d, 0]) * mus_val[:,d] + bounds[d, 0]
+        self.mus = torch.tensor(mus_val, dtype=torch.float64, requires_grad=True)
         self.log_sigmas = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, requires_grad=train_sigma)
 
     @property
