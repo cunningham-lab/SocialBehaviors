@@ -2,10 +2,13 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+import matplotlib.animation as animation
+
 import seaborn as sns
 
 from ssm_ptc.utils import check_and_convert_to_tensor
 from project_ssms.plot_utils import get_colors_and_cmap
+from project_ssms.utils import downsample
 
 
 def add_grid(x_grids, y_grids, grid_alpha=1.0):
@@ -16,7 +19,8 @@ def add_grid(x_grids, y_grids, grid_alpha=1.0):
     if isinstance(y_grids, torch.Tensor):
         y_grids = y_grids.numpy()
 
-    plt.scatter([x_grids[0], x_grids[0], x_grids[-1], x_grids[-1]], [-10, 390, -10, 390], alpha=grid_alpha)
+    plt.scatter([x_grids[0], x_grids[0], x_grids[-1], x_grids[-1]],
+                [y_grids[0], y_grids[1], y_grids[0], y_grids[1]], alpha=grid_alpha)
     for j in range(len(y_grids)):
         plt.plot([x_grids[0], x_grids[-1]], [y_grids[j], y_grids[j]], '--', color='grey', alpha=grid_alpha)
 
@@ -39,7 +43,7 @@ def add_grid_to_ax(ax, x_grids, y_grids):
 
 
 def plot_realdata_quiver(realdata, z, K, x_grids=None, y_grids=None,
-                         xlim=None, ylim=None, title=None, cluster_centers=None, grid_alpha=1, **quiver_args):
+                         xlim=None, ylim=None, title=None, cluster_centers=None, grid_alpha=0.8, **quiver_args):
     if isinstance(realdata, torch.Tensor):
         realdata = realdata.numpy()
 
@@ -60,7 +64,7 @@ def plot_realdata_quiver(realdata, z, K, x_grids=None, y_grids=None,
             plt.title(title)
 
         plt.quiver(start[:, 0], start[:, 1], dXY[:, 0], dXY[:, 1],
-                   angles='xy', scale_units='xy', cmap=cm, color=colors[z], **quiver_args)
+                   angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[z], **quiver_args)
         cb = plt.colorbar(label='k', ticks=ticks)
         cb.set_ticklabels(range(K))
 
@@ -112,6 +116,82 @@ def plot_realdata_quiver(realdata, z, K, x_grids=None, y_grids=None,
         if cluster_centers is not None:
             assert isinstance(cluster_centers, np.ndarray), "cluster_centers should be ndarray."
             plt.scatter(cluster_centers[:,2], cluster_centers[:,3], color='k', marker='*')
+
+
+def plot_animation(x, z, K, mouse='both', x_grids=None, y_grids=None, grid_alpha=0.8, xlim=None, ylim=None,
+                   video_name=None, interval=2, downsample_n=1, max_length=None):
+    if video_name is None:
+        video_name = "anim_" + mouse
+
+    T, D = x.shape
+
+    if max_length is not None:
+        assert isinstance(max_length, int), "max_length must be int."
+        downsample_n = int(T / max_length)
+
+    x = downsample(x, downsample_n)
+    z = downsample(x, downsample_n)
+
+    colors, cm = get_colors_and_cmap(K)
+
+    Writer = animation.writers['ffmpeg']
+    writer = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
+
+    fig = plt.figure(figsize=(8, 7))
+    if xlim is not None:
+        plt.xlim(xlim)
+    if ylim is not None:
+        plt.ylim(ylim)
+    plt.axis('equal')
+    add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
+
+    if mouse == 'virgin' or mouse == 'mother':
+        assert D == 2
+
+        XY = x[:-1]
+        dXY = x[1:] - x[:-1]
+        Q = plt.quiver([], [], [], [], scale=1, units="xy", cmap=cm, color=colors[z])
+
+        def update_quiver(num, Q, XY, dXY):
+            """updates the horizontal and vertical vector components by a
+            fixed increment on each frame
+            """
+
+            U = dXY[:num + 1, 0]
+            V = dXY[:num + 1, 1]
+
+            Q.set_offsets(XY[:num + 1])
+            Q.set_UVC(U, V)
+            return Q,
+    else:
+        assert mouse == "both" and D == 4
+        XY = np.zeros((2 * (T - 1), 2))
+        XY[2 * np.arange(T - 1)] = x[:-1, 0:2]
+        XY[2 * np.arange(T - 1) + 1] = x[:-1, 2:4]
+
+        diff = x[1:] - x[:-1]  # (T-1, 4)
+        dXY = np.zeros((2 * (T - 1), 2))
+        dXY[2 * np.arange(T - 1)] = diff[:, 0:2]
+        dXY[2 * np.arange(T - 1) + 1] = diff[:, 2:4]
+
+        two_z = np.repeat(z, 2)
+        Q = plt.quiver([], [], [], [], scale=1, units="xy", cmap=cm, color=colors[two_z])
+
+        def update_quiver(num, Q, XY, dXY):
+            """updates the horizontal and vertical vector components by a
+            fixed increment on each frame
+            """
+
+            U = dXY[:2 * (num + 1), 0]
+            V = dXY[:2 * (num + 1), 1]
+
+            Q.set_offsets(XY[:2 * (num + 1)])
+            Q.set_UVC(U, V)
+            return Q,
+
+    anim = animation.FuncAnimation(fig, update_quiver, frames=T - 1, fargs=(Q, XY, dXY),
+                                   interval=interval, blit=False)
+    anim.save("{}.mp4".format(video_name), writer=writer)
 
 
 def plot_cluster_centers(cluster_centers, x_grids, y_grids, grid_alpha=0.8):
@@ -579,5 +659,4 @@ def test_plot_grid_and_weight_idx(n_x, n_y):
             plt.xticks(np.arange(0, 4, 1), ["lower L", "upper L", "lower R", "upper R"])
 
     plt.tight_layout()
-
 

@@ -132,7 +132,7 @@ def downsample(traj, n):
     # data : (T, D)
     if n == 1:
         return traj
-    T, _ = traj.shape
+    T = len(traj)
     T_over_n = int(T / n)
     idx = n * np.arange(T_over_n)
     return traj[idx]

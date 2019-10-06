@@ -5,14 +5,13 @@ import matplotlib.pyplot as plt
 import matplotlib.colors
 
 
-default_colors = ["C0","C1","C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9"]
-# C0: blue, C1: orange, C2: green, C3: red, C4: purple, C5: brown, C6: pink, C7: grey, C8: yellow, C9: cyan
-
-
 def get_colors_and_cmap(K):
     if K <= 10:
-        colors_list = default_colors[:K]
-        colors = np.array(default_colors[:K])
+        colors = np.array(plt.cm.tab10.colors)[:K]
+        colors_list = colors.tolist()
+    elif K <= 20:
+        colors = np.array(plt.cm.tab20.colors)[:K]
+        colors_list = colors.tolist()
     else:
         vals = np.linspace(0, 1, 10 * K)[10 * np.arange(K)]
         colors = plt.cm.tab20(vals)
@@ -74,3 +73,4 @@ def plot_4_traces(data, title):
     plt.plot(data[:, 2], label='x2')
     plt.plot(data[:, 3], label='y2')
     plt.legend()
+

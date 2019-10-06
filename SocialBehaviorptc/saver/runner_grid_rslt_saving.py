@@ -163,14 +163,14 @@ def rslt_saving(rslt_dir, model, Df, data, masks_a, masks_b, m_kwargs_a, m_kwarg
     plt.savefig(rslt_dir + "/samples/sample_x_center_{}.jpg".format(sample_T))
     plt.close()
 
-    plot_realdata_quiver(data, z, K, x_grids, y_grids, scale=1, title="ground truth")
+    plot_realdata_quiver(data, z, K, x_grids, y_grids, title="ground truth")
     plt.savefig(rslt_dir + "/samples/ground_truth_quiver.jpg")
 
-    plot_realdata_quiver(sample_x, sample_z, K, x_grids, y_grids, scale=1, title="sample")
+    plot_realdata_quiver(sample_x, sample_z, K, x_grids, y_grids, title="sample")
     plt.savefig(rslt_dir + "/samples/sample_x_quiver_{}.jpg".format(sample_T))
     plt.close()
 
-    plot_realdata_quiver(sample_x_center, sample_z_center, K, x_grids, y_grids, scale=1,
+    plot_realdata_quiver(sample_x_center, sample_z_center, K, x_grids, y_grids,
                          title="sample (starting from center)")
     plt.savefig(rslt_dir + "/samples/sample_x_center_quiver_{}.jpg".format(sample_T))
     plt.close()

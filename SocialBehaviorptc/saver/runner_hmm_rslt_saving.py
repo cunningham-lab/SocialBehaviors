@@ -152,15 +152,15 @@ def rslt_saving(rslt_dir, model, data, mouse, sample_T, train_model, losses, qui
     plt.savefig(rslt_dir + "/samples/sample_x_center_{}.jpg".format(sample_T))
     plt.close()
 
-    plot_realdata_quiver(data, z, K, x_grids, y_grids, scale=1, title="ground truth_{}".format(mouse), cluster_centers=cluster_centers)
+    plot_realdata_quiver(data, z, K, x_grids, y_grids, title="ground truth_{}".format(mouse), cluster_centers=cluster_centers)
     plt.savefig(rslt_dir + "/samples/quiver_ground_truth.jpg", dpi=200)
 
-    plot_realdata_quiver(sample_x, sample_z, K, x_grids, y_grids, scale=1,
+    plot_realdata_quiver(sample_x, sample_z, K, x_grids, y_grids,
                          title="sample_{}".format(mouse), cluster_centers=cluster_centers)
     plt.savefig(rslt_dir + "/samples/quiver_sample_x_{}.jpg".format(sample_T), dpi=200)
     plt.close()
 
-    plot_realdata_quiver(sample_x_center, sample_z_center, K, x_grids, y_grids, scale=1,
+    plot_realdata_quiver(sample_x_center, sample_z_center, K, x_grids, y_grids,
                          title="sample (starting from center)_{}".format(mouse), cluster_centers=cluster_centers)
     plt.savefig(rslt_dir + "/samples/quiver_sample_x_center_{}.jpg".format(sample_T), dpi=200)
     plt.close()
