@@ -65,7 +65,7 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
     list_of_lr = [float(x) for x in list_of_lr.split(",")]
     assert len(list_of_num_iters) == len(list_of_lr), \
         "Length of list_of_num_iters must match length of list-of_lr," \
-        " but we have {} not equal to {}".format(len(list_of_num_iters), len(list_of_lr))
+        " but we have list_of_num_iters = {}, and list_of_lr = {}".format(list_of_num_iters, list_of_lr)
     for lr in list_of_lr:
         if lr > 1:
             raise ValueError("Learning rate should not be larger than 1!")
