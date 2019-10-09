@@ -34,7 +34,7 @@ import json
 @click.option('--sticky_kappa', default=100, help='value of kappa in sticky transition')
 @click.option('--acc_factor', default=None, help="acc factor in direction model")
 @click.option('--train_model', is_flag=True, help='Whether to train the model')
-@click.option('--train_beta', is_flag=False, help='Whether to train beta in softmax')
+@click.option('--train_beta', is_flag=True, help='Whether to train beta in softmax')
 @click.option('--pbar_update_interval', default=500, help='progress bar update interval')
 @click.option('--load_opt_dir', default="", help='Directory of optimizer to load.')
 @click.option('--video_clips', default="0,1", help='The starting video clip of the training data')
