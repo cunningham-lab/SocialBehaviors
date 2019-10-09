@@ -68,11 +68,12 @@ class ARTruncatedNormalObservation(BaseObservation):
         out = torch.sum(out, dim=-1)  # (T, K)
         return out
 
-    def sample_x(self, z, xhist=None, expectation=False, return_np=True, **memory_kwargs):
+    def sample_x(self, z, xhist=None, transformation=False, return_np=True, **memory_kwargs):
         """
 
         :param z: an integer
         :param xhist: (T_pre, D)
+        :param transformation: return transformed value as sample value, instead of sampling
         :param return_np: boolean, whether return np.ndarray or torch.tensor
         :return: one sample (D, )
         """
@@ -89,7 +90,7 @@ class ARTruncatedNormalObservation(BaseObservation):
                 mu = self.transformation.transform_condition_on_z(z, xhist[-self.lags:], **memory_kwargs)  # (D, )
             assert mu.shape == (self.D,)
 
-        if expectation:
+        if transformation:
             samples = mu
             # some ad-hoc way to address bound issue
             for d in range(self.D):

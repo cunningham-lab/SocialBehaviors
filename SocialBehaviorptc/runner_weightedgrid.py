@@ -1,7 +1,7 @@
 from ssm_ptc.models.hmm import HMM
 
 from project_ssms.ar_truncated_normal_observation import ARTruncatedNormalObservation
-from project_ssms.coupled_transformations.lineargrid_transformation import LinearGridTransformation
+from project_ssms.coupled_transformations.weightedgrid_transformation import WeightedGridTransformation, pairwise_dist
 from project_ssms.feature_funcs import f_corner_vec_func
 from project_ssms.momentum_utils import filter_traj_by_speed
 from project_ssms.utils import downsample
@@ -34,6 +34,7 @@ import json
 @click.option('--sticky_kappa', default=100, help='value of kappa in sticky transition')
 @click.option('--acc_factor', default=None, help="acc factor in direction model")
 @click.option('--train_model', is_flag=True, help='Whether to train the model')
+@click.option('--train_beta', is_flag=False, help='Whether to train beta in softmax')
 @click.option('--pbar_update_interval', default=500, help='progress bar update interval')
 @click.option('--load_opt_dir', default="", help='Directory of optimizer to load.')
 @click.option('--video_clips', default="0,1", help='The starting video clip of the training data')
@@ -53,7 +54,7 @@ import json
 @click.option('--quiver_scale', default=0.8, help='scale for the quiver plots')
 def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_opt_dir,
          transition, sticky_alpha, sticky_kappa, acc_factor, k, x_grids, y_grids, n_x, n_y,
-         train_model, pbar_update_interval, video_clips, torch_seed, np_seed,
+         train_model, train_beta, pbar_update_interval, video_clips, torch_seed, np_seed,
          list_of_num_iters, list_of_lr, sample_t, quiver_scale):
     if job_name is None:
         raise ValueError("Please provide the job name.")
@@ -94,6 +95,8 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
     if load_model:
         print("Loading the model from ", load_model_dir)
         model = joblib.load(load_model_dir)
+        assert isinstance(model, WeightedGridTransformation),\
+            "model should be {}, but is {}".format(WeightedGridTransformation, type(model))
         tran = model.observation.transformation
 
         K = model.K
@@ -126,7 +129,7 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
         if acc_factor is None:
             acc_factor = downsample_n * 10
 
-        tran = LinearGridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids,
+        tran = WeightedGridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids,
                                         Df=Df, feature_vec_func=f_corner_vec_func, acc_factor=acc_factor)
         obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=1, bounds=bounds, transformation=tran)
 
@@ -153,6 +156,7 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
                   "x_grids": x_grids,
                   "y_grids": y_grids,
                   "train_model": train_model,
+                  "train_beta": train_beta,
                   "pbar_update_interval": pbar_update_interval,
                   "list_of_num_iters": list_of_num_iters,
                   "list_of_lr": list_of_lr,
@@ -163,7 +167,7 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
     print("Experiment params:")
     print(exp_params)
 
-    rslt_dir = addDateTime("rslts/lineargrid/" + job_name)
+    rslt_dir = addDateTime("rslts/weightedgrid/" + job_name)
     rslt_dir = os.path.join(repo_dir, rslt_dir)
     if not os.path.exists(rslt_dir):
         os.makedirs(rslt_dir)
@@ -174,18 +178,15 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
 
     # compute memory
     print("Computing memory...")
-    gridpoints_idx_a = tran.get_gridpoints_idx_for_batch(data[:-1, 0:2])  # (T-1, GP, 4)
-    gridpoints_idx_b = tran.get_gridpoints_idx_for_batch(data[:-1, 2:4])  # (T-1, GP, 4)
-    gridpoints_a = tran.get_gridpoints_for_batch(gridpoints_idx_a)  # (T-1, d, 2)
-    gridpoints_b = tran.get_gridpoints_for_batch(gridpoints_idx_b)  # (T-1, d, 2)
+
+    distances_a = pairwise_dist(data[:-1, 0:2], tran.gridpoints.t())
+    distances_b = pairwise_dist(data[:-1, 2:4], tran.gridpoints.t())
+
     feature_vecs_a = f_corner_vec_func(data[:-1, 0:2])  # (T, Df, 2)
     feature_vecs_b = f_corner_vec_func(data[:-1, 2:4])  # (T, Df, 2)
-
-    gridpoints_idx = (gridpoints_idx_a, gridpoints_idx_b)
-    gridpoints = (gridpoints_a, gridpoints_b)
     feature_vecs = (feature_vecs_a, feature_vecs_b)
 
-    memory_kwargs = dict(gridpoints_idx=gridpoints_idx, gridpoints=gridpoints, feature_vecs=feature_vecs)
+    memory_kwargs = dict(distances_a=distances_a, distances_b=distances_b, feature_vecs=feature_vecs)
 
     ##################### training ############################
     if train_model:
@@ -210,7 +211,8 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
             joblib.dump(model, checkpoint_dir+"/model")
             joblib.dump(opt, checkpoint_dir+"/optimizer")
             # save rest
-            rslt_saving(checkpoint_dir, model, data, memory_kwargs, sample_T,
+            rslt_saving(checkpoint_dir, model, data,
+                        memory_kwargs, sample_T,
                         train_model, losses, quiver_scale)
 
     else:

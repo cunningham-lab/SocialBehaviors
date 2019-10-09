@@ -15,7 +15,7 @@ def k_step_prediction_for_momentum_feature_model(model, model_z, data, momentum_
         x_predict = model.observation.sample_x(model_z[0], data[:0], return_np=True)
         x_predict_arr.append(x_predict)
         for t in range(1, data.shape[0]):
-            x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True,
+            x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True, transformation=True,
                                                    momentum_vec=momentum_vecs[t-1],
                                                    features=(features[0][t-1], features[1][t-1]))
             x_predict_arr.append(x_predict)
@@ -34,7 +34,7 @@ def k_step_prediction_for_momentum_model(model, model_z, data, momentum_vecs=Non
         x_predict = model.observation.sample_x(model_z[0], data[:0], return_np=True)
         x_predict_arr.append(x_predict)
         for t in range(1, data.shape[0]):
-            x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True,
+            x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True, transformation=True,
                                                    momentum_vec=momentum_vecs[t-1])
             x_predict_arr.append(x_predict)
 
@@ -53,7 +53,7 @@ def k_step_prediction_for_momentum_interaction_model(model, model_z, data, momen
         x_predict = model.observation.sample_x(model_z[0], data[:0], return_np=True)
         x_predict_arr.append(x_predict)
         for t in range(1, data.shape[0]):
-            x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True,
+            x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True, transformation=True,
                                                    momentum_vec=momentum_vecs[t - 1],
                                                    interaction_vec=interaction_vecs[t - 1])
             x_predict_arr.append(x_predict)
@@ -92,7 +92,7 @@ def k_step_prediction_for_grid_model(model, model_z, data, **memory_kwargs):
                 m_kwargs_a = dict(momentum_vec=momentum_vecs_a[t - 1], feature_vec=feature_vecs_a[t - 1])
                 m_kwargs_b = dict(momentum_vec=momentum_vecs_b[t - 1], feature_vec=feature_vecs_b[t - 1])
 
-            x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True,
+            x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True, transformation=True,
                                                    memory_kwargs_a=m_kwargs_a, memory_kwargs_b=m_kwargs_b)
             x_predict_arr.append(x_predict)
 
@@ -119,9 +119,33 @@ def k_step_prediction_for_lineargrid_model(model, model_z, data, gridpoints=None
             gridpoints_t = (gridpoints_a[t - 1], gridpoints_b[t - 1])
             feature_vec_t = (feature_vecs_a[t - 1:t], feature_vecs_b[t - 1:t])
 
-            x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True,
+            x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True, transformation=True,
                                                    gridpoints=gridpoints_t,
                                                  gridpoints_idx=grid_points_idx_t, feature_vec=feature_vec_t)
+            x_predict_arr.append(x_predict)
+
+        x_predict_arr = np.array(x_predict_arr)
+        return x_predict_arr
+
+
+def k_step_prediction_for_weightedgrid_model(model, model_z, data, distances_a=None, distances_b=None, feature_vecs=None):
+    data = check_and_convert_to_tensor(data)
+
+    if feature_vecs is None or distances_a is None or distances_b is None:
+        print("Did not provide memory information")
+        return k_step_prediction(model, model_z, data)
+    else:
+        feature_vecs_a, feature_vecs_b = feature_vecs
+
+        x_predict_arr = []
+        x_predict = model.observation.sample_x(model_z[0], data[:0], return_np=True)
+        x_predict_arr.append(x_predict)
+        for t in range(1, data.shape[0]):
+            feature_vec_t = (feature_vecs_a[t - 1:t], feature_vecs_b[t - 1:t])
+
+            x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True, transformation=True,
+                                                   distance_a=distances_a[t-1:t], distance_b=distances_b[t-1:t],
+                                                   feature_vec=feature_vec_t)
             x_predict_arr.append(x_predict)
 
         x_predict_arr = np.array(x_predict_arr)

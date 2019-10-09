@@ -164,7 +164,7 @@ class HMM:
             P = self.transition.stationary_transition_matrix.detach() # (K, K)
             for t in range(T_pre, T_pre + T):
                 z[t] = npr.choice(K, p=P[z[t-1]])
-                data[t] = self.observation.sample_x(z[t], data[:t], expectation=transformation, return_np=False)
+                data[t] = self.observation.sample_x(z[t], data[:t], transformation=transformation, return_np=False)
         else:
             for t in range(T_pre, T_pre + T):
                 P = self.transition.transition_matrix(data[t-1:t+1], input[t-1:t+1]).detach()
@@ -173,7 +173,7 @@ class HMM:
                 assert P.shape == (self.K, self.K)
 
                 z[t] = npr.choice(K, p=P[z[t-1]])
-                data[t] = self.observation.sample_x(z[t], data[:t], expectation=transformation, return_np=False)
+                data[t] = self.observation.sample_x(z[t], data[:t], transformation=transformation, return_np=False)
 
         assert z.requires_grad is False
         assert data.requires_grad is False
