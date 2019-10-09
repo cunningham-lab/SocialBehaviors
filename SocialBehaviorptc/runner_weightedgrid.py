@@ -35,6 +35,7 @@ import json
 @click.option('--acc_factor', default=None, help="acc factor in direction model")
 @click.option('--train_model', is_flag=True, help='Whether to train the model')
 @click.option('--train_beta', is_flag=True, help='Whether to train beta in softmax')
+@click.option('--beta_init_val', default=0.1, help='Initial value for beta (a scalar)')
 @click.option('--pbar_update_interval', default=500, help='progress bar update interval')
 @click.option('--load_opt_dir', default="", help='Directory of optimizer to load.')
 @click.option('--video_clips', default="0,1", help='The starting video clip of the training data')
@@ -54,7 +55,7 @@ import json
 @click.option('--quiver_scale', default=0.8, help='scale for the quiver plots')
 def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_opt_dir,
          transition, sticky_alpha, sticky_kappa, acc_factor, k, x_grids, y_grids, n_x, n_y,
-         train_model, train_beta, pbar_update_interval, video_clips, torch_seed, np_seed,
+         train_model, train_beta, beta_init_val, pbar_update_interval, video_clips, torch_seed, np_seed,
          list_of_num_iters, list_of_lr, sample_t, quiver_scale):
     if job_name is None:
         raise ValueError("Please provide the job name.")
@@ -132,7 +133,8 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
             acc_factor = downsample_n * 10
 
         tran = WeightedGridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids,
-                                        Df=Df, feature_vec_func=f_corner_vec_func, acc_factor=acc_factor)
+                                          Df=Df, feature_vec_func=f_corner_vec_func, acc_factor=acc_factor,
+                                          train_beta=train_beta, beta=beta_init_val)
         obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=1, bounds=bounds, transformation=tran)
 
         if transition == 'sticky':
@@ -159,6 +161,7 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
                   "y_grids": y_grids,
                   "train_model": train_model,
                   "train_beta": train_beta,
+                  "beta_init_val": beta_init_val,
                   "pbar_update_interval": pbar_update_interval,
                   "list_of_num_iters": list_of_num_iters,
                   "list_of_lr": list_of_lr,

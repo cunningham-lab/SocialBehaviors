@@ -20,12 +20,12 @@ class WeightedGridTransformation(BaseWeightedDirectionTransformation):
 
         # beta in the softmax expression
         if beta is None:
-            beta = np.ones((self.K,))
+            beta = 0.1 * np.ones((self.K, 2))
         else:
             if isinstance(beta, (int, float)):
-                beta = beta * np.ones((self.K,))
+                beta = beta * np.ones((self.K, 2))
             else:
-                assert beta.shape == (self.K, )
+                assert beta.shape == (self.K, 2)
         self.beta = torch.tensor(beta, dtype=torch.float64, requires_grad=train_beta)
 
     @property
@@ -61,8 +61,8 @@ class WeightedGridTransformation(BaseWeightedDirectionTransformation):
             "distances_s should have shape {}, instead of {}".format((T, self.GP), distances_s.shape)
 
         # coefficients of the grid weights: (T, K, GP)
-        # (K, 1) * (T, 1 GP) -> (T, K, GP)
-        coef = torch.softmax(-torch.matmul(self.beta[:, None], distances_s[:, None]), dim=-1)
+        # (K, 1) * (T, 1, GP) -> (T, K, GP)
+        coef = torch.softmax(-torch.matmul(self.beta[:, animal_idx, None], distances_s[:, None]), dim=-1)
         assert coef.shape == (T, self.K, self.GP), \
             "coef should have shape {}, instead of {}".format((T, self.K, self.GP), coef.shape)
 
@@ -98,7 +98,7 @@ class WeightedGridTransformation(BaseWeightedDirectionTransformation):
 
         # coefficients of the grid weights: (1, GP)
         # () * (1, GP) -> (1, GP)
-        coef = torch.softmax(-self.beta[z] * distance_s, dim=-1)
+        coef = torch.softmax(-self.beta[z, animal_idx] * distance_s, dim=-1)
         assert coef.shape == (1, self.GP), "coef should have shape {}, instead of {}".format((1, self.GP), coef.shape)
 
         # (1, GP) * (GP, Df) --> (1, Df)

@@ -13,7 +13,7 @@ from project_ssms.grid_utils import plot_quiver, plot_realdata_quiver, \
     get_all_angles, get_speed, plot_list_of_angles, plot_list_of_speed, plot_space_dist
 from project_ssms.constants import *
 
-from ssm_ptc.utils import k_step_prediction
+from ssm_ptc.utils import k_step_prediction, get_np
 
 from saver.rslts_saving import NumpyEncoder
 
@@ -97,6 +97,8 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, sample_T,
                     "log_likes": model.log_likelihood(data).detach().numpy(),
                     "avg_transform_speed": avg_transform_speed, "avg_data_speed": avg_data_speed,
                     "avg_sample_speed": avg_sample_speed, "avg_sample_center_speed": avg_sample_center_speed}
+    if isinstance(tran, WeightedGridTransformation):
+        summary_dict["beta"] = get_np(tran.beta)
     with open(rslt_dir + "/summary.json", "w") as f:
         json.dump(summary_dict, f, indent=4, cls=NumpyEncoder)
 
