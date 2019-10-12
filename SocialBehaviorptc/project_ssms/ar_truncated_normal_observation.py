@@ -102,6 +102,7 @@ class ARTruncatedNormalObservation(BaseObservation):
             samples = samples.detach()
 
         else:
+            # TODO: fix domain error here, add debug infor to print arg check
             dist = TruncatedNormal(mus=mu, log_sigmas=self.log_sigmas[z], bounds=self.bounds)
             samples = dist.sample()
 

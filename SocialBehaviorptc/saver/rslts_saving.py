@@ -12,7 +12,7 @@ import datetime
 import string
 
 
-def addDateTime(s = ""):
+def addDateTime(s=""):
     """
     @author: danielhernandez
     Adds the current date and time at the end of a string.

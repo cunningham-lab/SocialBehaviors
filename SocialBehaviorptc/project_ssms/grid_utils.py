@@ -85,7 +85,7 @@ def plot_realdata_quiver(realdata, z, K, x_grids=None, y_grids=None,
 
         plt.subplot(1, 2, 1)
         plt.quiver(start[:, 0], start[:, 1], dXY[:, 0], dXY[:, 1],
-               angles='xy', scale_units='xy', cmap=cm, color=colors[z], **quiver_args)
+               angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[z], **quiver_args)
         cb = plt.colorbar(label='k', ticks=ticks)
         cb.set_ticklabels(range(K))
 
@@ -102,7 +102,7 @@ def plot_realdata_quiver(realdata, z, K, x_grids=None, y_grids=None,
 
         plt.subplot(1, 2, 2)
         plt.quiver(start[:, 2], start[:, 3], dXY[:, 2], dXY[:, 3],
-                   angles='xy', scale_units='xy', cmap=cm, color=colors[z], **quiver_args)
+                   angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[z], **quiver_args)
         cb = plt.colorbar(label='k', ticks=ticks)
         cb.set_ticklabels(range(K))
 
