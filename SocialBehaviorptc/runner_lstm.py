@@ -1,7 +1,7 @@
 from ssm_ptc.models.hmm import HMM
 
 from project_ssms.ar_truncated_normal_observation import ARTruncatedNormalObservation
-from project_ssms.coupled_transformations.lineargrid_transformation import LinearGridTransformation
+from project_ssms.coupled_transformations.lstm_transformation import LSTMTransformation, get_packed_data
 from project_ssms.feature_funcs import f_corner_vec_func
 from project_ssms.momentum_utils import filter_traj_by_speed
 from project_ssms.utils import downsample
@@ -33,6 +33,8 @@ import json
 @click.option('--sticky_alpha', default=1, help='value of alpha in sticky transition')
 @click.option('--sticky_kappa', default=100, help='value of kappa in sticky transition')
 @click.option('--acc_factor', default=None, help="acc factor in direction model")
+@click.option('--lags', default=30, help="number of lags")
+@click.option('--dh', default=4, help="number of hidden units in lstm block")
 @click.option('--train_model', is_flag=True, help='Whether to train the model')
 @click.option('--pbar_update_interval', default=500, help='progress bar update interval')
 @click.option('--load_opt_dir', default="", help='Directory of optimizer to load.')
@@ -53,7 +55,7 @@ import json
 @click.option('--sample_t', default=100, help='length of samples')
 @click.option('--quiver_scale', default=0.8, help='scale for the quiver plots')
 def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_opt_dir,
-         transition, sticky_alpha, sticky_kappa, acc_factor, k, x_grids, y_grids, n_x, n_y,
+         transition, sticky_alpha, sticky_kappa, acc_factor, lags, dh, k, x_grids, y_grids, n_x, n_y,
          train_model, pbar_update_interval, video_clips, torch_seed, np_seed,
          list_of_num_iters, list_of_lr, list_of_k_steps, sample_t, quiver_scale):
     if job_name is None:
@@ -64,7 +66,9 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
     list_of_num_iters = [int(x) for x in list_of_num_iters.split(",")]
     list_of_lr = [float(x) for x in list_of_lr.split(",")]
     list_of_k_steps = [int(x) for x in list_of_k_steps.split(",")]
-    assert len(list_of_num_iters) == len(list_of_lr), "Length of list_of_num_iters must match length of list-of_lr."
+    assert len(list_of_num_iters) == len(list_of_lr), \
+        "Length of list_of_num_iters must match length of list-of_lr," \
+        " but we have list_of_num_iters = {}, and list_of_lr = {}".format(list_of_num_iters, list_of_lr)
     for lr in list_of_lr:
         if lr > 1:
             raise ValueError("Learning rate should not be larger than 1!")
@@ -97,11 +101,10 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
         print("Loading the model from ", load_model_dir)
         model = joblib.load(load_model_dir)
         tran = model.observation.transformation
+        assert isinstance(tran, LSTMTransformation),\
+            "tran should be {}, but is {}".format(LSTMTransformation, type(tran))
 
         K = model.K
-
-        n_x = len(tran.x_grids) - 1
-        n_y = len(tran.y_grids) - 1
 
         acc_factor = tran.acc_factor
 
@@ -110,27 +113,12 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
         bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX],
                            [ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX]])
 
-        # grids
-        if x_grids is None:
-            x_grid_gap = (ARENA_XMAX - ARENA_XMIN) / n_x
-            x_grids = np.array([ARENA_XMIN + i * x_grid_gap for i in range(n_x + 1)])
-        else:
-            x_grids = np.array([float(x) for x in x_grids.split(",")])
-            n_x = len(x_grids) - 1
-
-        if y_grids is None:
-            y_grid_gap = (ARENA_YMAX - ARENA_YMIN) / n_y
-            y_grids = np.array([ARENA_YMIN + i * y_grid_gap for i in range(n_y + 1)])
-        else:
-            y_grids = np.array([float(x) for x in y_grids.split(",")])
-            n_y = len(y_grids) - 1
-
         if acc_factor is None:
             acc_factor = downsample_n * 10
 
-        tran = LinearGridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids,
-                                        Df=Df, feature_vec_func=f_corner_vec_func, acc_factor=acc_factor)
-        obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=1, bounds=bounds, transformation=tran)
+        tran = LSTMTransformation(K=K, D=D, Df=Df, feature_vec_func=f_corner_vec_func, lags=lags, dh=dh,
+                                  acc_factor=acc_factor)
+        obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=lags, bounds=bounds, transformation=tran)
 
         if transition == 'sticky':
             transition_kwargs = dict(alpha=sticky_alpha, kappa=sticky_kappa)
@@ -138,6 +126,21 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
             transition_kwargs = None
         model = HMM(K=K, D=D, M=M, transition=transition, observation=obs, transition_kwargs=transition_kwargs)
         model.observation.mus_init = data[0] * torch.ones(K, D, dtype=torch.float64)
+
+    # grids
+    if x_grids is None:
+        x_grid_gap = (ARENA_XMAX - ARENA_XMIN) / n_x
+        x_grids = np.array([ARENA_XMIN + i * x_grid_gap for i in range(n_x + 1)])
+    else:
+        x_grids = np.array([float(x) for x in x_grids.split(",")])
+        n_x = len(x_grids) - 1
+
+    if y_grids is None:
+        y_grid_gap = (ARENA_YMAX - ARENA_YMIN) / n_y
+        y_grids = np.array([ARENA_YMIN + i * y_grid_gap for i in range(n_y + 1)])
+    else:
+        y_grids = np.array([float(x) for x in y_grids.split(",")])
+        n_y = len(y_grids) - 1
 
     # save experiment params
     exp_params = {"job_name":   job_name,
@@ -160,12 +163,13 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
                   "list_of_lr": list_of_lr,
                   "video_clip_start": video_clip_start,
                   "video_clip_end": video_clip_end,
+                  "list_of_k_steps": list_of_k_steps,
                   "sample_T": sample_T}
 
     print("Experiment params:")
     print(exp_params)
 
-    rslt_dir = addDateTime("rslts/lineargrid/" + job_name)
+    rslt_dir = addDateTime("rslts/lstm/" + job_name)
     rslt_dir = os.path.join(repo_dir, rslt_dir)
     if not os.path.exists(rslt_dir):
         os.makedirs(rslt_dir)
@@ -176,18 +180,14 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
 
     # compute memory
     print("Computing memory...")
-    gridpoints_idx_a = tran.get_gridpoints_idx_for_batch(data[:-1, 0:2])  # (T-1, GP, 4)
-    gridpoints_idx_b = tran.get_gridpoints_idx_for_batch(data[:-1, 2:4])  # (T-1, GP, 4)
-    gridpoints_a = tran.get_gridpoints_for_batch(gridpoints_idx_a)  # (T-1, d, 2)
-    gridpoints_b = tran.get_gridpoints_for_batch(gridpoints_idx_b)  # (T-1, d, 2)
+
     feature_vecs_a = f_corner_vec_func(data[:-1, 0:2])  # (T, Df, 2)
     feature_vecs_b = f_corner_vec_func(data[:-1, 2:4])  # (T, Df, 2)
-
-    gridpoints_idx = (gridpoints_idx_a, gridpoints_idx_b)
-    gridpoints = (gridpoints_a, gridpoints_b)
     feature_vecs = (feature_vecs_a, feature_vecs_b)
 
-    memory_kwargs = dict(gridpoints_idx=gridpoints_idx, gridpoints=gridpoints, feature_vecs=feature_vecs)
+    packed_data = get_packed_data(data[:-1], lags=lags)
+
+    memory_kwargs = dict(packed_data=packed_data, feature_vecs=feature_vecs)
 
     ##################### training ############################
     if train_model:
@@ -212,13 +212,14 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
             joblib.dump(model, checkpoint_dir+"/model")
             joblib.dump(opt, checkpoint_dir+"/optimizer")
             # save rest
-            rslt_saving(checkpoint_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
-                        train_model, losses, quiver_scale)
+            rslt_saving(checkpoint_dir, model, data,
+                        memory_kwargs, list_of_k_steps, sample_T,
+                        train_model, losses, quiver_scale, x_grids=x_grids, y_grids=y_grids)
 
     else:
         # only save the results
         rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
-                    False, [], quiver_scale)
+                    False, [], quiver_scale, x_grids=x_grids, y_grids=y_grids)
 
     print("Finish running!")
 
@@ -227,8 +228,7 @@ if __name__ == "__main__":
     main()
 
 # --train_model --downsample_n=2 --job_name=local/test_general --video_clips=0,1 --transition=stationary
-# --n_x=4 --n_y=4 --list_of_num_iters=50 --list_of_lr=0.005 --list_of_k_steps=5,10 --sample_t=100
-# --pbar_update_interval=10
+# --n_x=4 --n_y=4 --list_of_num_iters=50 --list_of_lr=0.005 --sample_t=100 --pbar_update_interval=10
 
 # --train_model --downsample_n=2 --job_name=local/train_v01 --video_clips=0,1 --transition=stationary
 # --n_x=4 --n_y=4 --list_of_num_iters=3000,2000 --list_of_lr=0.1,0.05 --sample_t=10000 --pbar_update_interval=10

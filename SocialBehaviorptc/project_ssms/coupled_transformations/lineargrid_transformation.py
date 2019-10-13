@@ -11,7 +11,8 @@ class LinearGridTransformation(BaseTransformation):
     weights of any random point = 2D linear interpolation of the nearby four grid points
     """
 
-    def __init__(self, K, D, x_grids, y_grids, Df, feature_vec_func, acc_factor=2):
+    def __init__(self, K, D, x_grids, y_grids, Df, feature_vec_func, acc_factor=2, lags=1):
+        assert lags == 1, "lags should be 1 for lineargrid transformation."
         super(LinearGridTransformation, self).__init__(K, D)
 
         self.d = int(self.D / 2)

@@ -152,6 +152,30 @@ def k_step_prediction_for_weightedgrid_model(model, model_z, data, distances_a=N
         return x_predict_arr
 
 
+def k_step_prediction_for_lstm_model(model, model_z, data, feature_vecs=None):
+    data = check_and_convert_to_tensor(data)
+
+    if feature_vecs is None:
+        print("Did not provide memory information")
+        return k_step_prediction(model, model_z, data)
+    else:
+        feature_vecs_a, feature_vecs_b = feature_vecs
+
+        x_predict_arr = []
+        x_predict = model.observation.sample_x(model_z[0], data[:0], return_np=True)
+        x_predict_arr.append(x_predict)
+        for t in range(1, data.shape[0]):
+            feature_vec_t = (feature_vecs_a[t - 1:t], feature_vecs_b[t - 1:t])
+
+            x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True, transformation=True,
+                                                   feature_vec=feature_vec_t)
+            x_predict_arr.append(x_predict)
+
+        x_predict_arr = np.array(x_predict_arr)
+        return x_predict_arr
+
+
+
 def downsample(traj, n):
     # data : (T, D)
     if n == 1:

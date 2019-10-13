@@ -7,7 +7,9 @@ import joblib
 
 from project_ssms.coupled_transformations.lineargrid_transformation import LinearGridTransformation
 from project_ssms.coupled_transformations.weightedgrid_transformation import WeightedGridTransformation
-from project_ssms.utils import k_step_prediction_for_lineargrid_model, k_step_prediction_for_weightedgrid_model
+from project_ssms.coupled_transformations.lstm_transformation import LSTMTransformation
+from project_ssms.utils import k_step_prediction_for_lineargrid_model, k_step_prediction_for_weightedgrid_model, \
+    k_step_prediction_for_lstm_model
 from project_ssms.plot_utils import plot_z, plot_mouse
 from project_ssms.grid_utils import plot_quiver, plot_realdata_quiver, \
     get_all_angles, get_speed, plot_list_of_angles, plot_list_of_speed, plot_space_dist
@@ -18,12 +20,13 @@ from ssm_ptc.utils import k_step_prediction, get_np
 from saver.rslts_saving import NumpyEncoder
 
 
-def rslt_saving(rslt_dir, model, data, memory_kwargs, sample_T,
-                train_model, losses, quiver_scale):
+def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
+                train_model, losses, quiver_scale, x_grids=None, y_grids=None):
 
     tran = model.observation.transformation
-    x_grids = tran.x_grids
-    y_grids = tran.y_grids
+    if x_grids is None or y_grids is None:
+        x_grids = tran.x_grids
+        y_grids = tran.y_grids
     n_x = len(x_grids) - 1
     n_y = len(y_grids) - 1
 
@@ -38,21 +41,29 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, sample_T,
     z = model.most_likely_states(data, **memory_kwargs)
 
     print("0 step prediction")
-    if data.shape[0] <= 1000:
+    if data.shape[0] <= 10000:
         data_to_predict = data
     else:
-        data_to_predict = data[-1000:]
+        data_to_predict = data[-10000:]
     if isinstance(tran, LinearGridTransformation):
         x_predict = k_step_prediction_for_lineargrid_model(model, z, data_to_predict, **memory_kwargs)
     elif isinstance(tran, WeightedGridTransformation):
         x_predict = k_step_prediction_for_weightedgrid_model(model, z, data_to_predict, **memory_kwargs)
+    elif isinstance(tran, LSTMTransformation):
+        x_predict = k_step_prediction_for_lstm_model(model, z, data_to_predict,
+                                                     feature_vecs=memory_kwargs["feature_vecs"])
     else:
         raise ValueError("Unsupported transformation!")
     x_predict_err = np.mean(np.abs(x_predict - data_to_predict.numpy()), axis=0)
 
-    print("5 step prediction")
-    x_predict_5 = k_step_prediction(model, z, data_to_predict, k=5)
-    x_predict_5_err = np.mean(np.abs(x_predict_5 -data_to_predict[5:].numpy()), axis=0)
+    dict_of_x_predict_k = dict(x_predict_0=x_predict)
+    dict_of_x_predict_k_err = dict(x_predict_0_err=x_predict_err)
+    for k_step in list_of_k_steps:
+        print("{} step prediction".format(k_step))
+        x_predict_k = k_step_prediction(model, z, data_to_predict, k=k_step)
+        x_predict_k_err = np.mean(np.abs(x_predict_k -data_to_predict[k_step:].numpy()), axis=0)
+        dict_of_x_predict_k["x_predict_{}".format(k_step)] = x_predict_k
+        dict_of_x_predict_k_err["x_predict_{}_err".format(k_step)] = x_predict_k_err
 
 
     ################### samples #########################
@@ -66,21 +77,23 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, sample_T,
 
     ################## dynamics #####################
 
-    # quiver
-    XX, YY = np.meshgrid(np.linspace(20, 310, 30),
-                         np.linspace(0, 380, 30))
-    XY = np.column_stack((np.ravel(XX), np.ravel(YY)))  # shape (900,2) grid values
-    XY_grids = np.concatenate((XY, XY), axis=1)
+    if isinstance(tran, (LinearGridTransformation, WeightedGridTransformation)):
+        # quiver
+        XX, YY = np.meshgrid(np.linspace(20, 310, 30),
+                             np.linspace(0, 380, 30))
+        XY = np.column_stack((np.ravel(XX), np.ravel(YY)))  # shape (900,2) grid values
+        XY_grids = np.concatenate((XY, XY), axis=1)
 
-    XY_next = tran.transform(torch.tensor(XY_grids, dtype=torch.float64))
-    dXY = XY_next.detach().numpy() - XY_grids[:, None]
+        XY_next = tran.transform(torch.tensor(XY_grids, dtype=torch.float64))
+        dXY = XY_next.detach().numpy() - XY_grids[:, None]
 
     #################### saving ##############################
 
     print("begin saving...")
 
     # save summary
-    avg_transform_speed = np.average(np.abs(dXY), axis=0)
+    if isinstance(tran, (LinearGridTransformation, WeightedGridTransformation)):
+        avg_transform_speed = np.average(np.abs(dXY), axis=0)
     avg_sample_speed = np.average(np.abs(np.diff(sample_x, axis=0)), axis=0)
     avg_sample_center_speed = np.average(np.abs(np.diff(sample_x_center, axis=0)), axis=0)
     avg_data_speed = np.average(np.abs(np.diff(data.numpy(), axis=0)), axis=0)
@@ -92,20 +105,22 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, sample_T,
         transition_matrix = transition_matrix.numpy()
     summary_dict = {"init_dist": model.init_dist.detach().numpy(),
                     "transition_matrix": transition_matrix,
-                    "x_predict_err": x_predict_err, "x_predict_5_err": x_predict_5_err,
                     "variance": torch.exp(model.observation.log_sigmas).detach().numpy(),
                     "log_likes": model.log_likelihood(data).detach().numpy(),
-                    "avg_transform_speed": avg_transform_speed, "avg_data_speed": avg_data_speed,
+                    "avg_data_speed": avg_data_speed,
                     "avg_sample_speed": avg_sample_speed, "avg_sample_center_speed": avg_sample_center_speed}
+    summary_dict = {**dict_of_x_predict_k_err, **summary_dict}
     if isinstance(tran, WeightedGridTransformation):
         summary_dict["beta"] = get_np(tran.beta)
+    if isinstance(tran, (LinearGridTransformation, WeightedGridTransformation)):
+        summary_dict["avg_transform_speed"] = avg_transform_speed
     with open(rslt_dir + "/summary.json", "w") as f:
         json.dump(summary_dict, f, indent=4, cls=NumpyEncoder)
 
     # save numbers
-    saving_dict = {"z": z, "x_predict": x_predict, "x_predict_5": x_predict_5,
-                   "sample_z": sample_z, "sample_x": sample_x,
+    saving_dict = {"z": z, "sample_z": sample_z, "sample_x": sample_x,
                    "sample_z_center": sample_z_center, "sample_x_center": sample_x_center}
+    saving_dict = {**dict_of_x_predict_k, **saving_dict}
 
     if train_model:
         saving_dict['losses'] = losses
@@ -164,19 +179,20 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, sample_T,
     plt.savefig(rslt_dir + "/samples/quiver_sample_x_center_{}.jpg".format(sample_T), dpi=200)
     plt.close()
 
-    if not os.path.exists(rslt_dir + "/dynamics"):
-        os.makedirs(rslt_dir + "/dynamics")
-        print("Making dynamics directory...")
+    if isinstance(tran, (LinearGridTransformation, WeightedGridTransformation)):
+        if not os.path.exists(rslt_dir + "/dynamics"):
+            os.makedirs(rslt_dir + "/dynamics")
+            print("Making dynamics directory...")
 
-    plot_quiver(XY_grids[:, 0:2], dXY[..., 0:2], 'virgin', K=K, scale=quiver_scale, alpha=0.9,
-                title="quiver (virgin)", x_grids=x_grids, y_grids=y_grids, grid_alpha=0.2)
-    plt.savefig(rslt_dir + "/dynamics/quiver_a.jpg", dpi=200)
-    plt.close()
+        plot_quiver(XY_grids[:, 0:2], dXY[..., 0:2], 'virgin', K=K, scale=quiver_scale, alpha=0.9,
+                    title="quiver (virgin)", x_grids=x_grids, y_grids=y_grids, grid_alpha=0.2)
+        plt.savefig(rslt_dir + "/dynamics/quiver_a.jpg", dpi=200)
+        plt.close()
 
-    plot_quiver(XY_grids[:, 2:4], dXY[..., 2:4], 'mother', K=K, scale=quiver_scale, alpha=0.9,
-                title="quiver (mother)", x_grids=x_grids, y_grids=y_grids, grid_alpha=0.2)
-    plt.savefig(rslt_dir + "/dynamics/quiver_b.jpg", dpi=200)
-    plt.close()
+        plot_quiver(XY_grids[:, 2:4], dXY[..., 2:4], 'mother', K=K, scale=quiver_scale, alpha=0.9,
+                    title="quiver (mother)", x_grids=x_grids, y_grids=y_grids, grid_alpha=0.2)
+        plt.savefig(rslt_dir + "/dynamics/quiver_b.jpg", dpi=200)
+        plt.close()
 
     if not os.path.exists(rslt_dir + "/distributions"):
         os.makedirs(rslt_dir + "/distributions")

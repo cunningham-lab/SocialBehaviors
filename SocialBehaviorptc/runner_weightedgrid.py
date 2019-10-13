@@ -51,12 +51,13 @@ import json
 @click.option('--list_of_num_iters', default='5000,5000',
               help='a list of checkpoint numbers of iterations for training')
 @click.option('--list_of_lr', default='0.005, 0.005', help='learning rate for training')
+@click.option('--list_of_k_steps', default='5', help='list of number of steps prediction forward')
 @click.option('--sample_t', default=100, help='length of samples')
 @click.option('--quiver_scale', default=0.8, help='scale for the quiver plots')
 def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_opt_dir,
          transition, sticky_alpha, sticky_kappa, acc_factor, k, x_grids, y_grids, n_x, n_y,
          train_model, train_beta, beta_init_val, pbar_update_interval, video_clips, torch_seed, np_seed,
-         list_of_num_iters, list_of_lr, sample_t, quiver_scale):
+         list_of_num_iters, list_of_lr, list_of_k_steps, sample_t, quiver_scale):
     if job_name is None:
         raise ValueError("Please provide the job name.")
     K = k
@@ -64,6 +65,7 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
     video_clip_start, video_clip_end = [int(x) for x in video_clips.split(",")]
     list_of_num_iters = [int(x) for x in list_of_num_iters.split(",")]
     list_of_lr = [float(x) for x in list_of_lr.split(",")]
+    list_of_k_steps = [int(x) for x in list_of_k_steps.split(",")]
     assert len(list_of_num_iters) == len(list_of_lr), \
         "Length of list_of_num_iters must match length of list-of_lr," \
         " but we have list_of_num_iters = {}, and list_of_lr = {}".format(list_of_num_iters, list_of_lr)
@@ -98,9 +100,9 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
     if load_model:
         print("Loading the model from ", load_model_dir)
         model = joblib.load(load_model_dir)
-        assert isinstance(model, WeightedGridTransformation),\
-            "model should be {}, but is {}".format(WeightedGridTransformation, type(model))
         tran = model.observation.transformation
+        assert isinstance(tran, WeightedGridTransformation),\
+            "tran should be {}, but is {}".format(WeightedGridTransformation, type(tran))
 
         K = model.K
 
@@ -167,6 +169,7 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
                   "list_of_lr": list_of_lr,
                   "video_clip_start": video_clip_start,
                   "video_clip_end": video_clip_end,
+                  "list_of_k_steps": list_of_k_steps,
                   "sample_T": sample_T}
 
     print("Experiment params:")
@@ -217,12 +220,12 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
             joblib.dump(opt, checkpoint_dir+"/optimizer")
             # save rest
             rslt_saving(checkpoint_dir, model, data,
-                        memory_kwargs, sample_T,
+                        memory_kwargs, list_of_k_steps, sample_T,
                         train_model, losses, quiver_scale)
 
     else:
         # only save the results
-        rslt_saving(rslt_dir, model, data, memory_kwargs, sample_T,
+        rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
                     False, [], quiver_scale)
 
     print("Finish running!")
@@ -232,7 +235,8 @@ if __name__ == "__main__":
     main()
 
 # --train_model --downsample_n=2 --job_name=local/test_general --video_clips=0,1 --transition=stationary
-# --n_x=4 --n_y=4 --list_of_num_iters=50 --list_of_lr=0.005 --sample_t=100 --pbar_update_interval=10
+# --n_x=4 --n_y=4 --list_of_num_iters=50 --list_of_lr=0.005 --list_of_k_steps=5,10 --sample_t=100
+# --pbar_update_interval=10
 
 # --train_model --downsample_n=2 --job_name=local/train_v01 --video_clips=0,1 --transition=stationary
 # --n_x=4 --n_y=4 --list_of_num_iters=3000,2000 --list_of_lr=0.1,0.05 --sample_t=10000 --pbar_update_interval=10

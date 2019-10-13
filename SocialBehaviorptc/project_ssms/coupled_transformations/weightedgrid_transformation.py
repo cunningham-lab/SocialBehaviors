@@ -6,15 +6,24 @@ from ssm_ptc.utils import check_and_convert_to_tensor, set_param
 from project_ssms.coupled_transformations.base_weighted_direction_transformation \
     import BaseWeightedDirectionTransformation
 
-
+# TODO: specify lags = 1
 class WeightedGridTransformation(BaseWeightedDirectionTransformation):
     """
     Learnable parameters: weights of each grid vertex
     weights of any random point = a weighted combination of weights of all the grid vertices
     where the weights = softmax
     """
-    def __init__(self, K, D, x_grids, y_grids, Df, feature_vec_func, acc_factor=2, beta=None, train_beta=True):
-        super(WeightedGridTransformation, self).__init__(K, D, x_grids, y_grids, Df, feature_vec_func, acc_factor)
+    def __init__(self, K, D, x_grids, y_grids, Df, feature_vec_func, acc_factor=2, beta=None, train_beta=True, lags=1):
+        assert lags == 1, "lags should be 1 for weigthedgird transformation"
+        super(WeightedGridTransformation, self).__init__(K, D, Df, feature_vec_func, acc_factor, lags=lags)
+
+        self.x_grids = check_and_convert_to_tensor(x_grids, dtype=torch.float64)  # [x_0, x_1, ..., x_m]
+        self.y_grids = check_and_convert_to_tensor(y_grids, dtype=torch.float64)  # a list [y_0, y_1, ..., y_n]
+        # shape: (d, GP)
+        self.gridpoints = torch.tensor([(x_grid, y_grid) for x_grid in self.x_grids for y_grid in self.y_grids])
+        self.gridpoints = torch.transpose(self.gridpoints, 0, 1)
+        # number of basis grid points
+        self.GP = self.gridpoints.shape[1]
 
         self.Ws = torch.rand(self.K, 2, self.GP, self.Df, dtype=torch.float64, requires_grad=True)
 
@@ -41,7 +50,12 @@ class WeightedGridTransformation(BaseWeightedDirectionTransformation):
         self.Ws = self.Ws[perm]
         self.beta = self.beta[perm]
 
-    def get_weights(self, inputs, animal_idx, **kwargs):
+    def get_weights(self, inputs, **kwargs):
+        weights_a = self.get_weights_for_single_animal(inputs[:, 0:2], 0, **kwargs)
+        weights_b = self.get_weights_for_single_animal(inputs[:, 2:4], 1, **kwargs)
+        return weights_a, weights_b
+
+    def get_weights_for_single_animal(self, inputs, animal_idx, **kwargs):
         """
         w(x) = \sum_{g=1}^G softmax(-\beta d_g) w_g
         :param inputs: (T, 2)
@@ -75,7 +89,12 @@ class WeightedGridTransformation(BaseWeightedDirectionTransformation):
 
         return weigths_of_inputs
 
-    def get_weights_condition_on_z(self, inputs, animal_idx, z, **kwargs):
+    def get_weights_condition_on_z(self, inputs, z, **kwargs):
+        weights_a = self.get_weights_condition_on_z_for_single_animal(inputs[:, 0:2], animal_idx=0, z=z, **kwargs)
+        weights_b = self.get_weights_condition_on_z_for_single_animal(inputs[:, 2:4], animal_idx=1, z=z, **kwargs)
+        return weights_a, weights_b
+
+    def get_weights_condition_on_z_for_single_animal(self, inputs, animal_idx, z, **kwargs):
         """
 
         :param inputs: (T_pre, 2)

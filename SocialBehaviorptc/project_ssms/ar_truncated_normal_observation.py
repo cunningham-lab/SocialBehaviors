@@ -7,12 +7,14 @@ from ssm_ptc.distributions.truncatednormal import TruncatedNormal
 from ssm_ptc.utils import check_and_convert_to_tensor, set_param
 
 from project_ssms.coupled_transformations.grid_transformation import GridTransformation
-from project_ssms.coupled_transformations.momentum_transformations import DirectionTransformation
+from project_ssms.coupled_transformations.lineargrid_transformation import LinearGridTransformation
+from project_ssms.coupled_transformations.weightedgrid_transformation import WeightedGridTransformation
 
 
 TRANSFORMATION_CLASSES = dict(
             grid=GridTransformation,
-            direction=DirectionTransformation
+            lineargrid=LinearGridTransformation,
+            weightedgrid=WeightedGridTransformation
             )
 
 

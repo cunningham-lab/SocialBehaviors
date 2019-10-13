@@ -21,24 +21,14 @@ UNIT_TRANSFORMATION_CLASSES = dict(
 
 
 class BaseWeightedDirectionTransformation(BaseTransformation):
-    def __init__(self, K, D, x_grids, y_grids, Df, feature_vec_func, acc_factor=2):
+    def __init__(self, K, D, Df, feature_vec_func, acc_factor=2, lags=1):
         super(BaseWeightedDirectionTransformation, self).__init__(K, D)
         self.d = int(self.D / 2)
-
-        self.x_grids = check_and_convert_to_tensor(x_grids, dtype=torch.float64)  # [x_0, x_1, ..., x_m]
-        self.y_grids = check_and_convert_to_tensor(y_grids, dtype=torch.float64)  # a list [y_0, y_1, ..., y_n]
+        self.lags= lags
 
         self.Df = Df
         self.feature_vec_func = feature_vec_func
         self.acc_factor = acc_factor
-
-        # shape: (d, GP)
-        self.gridpoints = torch.tensor([(x_grid, y_grid) for x_grid in self.x_grids for y_grid in self.y_grids])
-        self.gridpoints = torch.transpose(self.gridpoints, 0, 1)
-
-        # number of basis grid points
-        self.GP = self.gridpoints.shape[1]
-
 
     def transform(self, inputs, **kwargs):
         """
@@ -51,24 +41,29 @@ class BaseWeightedDirectionTransformation(BaseTransformation):
         assert D == self.D, "input should have last dimension = {}".format(self.D)
 
         # get weigths
-        weights_a = self.get_weights(inputs[:, 0:2], 0, **kwargs)
-        weights_b = self.get_weights(inputs[:, 2:4], 1, **kwargs)
+        weights_a, weights_b = self.get_weights(inputs, **kwargs)
+        #weights_a = self.get_weights(inputs[:, 0:2], 0, **kwargs)
+        #weights_b = self.get_weights(inputs[:, 2:4], 1, **kwargs)
         assert weights_a.shape == (T, self.K, self.Df), \
-            "weigths_a should have shape {}, instead of {}".format((T, self.K, self.d), weights_a.shape)
+            "weigths_a should have shape {}, instead of {}".format((T, self.K, self.Df), weights_a.shape)
         assert weights_b.shape == (T, self.K, self.Df), \
             "weights_b should have shape {}, instead of {}".format((T, self.K, self.Df), weights_b.shape)
 
         # feature vecs
         feature_vecs = kwargs.get("feature_vecs", None)
         if feature_vecs is None:
+            #print("not using feature vecs memory")
             feature_vecs_a = self.feature_vec_func(inputs[:, 0:2])  # (T, Df, 2)
             feature_vecs_b = self.feature_vec_func(inputs[:, 2:4])  # (T, Df, 2)
         else:
             assert isinstance(feature_vecs, tuple)
             feature_vecs_a, feature_vecs_b = feature_vecs
-            #print("Using feature vec memory!")
-        assert feature_vecs_a.shape == (T, self.Df, self.d)
-        assert feature_vecs_b.shape == (T, self.Df, self.d)
+        assert feature_vecs_a.shape == (T, self.Df, self.d), \
+            "feature_vecs_a should have shape ({}, {}, {}), but is of shape {}".format(T, self.Df, self.d,
+                                                                                       feature_vecs_a.shape)
+        assert feature_vecs_b.shape == (T, self.Df, self.d), \
+            "feature_vecs_b should have shape ({}, {}, {}), but is of shape {}".format(T, self.Df, self.d,
+                                                                                       feature_vecs_b.shape)
 
         # make transformation
         # (T, K, Df) * (T, Df, d) --> (T, K, d)
@@ -93,19 +88,20 @@ class BaseWeightedDirectionTransformation(BaseTransformation):
         assert D == self.D, "input should have last dimension = {}".format(self.D)
 
         # get weights
-        weights_a = self.get_weights_condition_on_z(inputs[:, 0:2], 0, z, **kwargs)
-        weights_b = self.get_weights_condition_on_z(inputs[:, 2:4], 1, z, **kwargs)
+        weights_a, weights_b = self.get_weights_condition_on_z(inputs, z, **kwargs)
+        #weights_a = self.get_weights_condition_on_z(inputs, 0, z, **kwargs)
+        #weights_b = self.get_weights_condition_on_z(inputs, 1, z, **kwargs)
         assert weights_a.shape == (1, self.Df)
         assert weights_b.shape == (1, self.Df)
 
         # feature vec
         feature_vec = kwargs.get("feature_vec", None)
         if feature_vec is None:
+            #print("not using feature_vec memory")
             feature_vec_a = self.feature_vec_func(inputs[-1:, 0:2])
             feature_vec_b = self.feature_vec_func(inputs[-1:, 2:4])
         else:
             feature_vec_a, feature_vec_b = feature_vec
-            # print("Using feature vec memory!")
 
         assert feature_vec_a.shape == (1, self.Df, self.d)
         assert feature_vec_b.shape == (1, self.Df, self.d)
@@ -125,11 +121,11 @@ class BaseWeightedDirectionTransformation(BaseTransformation):
         return out
 
     @abstractmethod
-    def get_weights(self, inputs, animal_idx, **kwargs):
+    def get_weights(self, inputs, **kwargs):
         raise NotImplementedError
 
     @abstractmethod
-    def get_weights_condition_on_z(self, inputs, animal_idx, z, **kwargs):
+    def get_weights_condition_on_z(self, inputs, z, **kwargs):
         raise NotImplementedError
 
 
