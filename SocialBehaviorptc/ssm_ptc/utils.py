@@ -56,7 +56,7 @@ def random_rotation(n, theta=None):
     return q.dot(out).dot(q.T)
 
 
-def k_step_prediction(model, model_z, data, k=0):
+def k_step_prediction(model, model_z, data, k=0, **kwargs):
     """
     Conditioned on the most likely hidden states, make the k-step prediction.
     """
@@ -67,7 +67,7 @@ def k_step_prediction(model, model_z, data, k=0):
     x_predict_arr = []
     if k == 0:
         for t in range(T):
-            x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True)
+            x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True, **kwargs)
             x_predict_arr.append(x_predict)
     else:
         assert k>0
@@ -78,7 +78,7 @@ def k_step_prediction(model, model_z, data, k=0):
 
         for t in range(1, T-k+1):
             # TODO: fix k-step prediction sample size
-            zx_predict = model.sample(k, prefix=(model_z[:t], data[:t]), return_np=True, transformation=True)
+            zx_predict = model.sample(k, prefix=(model_z[:t], data[:t]), return_np=True, transformation=True, **kwargs)
             assert zx_predict[1].shape == (k, D)
             x_predict = zx_predict[1][-1]
             x_predict_arr.append(x_predict)

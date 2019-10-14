@@ -60,12 +60,11 @@ class LSTMTransformation(BaseWeightedDirectionTransformation):
 
     @params.setter
     def params(self, values):
-        self.Ws = set_param(self.Ws, values[0])
-        self.beta = set_param(self.beta, values[1])
+        # TODO
+        pass
 
     def permute(self, perm):
-        self.Ws = self.Ws[perm]
-        self.beta = self.beta[perm]
+        self.weight_networks = self.weight_networks[perm]
 
     def get_weights(self, inputs, **kwargs):
         """

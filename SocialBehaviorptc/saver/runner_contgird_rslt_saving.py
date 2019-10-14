@@ -8,8 +8,9 @@ import joblib
 from project_ssms.coupled_transformations.lineargrid_transformation import LinearGridTransformation
 from project_ssms.coupled_transformations.weightedgrid_transformation import WeightedGridTransformation
 from project_ssms.coupled_transformations.lstm_transformation import LSTMTransformation
+from project_ssms.coupled_transformations.lstm_based_transformation import LSTMBasedTransformation
 from project_ssms.utils import k_step_prediction_for_lineargrid_model, k_step_prediction_for_weightedgrid_model, \
-    k_step_prediction_for_lstm_model
+    k_step_prediction_for_lstm_model, k_step_prediction_for_lstm_based_model
 from project_ssms.plot_utils import plot_z, plot_mouse
 from project_ssms.grid_utils import plot_quiver, plot_realdata_quiver, \
     get_all_angles, get_speed, plot_list_of_angles, plot_list_of_speed, plot_space_dist
@@ -21,7 +22,7 @@ from saver.rslts_saving import NumpyEncoder
 
 
 def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
-                train_model, losses, quiver_scale, x_grids=None, y_grids=None):
+                train_model, losses, quiver_scale, x_grids=None, y_grids=None, dynamics_T=None):
 
     tran = model.observation.transformation
     if x_grids is None or y_grids is None:
@@ -52,6 +53,9 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     elif isinstance(tran, LSTMTransformation):
         x_predict = k_step_prediction_for_lstm_model(model, z, data_to_predict,
                                                      feature_vecs=memory_kwargs["feature_vecs"])
+    elif isinstance(tran, LSTMBasedTransformation):
+        x_predict = k_step_prediction_for_lstm_based_model(model, z, data_to_predict, k=0,
+                                                           feature_vecs=memory_kwargs["feature_vecs"])
     else:
         raise ValueError("Unsupported transformation!")
     x_predict_err = np.mean(np.abs(x_predict - data_to_predict.numpy()), axis=0)
@@ -60,7 +64,10 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     dict_of_x_predict_k_err = dict(x_predict_0_err=x_predict_err)
     for k_step in list_of_k_steps:
         print("{} step prediction".format(k_step))
-        x_predict_k = k_step_prediction(model, z, data_to_predict, k=k_step)
+        if isinstance(tran, LSTMBasedTransformation):
+            x_predict_k = k_step_prediction_for_lstm_based_model(model, z, data_to_predict, k=k_step)
+        else:
+            x_predict_k = k_step_prediction(model, z, data_to_predict, k=k_step)
         x_predict_k_err = np.mean(np.abs(x_predict_k -data_to_predict[k_step:].numpy()), axis=0)
         dict_of_x_predict_k["x_predict_{}".format(k_step)] = x_predict_k
         dict_of_x_predict_k_err["x_predict_{}_err".format(k_step)] = x_predict_k_err
@@ -68,11 +75,13 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
 
     ################### samples #########################
 
-    sample_z, sample_x = model.sample(sample_T)
+    lstm_states = {}
+    sample_z, sample_x = model.sample(sample_T, lstm_states=lstm_states)
 
     center_z = torch.tensor([0], dtype=torch.int)
     center_x = torch.tensor([[150, 190, 200, 200]], dtype=torch.float64)
-    sample_z_center, sample_x_center = model.sample(sample_T, prefix=(center_z, center_x))
+    lstm_states = {}
+    sample_z_center, sample_x_center = model.sample(sample_T, prefix=(center_z, center_x), lstm_states=lstm_states)
 
 
     ################## dynamics #####################
@@ -86,6 +95,17 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
 
         XY_next = tran.transform(torch.tensor(XY_grids, dtype=torch.float64))
         dXY = XY_next.detach().numpy() - XY_grids[:, None]
+
+    # TODO: maybe use sample condition on z (transformation) to show the dynamics
+    samples_on_fixed_zs = []
+    if isinstance(tran, LSTMBasedTransformation):
+        assert dynamics_T is not None
+        for k in range(K):
+            lstm_states = {}
+            fixed_z = torch.ones(dynamics_T, dtype=torch.int) * k
+            samples_on_fixed_z = model.sample_condition_on_zs(zs=fixed_z, transformation=True, return_np=True,
+                                                              lstm_states=lstm_states)
+            samples_on_fixed_zs.append(samples_on_fixed_z)
 
     #################### saving ##############################
 
@@ -121,6 +141,8 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     saving_dict = {"z": z, "sample_z": sample_z, "sample_x": sample_x,
                    "sample_z_center": sample_z_center, "sample_x_center": sample_x_center}
     saving_dict = {**dict_of_x_predict_k, **saving_dict}
+    if isinstance(tran, LSTMBasedTransformation):
+        saving_dict["samples_on_fixed_zs"] = samples_on_fixed_zs
 
     if train_model:
         saving_dict['losses'] = losses
@@ -193,6 +215,16 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
                     title="quiver (mother)", x_grids=x_grids, y_grids=y_grids, grid_alpha=0.2)
         plt.savefig(rslt_dir + "/dynamics/quiver_b.jpg", dpi=200)
         plt.close()
+    elif isinstance(tran, LSTMBasedTransformation):
+        if not os.path.exists(rslt_dir + "/dynamics"):
+            os.makedirs(rslt_dir + "/dynamics")
+            print("Making dynamics directory...")
+
+        for k in range(K):
+            plot_realdata_quiver(samples_on_fixed_zs[k], np.ones(dynamics_T, dtype=np.int)*k, K, x_grids=x_grids, y_grids=y_grids,
+                                 title="sample conditioned on k={}".format(k))
+            plt.savefig(rslt_dir + "/dynamics/samples_on_k{}.jpg".format(k), dpi=200)
+            plt.close()
 
     if not os.path.exists(rslt_dir + "/distributions"):
         os.makedirs(rslt_dir + "/distributions")

@@ -19,7 +19,7 @@ TRANSFORMATION_CLASSES = dict(
 
 
 class ARTruncatedNormalObservation(BaseObservation):
-    def __init__(self, K, D, M=0, lags=0, bounds=None, transformation="grid", transformation_kwargs=None, train_sigma=True):
+    def __init__(self, K, D, M=0, lags=1, bounds=None, transformation="grid", transformation_kwargs=None, train_sigma=True):
 
         super(ARTruncatedNormalObservation, self).__init__(K, D, M)
 
@@ -133,7 +133,7 @@ class ARTruncatedNormalObservation(BaseObservation):
         assert mus.shape == (T, self.K, self.D)
         return mus
 
-    def rsample_x(self, z, xhist, expectation=False):
+    def rsample_x(self, z, xhist, expectation=False, **kwargs):
         raise NotImplementedError
 
 

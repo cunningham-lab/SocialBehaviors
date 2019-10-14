@@ -175,6 +175,53 @@ def k_step_prediction_for_lstm_model(model, model_z, data, feature_vecs=None):
         return x_predict_arr
 
 
+def k_step_prediction_for_lstm_based_model(model, model_z, data, k=0, feature_vecs=None):
+    data = check_and_convert_to_tensor(data)
+    T, D = data.shape
+
+    lstm_states = {}
+
+    x_predict_arr = []
+    if k == 0:
+        if feature_vecs is None:
+            print("Did not provide memory information")
+            return k_step_prediction(model, model_z, data)
+        else:
+            feature_vecs_a, feature_vecs_b = feature_vecs
+
+            x_predict = model.observation.sample_x(model_z[0], data[:0], return_np=True)
+            x_predict_arr.append(x_predict)
+            for t in range(1, data.shape[0]):
+                feature_vec_t = (feature_vecs_a[t - 1:t], feature_vecs_b[t - 1:t])
+
+                x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True, transformation=True,
+                                                       feature_vec=feature_vec_t, lstm_states=lstm_states)
+                x_predict_arr.append(x_predict)
+    else:
+        assert k > 0
+        # neglects t = 0 since there is no history
+
+        if T <= k:
+            raise ValueError("Please input k such that k < {}.".format(T))
+
+        for t in range(1, T - k + 1):
+            # sample k steps forward
+            # first step use real value
+            z, x = model.sample(1, prefix=(model_z[t-1:t], data[t-1:t]), return_np=False, transformation=True,
+                                      lstm_states=lstm_states)
+            # last k-1 steps use sampled value
+            if k>=1:
+                sampled_lstm_states = dict(h_t=lstm_states["h_t"], c_t=lstm_states["c_t"])
+                for i in range(k-1):
+                    z, x = model.sample(1, prefix=(z, x), return_np=False, transformation=True,
+                                        lstm_states=sampled_lstm_states)
+            assert x.shape == (1, D)
+            x_predict_arr.append(x[0].numpy())
+
+    x_predict_arr = np.array(x_predict_arr)
+    assert x_predict_arr.shape == (T-k, D)
+    return x_predict_arr
+
 
 def downsample(traj, n):
     # data : (T, D)

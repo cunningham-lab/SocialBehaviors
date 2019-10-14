@@ -168,7 +168,7 @@ class SpaceDependentTransformation(BaseTransformation):
         out = torch.squeeze(out, dim=0)
         out = inputs[-1] + out
         assert out.shape == (self.D,)
-        return out
+        return out, (h_t, c_t)
 
 
 

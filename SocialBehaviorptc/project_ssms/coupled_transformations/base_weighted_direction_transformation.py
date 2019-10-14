@@ -89,8 +89,6 @@ class BaseWeightedDirectionTransformation(BaseTransformation):
 
         # get weights
         weights_a, weights_b = self.get_weights_condition_on_z(inputs, z, **kwargs)
-        #weights_a = self.get_weights_condition_on_z(inputs, 0, z, **kwargs)
-        #weights_b = self.get_weights_condition_on_z(inputs, 1, z, **kwargs)
         assert weights_a.shape == (1, self.Df)
         assert weights_b.shape == (1, self.Df)
 

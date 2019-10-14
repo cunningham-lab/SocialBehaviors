@@ -1,7 +1,7 @@
 from ssm_ptc.models.hmm import HMM
 
 from project_ssms.ar_truncated_normal_observation import ARTruncatedNormalObservation
-from project_ssms.coupled_transformations.lstm_transformation import LSTMTransformation, get_packed_data
+from project_ssms.coupled_transformations.lstm_based_transformation import LSTMBasedTransformation
 from project_ssms.feature_funcs import f_corner_vec_func
 from project_ssms.momentum_utils import filter_traj_by_speed
 from project_ssms.utils import downsample
@@ -33,8 +33,8 @@ import json
 @click.option('--sticky_alpha', default=1, help='value of alpha in sticky transition')
 @click.option('--sticky_kappa', default=100, help='value of kappa in sticky transition')
 @click.option('--acc_factor', default=None, help="acc factor in direction model")
-@click.option('--lags', default=30, help="number of lags")
 @click.option('--dh', default=8, help="number of hidden units in lstm block")
+@click.option('--dhs', default=None, help='list of hidden units in the MLP layer')
 @click.option('--train_model', is_flag=True, help='Whether to train the model')
 @click.option('--pbar_update_interval', default=500, help='progress bar update interval')
 @click.option('--load_opt_dir', default="", help='Directory of optimizer to load.')
@@ -52,15 +52,17 @@ import json
               help='a list of checkpoint numbers of iterations for training')
 @click.option('--list_of_lr', default='0.005, 0.005', help='learning rate for training')
 @click.option('--list_of_k_steps', default='5', help='list of number of steps prediction forward')
+@click.option('--dynamics_t', default=100, help='number of samples for dyanamics plot')
 @click.option('--sample_t', default=100, help='length of samples')
 @click.option('--quiver_scale', default=0.8, help='scale for the quiver plots')
 def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_opt_dir,
-         transition, sticky_alpha, sticky_kappa, acc_factor, lags, dh, k, x_grids, y_grids, n_x, n_y,
+         transition, sticky_alpha, sticky_kappa, acc_factor, dh, dhs, k, x_grids, y_grids, n_x, n_y,
          train_model, pbar_update_interval, video_clips, torch_seed, np_seed,
-         list_of_num_iters, list_of_lr, list_of_k_steps, sample_t, quiver_scale):
+         list_of_num_iters, list_of_lr, list_of_k_steps, dynamics_t, sample_t, quiver_scale):
     if job_name is None:
         raise ValueError("Please provide the job name.")
     K = k
+    dynamics_T = dynamics_t
     sample_T = sample_t
     video_clip_start, video_clip_end = [int(x) for x in video_clips.split(",")]
     list_of_num_iters = [int(x) for x in list_of_num_iters.split(",")]
@@ -72,6 +74,9 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
     for lr in list_of_lr:
         if lr > 1:
             raise ValueError("Learning rate should not be larger than 1!")
+
+    if dhs:
+        dhs = [int(d_hidden) for d_hidden in dhs.split(",")]
 
     repo = git.Repo('.', search_parent_directories=True)  # SocialBehaviorectories=True)
     repo_dir = repo.working_tree_dir  # SocialBehavior
@@ -101,8 +106,9 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
         print("Loading the model from ", load_model_dir)
         model = joblib.load(load_model_dir)
         tran = model.observation.transformation
-        assert isinstance(tran, LSTMTransformation),\
-            "tran should be {}, but is {}".format(LSTMTransformation, type(tran))
+        assert isinstance(tran, LSTMBasedTransformation),\
+            "tran should be {}, but is {}".format(LSTMBasedTransformation, type(tran))
+        assert tran.lags == 1, "tran should be lag-1 but is lag-{}".format(tran.lags)
 
         K = model.K
 
@@ -116,7 +122,8 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
         if acc_factor is None:
             acc_factor = downsample_n * 10
 
-        tran = LSTMTransformation(K=K, D=D, Df=Df, feature_vec_func=f_corner_vec_func, lags=lags, dh=dh,
+        lags = 1
+        tran = LSTMBasedTransformation(K=K, D=D, Df=Df, feature_vec_func=f_corner_vec_func, lags=lags, dh=dh, dhs=dhs,
                                   acc_factor=acc_factor)
         obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=lags, bounds=bounds, transformation=tran)
 
@@ -153,8 +160,8 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
                   "sticky_kappa": sticky_kappa,
                   "acc_factor": acc_factor,
                   "K": K,
-                  "lags": lags,
                   "dh": dh,
+                  "dhs": dhs,
                   "n_x": n_x,
                   "n_y": n_y,
                   "x_grids": x_grids,
@@ -166,12 +173,13 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
                   "video_clip_start": video_clip_start,
                   "video_clip_end": video_clip_end,
                   "list_of_k_steps": list_of_k_steps,
+                  "dynamics_T": dynamics_T,
                   "sample_T": sample_T}
 
     print("Experiment params:")
     print(exp_params)
 
-    rslt_dir = addDateTime("rslts/lstm/" + job_name)
+    rslt_dir = addDateTime("rslts/lstm_based/" + job_name)
     rslt_dir = os.path.join(repo_dir, rslt_dir)
     if not os.path.exists(rslt_dir):
         os.makedirs(rslt_dir)
@@ -187,9 +195,7 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
     feature_vecs_b = f_corner_vec_func(data[:-1, 2:4])  # (T, Df, 2)
     feature_vecs = (feature_vecs_a, feature_vecs_b)
 
-    packed_data = get_packed_data(data[:-1], lags=lags)
-
-    memory_kwargs = dict(packed_data=packed_data, feature_vecs=feature_vecs)
+    memory_kwargs = dict(feature_vecs=feature_vecs)
 
     ##################### training ############################
     if train_model:
@@ -216,12 +222,12 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
             # save rest
             rslt_saving(checkpoint_dir, model, data,
                         memory_kwargs, list_of_k_steps, sample_T,
-                        train_model, losses, quiver_scale, x_grids=x_grids, y_grids=y_grids)
+                        train_model, losses, quiver_scale, x_grids=x_grids, y_grids=y_grids, dynamics_T=dynamics_T)
 
     else:
         # only save the results
         rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
-                    False, [], quiver_scale, x_grids=x_grids, y_grids=y_grids)
+                    False, [], quiver_scale, x_grids=x_grids, y_grids=y_grids, dynamics_T=dynamics_T)
 
     print("Finish running!")
 
