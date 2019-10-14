@@ -34,7 +34,7 @@ import json
 @click.option('--sticky_kappa', default=100, help='value of kappa in sticky transition')
 @click.option('--acc_factor', default=None, help="acc factor in direction model")
 @click.option('--dh', default=8, help="number of hidden units in lstm block")
-@click.option('--dhs', default=None, help='list of hidden units in the MLP layer')
+@click.option('--dhs', default="none", help='list of hidden units in the MLP layer')
 @click.option('--train_model', is_flag=True, help='Whether to train the model')
 @click.option('--pbar_update_interval', default=500, help='progress bar update interval')
 @click.option('--load_opt_dir', default="", help='Directory of optimizer to load.')
@@ -75,7 +75,9 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
         if lr > 1:
             raise ValueError("Learning rate should not be larger than 1!")
 
-    if dhs:
+    if dhs == 'none':
+        dhs = None
+    else:
         dhs = [int(d_hidden) for d_hidden in dhs.split(",")]
 
     repo = git.Repo('.', search_parent_directories=True)  # SocialBehaviorectories=True)
