@@ -106,26 +106,24 @@ def plot_4_traces(data, title):
 @click.option("--v_end", default=5, help='end of the true data')
 @click.option("--data_downsample_n", default=2, help="downsample times for real data")
 @click.option("--checkpoint_dir", default=None, help='checkpoint dir')
-@click.option("--video_downsample_n", default=1, help='downsampling data[:video_T] by downsample_n times')
+@click.option("--video_downsample_n", default=1, help='downsampling data by downsample_n times')
 @click.option("--fps", default=25, help="fps, frame per second")
 @click.option("--xlim", default=None, help='limit of the xrange')
 @click.option("--ylim", default=None, help='limit of the yrange')
 @click.option("--grid_alpha", default=0.8, help='alpha for the grid line')
-@click.option("--video_start", default=0, help='')
-@click.option("--video_end", default=0.01, help='')
+@click.option("--video_start_and_end", default="0,0.01", help='')
 @click.option("--video_data_type", default="data", help="choose from 'data' or 'sample_x")
 @click.option("--color_only", is_flag=True, help="")
 @click.option("--traj_only", is_flag=True, help="")
 def plot_animation_helper(save_video_dir, v_start, v_end, data_downsample_n, checkpoint_dir,
-                          video_start, video_end, video_downsample_n, fps, xlim, ylim, grid_alpha, video_data_type,
+                          video_start_and_end, video_downsample_n, fps, xlim, ylim, grid_alpha, video_data_type,
                           color_only, traj_only):
     if save_video_dir is None:
         raise ValueError("Please provide save_video_dir!")
     if not os.path.exists(save_video_dir):
         os.makedirs(save_video_dir)
 
-    video_start = float(video_start)
-    video_end = float(video_end)
+    video_start, video_end = [float(v) for v in video_start_and_end.split(",")]
 
     model = joblib.load(checkpoint_dir + "/model")
     numbers = joblib.load(checkpoint_dir + "/numbers")
