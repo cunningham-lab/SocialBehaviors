@@ -222,17 +222,23 @@ def plot_animation(save_video_dir, sample_name, x, z, K, fps, xlim, ylim, grid_a
         def make_frame(t):
             num_frame = int(t * fps)
             plt.subplot(1, 2, 1)
-            plt.quiver(start[:num_frame, 0], start[:num_frame, 1], dXY[:num_frame, 0], dXY[:num_frame, 1],
-                       angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[z])
+            start_idx = max(0, num_frame-1)
+            plt.quiver(start[start_idx:num_frame, 0], start[start_idx:num_frame, 1],
+                       dXY[start_idx:num_frame, 0], dXY[start_idx:num_frame, 1],
+                       angles='xy', scale_units='xy', scale=1, color=colors[z[start_idx]], cmap=cm)
 
             plt.subplot(1, 2, 2)
-            plt.quiver(start[:num_frame, 2], start[:num_frame, 3], dXY[:num_frame, 2], dXY[:num_frame, 3],
-                       angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[z])
+            plt.quiver(start[start_idx:num_frame, 2], start[start_idx:num_frame, 3], dXY[start_idx:num_frame, 2], dXY[start_idx:num_frame, 3],
+                       angles='xy', scale_units='xy', scale=1, color=colors[z[start_idx]], cmap=cm)
 
             return mplfig_to_npimage(fig)
 
         animation = VideoClip(make_frame, duration=duration)
         animation.write_videofile("{}/{}_colorful.mp4".format(save_video_dir, sample_name), fps=fps)
+
+        #plt.quiver(start[:, 0], start[:, 1],dXY[:, 0], dXY[:, 1],
+         #          angles='xy', scale_units='xy', scale=1, color=colors[z], cmap=cm)
+        #plt.show()
 
     if not color_only:
         # make animation 1
@@ -259,10 +265,12 @@ def plot_animation(save_video_dir, sample_name, x, z, K, fps, xlim, ylim, grid_a
 
         def make_frame(t):
             num_frame = int(t * fps)
-
-            plt.quiver(start[:num_frame, 0], start[:num_frame, 1], dXY[:num_frame, 0], dXY[:num_frame, 1],
+            start_idx = max(0, num_frame-1)
+            plt.quiver(start[start_idx:num_frame, 0], start[start_idx:num_frame, 1],
+                       dXY[start_idx:num_frame, 0], dXY[start_idx:num_frame, 1],
                        angles='xy', scale_units='xy', scale=1, color='C0')
-            plt.quiver(start[:num_frame, 2], start[:num_frame, 3], dXY[:num_frame, 2], dXY[:num_frame, 3],
+            plt.quiver(start[start_idx:num_frame, 2], start[start_idx:num_frame, 3],
+                       dXY[start_idx:num_frame, 2], dXY[start_idx:num_frame, 3],
                        angles='xy', scale_units='xy', scale=1, color='C1')
 
             return mplfig_to_npimage(fig)
