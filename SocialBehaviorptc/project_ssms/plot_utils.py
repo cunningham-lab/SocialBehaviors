@@ -8,6 +8,7 @@ from moviepy.video.io.bindings import mplfig_to_npimage
 import joblib
 import click
 import os
+import git
 
 from project_ssms.utils import downsample
 
@@ -101,20 +102,30 @@ def plot_4_traces(data, title):
 
 @click.command()
 @click.option("--save_video_dir", default=None, help='name of the video')
+@click.option("--v_start", default=0, help='start of the true data')
+@click.option("--v_end", default=5, help='end of the true data')
+@click.option("--data_downsample_n", default=2, help="downsample times for real data")
 @click.option("--checkpoint_dir", default=None, help='checkpoint dir')
-@click.option("--video_t", default=None, help='making videos for the first video_T datapoints')
-@click.option("--downsample_n", default=1, help='downsampling data[:video_T] by downsample_n times')
+@click.option("--video_downsample_n", default=1, help='downsampling data[:video_T] by downsample_n times')
 @click.option("--fps", default=25, help="fps, frame per second")
 @click.option("--xlim", default=None, help='limit of the xrange')
 @click.option("--ylim", default=None, help='limit of the yrange')
 @click.option("--grid_alpha", default=0.8, help='alpha for the grid line')
-def plot_animation(save_video_dir, checkpoint_dir, video_t, downsample_n, fps, xlim, ylim, grid_alpha):
+@click.option("--video_start", default=0, help='')
+@click.option("--video_end", default=0.01, help='')
+@click.option("--video_data_type", default="data", help="choose from 'data' or 'sample_x")
+@click.option("--color_only", is_flag=True, help="")
+@click.option("--traj_only", is_flag=True, help="")
+def plot_animation_helper(save_video_dir, v_start, v_end, data_downsample_n, checkpoint_dir,
+                          video_start, video_end, video_downsample_n, fps, xlim, ylim, grid_alpha, video_data_type,
+                          color_only, traj_only):
     if save_video_dir is None:
         raise ValueError("Please provide save_video_dir!")
     if not os.path.exists(save_video_dir):
         os.makedirs(save_video_dir)
 
-    video_T = int(video_t)
+    video_start = float(video_start)
+    video_end = float(video_end)
 
     model = joblib.load(checkpoint_dir + "/model")
     numbers = joblib.load(checkpoint_dir + "/numbers")
@@ -127,111 +138,143 @@ def plot_animation(save_video_dir, checkpoint_dir, video_t, downsample_n, fps, x
         y_grids = None
 
     K = model.K
-    sample_x = numbers['sample_x']
-    sample_z = numbers['sample_z']
 
-    T, D = sample_x.shape
-    if video_T is None:
-        video_T = T
+    # data
+    repo = git.Repo('.', search_parent_directories=True)  # SocialBehaviorectories=True)
+    repo_dir = repo.working_tree_dir  # SocialBehavior
 
-    quiver_args = {}
-    # cluster_centers = None
+    if video_data_type == "data":
+        data_dir = repo_dir + '/SocialBehaviorptc/data/trajs_all'
+        trajs = joblib.load(data_dir)
 
-    sample_x = downsample(sample_x[:video_T], downsample_n)
-    sample_z = downsample(sample_z[:video_T], downsample_n)
+        traj = trajs[36000 * v_start:36000 * v_end]
+        traj = downsample(traj, data_downsample_n)
+        data = torch.tensor(traj, dtype=torch.float64)
+        z = numbers['z']
 
-    video_T, _ = sample_x.shape
+        T, D = data.shape
+        start = int(T*video_start)
+        end = int(T*video_end)
+
+        data = downsample(data[start:end], video_downsample_n)
+        z = downsample(z[start:end], video_downsample_n)
+        plot_animation(save_video_dir, "data", data, z, K, fps, xlim, ylim, grid_alpha, x_grids, y_grids,
+                       color_only, traj_only)
+
+    elif video_data_type == "sample_x":
+        # sample x
+        sample_x = numbers['sample_x']
+        sample_z = numbers['sample_z']
+
+        T, D = sample_x.shape
+        start = int(T*video_start)
+        end = int(T*video_end)
+
+        sample_x = downsample(sample_x[start:end], video_downsample_n)
+        sample_z = downsample(sample_z[start:end], video_downsample_n)
+
+        plot_animation(save_video_dir, "sample_x", sample_x, sample_z, K, fps, xlim, ylim, grid_alpha, x_grids, y_grids,
+                       color_only, traj_only)
+
+
+def plot_animation(save_video_dir, sample_name, x, z, K, fps, xlim, ylim, grid_alpha, x_grids, y_grids,
+                   color_only=False, traj_only=False):
+
+
+    video_T, _ = x.shape
     duration = int(video_T / fps)
 
-    start = sample_x[:-1]
-    end = sample_x[1:]
+    start = x[:-1]
+    end = x[1:]
     dXY = end - start
 
     h = 1 / K
     ticks = [(1 / 2 + k) * h for k in range(K)]
     colors, cm = get_colors_and_cmap(K)
 
-    # make animation 0
-    fig = plt.figure(figsize=(16, 7))
-    plt.axis('equal')
+    if not traj_only:
+        # make animation 0
+        fig = plt.figure(figsize=(16, 7))
+        plt.axis('equal')
 
-    plt.subplot(1, 2, 1)
-    plt.quiver(start[:0, 0], start[:0, 1], dXY[:0, 0], dXY[:0, 1],
-               angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[sample_z])
-    cb = plt.colorbar(label='k', ticks=ticks)
-    cb.set_ticklabels(range(K))
-    add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
-    plt.title("virgin")
-    if xlim is not None:
-        plt.xlim(xlim)
-    if ylim is not None:
-        plt.ylim(ylim)
-
-    plt.subplot(1, 2, 2)
-    plt.quiver(start[:0, 2], start[:0, 3], dXY[:0, 2], dXY[:0, 3],
-               angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[sample_z])
-    cb = plt.colorbar(label='k', ticks=ticks)
-    cb.set_ticklabels(range(K))
-    add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
-    plt.title("mother")
-    if xlim is not None:
-        plt.xlim(xlim)
-    if ylim is not None:
-        plt.ylim(ylim)
-
-    def make_frame(t):
-        num_frame = int(t * fps)
         plt.subplot(1, 2, 1)
-        plt.quiver(start[:num_frame, 0], start[:num_frame, 1], dXY[:num_frame, 0], dXY[:num_frame, 1],
-                   angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[sample_z])
+        plt.quiver(start[:0, 0], start[:0, 1], dXY[:0, 0], dXY[:0, 1],
+                   angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[z])
+        cb = plt.colorbar(label='k', ticks=ticks)
+        cb.set_ticklabels(range(K))
+        add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
+        plt.title("virgin")
+        if xlim is not None:
+            plt.xlim(xlim)
+        if ylim is not None:
+            plt.ylim(ylim)
 
         plt.subplot(1, 2, 2)
-        plt.quiver(start[:num_frame, 2], start[:num_frame, 3], dXY[:num_frame, 2], dXY[:num_frame, 3],
-                   angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[sample_z])
+        plt.quiver(start[:0, 2], start[:0, 3], dXY[:0, 2], dXY[:0, 3],
+                   angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[z])
+        cb = plt.colorbar(label='k', ticks=ticks)
+        cb.set_ticklabels(range(K))
+        add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
+        plt.title("mother")
+        if xlim is not None:
+            plt.xlim(xlim)
+        if ylim is not None:
+            plt.ylim(ylim)
 
-        return mplfig_to_npimage(fig)
+        def make_frame(t):
+            num_frame = int(t * fps)
+            plt.subplot(1, 2, 1)
+            plt.quiver(start[:num_frame, 0], start[:num_frame, 1], dXY[:num_frame, 0], dXY[:num_frame, 1],
+                       angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[z])
 
-    animation = VideoClip(make_frame, duration=duration)
-    animation.write_videofile("{}/ani_0.mp4".format(save_video_dir), fps=fps)
+            plt.subplot(1, 2, 2)
+            plt.quiver(start[:num_frame, 2], start[:num_frame, 3], dXY[:num_frame, 2], dXY[:num_frame, 3],
+                       angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[z])
 
-    # make animation 1
-    fig = plt.figure(figsize=(7, 7))
-    if xlim is not None:
-        plt.xlim(xlim)
-    if ylim is not None:
-        plt.ylim(ylim)
-    plt.axis('equal')
-    add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
+            return mplfig_to_npimage(fig)
 
-    plt.quiver(start[:0, 0], start[:0, 1], dXY[:0, 0], dXY[:0, 1],
-               angles='xy', scale_units='xy', scale=1, label="virgin", color='C0')
-    plt.quiver(start[:0, 2], start[:0, 3], dXY[:0, 2], dXY[:0, 3],
-               angles='xy', scale_units='xy', scale=1, label="mother", color='C1')
-    #plt.legend()
-    plt.legend(loc='center left', bbox_to_anchor=(0.5, 1.0))
-    add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
+        animation = VideoClip(make_frame, duration=duration)
+        animation.write_videofile("{}/{}_colorful.mp4".format(save_video_dir, sample_name), fps=fps)
 
-    if xlim is not None:
-        plt.xlim(xlim)
-    if ylim is not None:
-        plt.ylim(ylim)
+    if not color_only:
+        # make animation 1
+        fig = plt.figure(figsize=(7, 7))
+        if xlim is not None:
+            plt.xlim(xlim)
+        if ylim is not None:
+            plt.ylim(ylim)
+        plt.axis('equal')
+        add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
 
-    def make_frame(t):
-        num_frame = int(t * fps)
+        plt.quiver(start[:0, 0], start[:0, 1], dXY[:0, 0], dXY[:0, 1],
+                   angles='xy', scale_units='xy', scale=1, label="virgin", color='C0')
+        plt.quiver(start[:0, 2], start[:0, 3], dXY[:0, 2], dXY[:0, 3],
+                   angles='xy', scale_units='xy', scale=1, label="mother", color='C1')
+        #plt.legend()
+        plt.legend(loc='center left', bbox_to_anchor=(0.5, 1.0))
+        add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
 
-        plt.quiver(start[:num_frame, 0], start[:num_frame, 1], dXY[:num_frame, 0], dXY[:num_frame, 1],
-                   angles='xy', scale_units='xy', scale=1, color='C0')
-        plt.quiver(start[:num_frame, 2], start[:num_frame, 3], dXY[:num_frame, 2], dXY[:num_frame, 3],
-                   angles='xy', scale_units='xy', scale=1, color='C1')
+        if xlim is not None:
+            plt.xlim(xlim)
+        if ylim is not None:
+            plt.ylim(ylim)
 
-        return mplfig_to_npimage(fig)
+        def make_frame(t):
+            num_frame = int(t * fps)
 
-    animation = VideoClip(make_frame, duration=duration)
-    animation.write_videofile("{}/ani_1.mp4".format(save_video_dir), fps=fps)
+            plt.quiver(start[:num_frame, 0], start[:num_frame, 1], dXY[:num_frame, 0], dXY[:num_frame, 1],
+                       angles='xy', scale_units='xy', scale=1, color='C0')
+            plt.quiver(start[:num_frame, 2], start[:num_frame, 3], dXY[:num_frame, 2], dXY[:num_frame, 3],
+                       angles='xy', scale_units='xy', scale=1, color='C1')
+
+            return mplfig_to_npimage(fig)
+
+        animation = VideoClip(make_frame, duration=duration)
+        animation.write_videofile("{}/{}_traj.mp4".format(save_video_dir, sample_name), fps=fps)
 
 
 if __name__ == "__main__":
-    plot_animation()
+    plot_animation_helper()
 
 
 
