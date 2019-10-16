@@ -7,36 +7,14 @@ from ssm_ptc.utils import check_and_convert_to_tensor, set_param
 
 from project_ssms.coupled_transformations.base_weighted_direction_transformation \
     import BaseWeightedDirectionTransformation
+from project_ssms.coupled_transformations.lstm_based_transformation import MLPWeight
 
 
 """
-k - dynamics --> k sets of lstm
-weights(x_t) = acc_factor * sigmoid( linear ( LSTM(x_{t-1}, ..., x_{t-lags}) ) )
+one lstm
+k - dynamics --> different output layers
+weights(x_t) = acc_factor * sigmoid( output_layers ( LSTM(x_{t-1}, ..., x_{t-lags}) ) )
 """
-
-class LSTMWeight(nn.Module):
-    def __init__(self, din, dh, dout, acc_factor):
-        super(LSTMWeight, self).__init__()
-        self.dh = dh
-        self.dout = dout
-
-        self.lstm = nn.LSTM(input_size=din, hidden_size=dh).double()
-
-        self.output_layer = nn.Linear(dh, dout).double()
-        self.acc_factor = acc_factor
-
-    def forward(self, x):
-        """
-
-        :param x: (seq_length, batch_size, din) or packed_sequence
-        :return: f(x): (batch_size, dout)
-        """
-        #T, bs, din = x.shape
-        _, (h_t, c_t) = self.lstm.forward(x)
-        #assert h_t.shape == (1, bs, self.dh)
-        x = self.acc_factor * torch.sigmoid(self.output_layer(h_t[0]))
-        #assert x.shape == (bs, self.dout)
-        return x
 
 
 def set_model_params(model1, params):
@@ -46,20 +24,27 @@ def set_model_params(model1, params):
         i += 1
 
 
-class LSTMTransformation(BaseWeightedDirectionTransformation):
+class UniLSTMTransformation(BaseWeightedDirectionTransformation):
     """
     weights of x_{t+1} depends on x_{t}, ...., x_{t-lags}
     """
 
-    def __init__(self, K, D, Df, feature_vec_func, lags=1, dh=4, acc_factor=2, **kwargs):
-        super(LSTMTransformation, self).__init__(K, D, Df, feature_vec_func, acc_factor, lags=lags)
+    def __init__(self, K, D, Df, feature_vec_func, lags=1, dh=4, dhs=None, acc_factor=2):
+        super(UniLSTMTransformation, self).__init__(K, D, Df, feature_vec_func, acc_factor, lags=lags)
 
-        self.weight_networks = [LSTMWeight(self.D, dh, 2*self.Df, self.acc_factor) for _ in range(self.K)]
+        self.dh = dh
+        self.dhs = dhs if dhs else []
 
+        self.lstm = nn.LSTM(input_size=self.D, hidden_size=dh).double()
+
+        self.acc_factor = acc_factor
+        self.weight_nns = [MLPWeight(din=self.dh, dhs=self.dhs, dout=2*self.Df, acc_factor=self.acc_factor)
+                           for _ in range(self.K)]
     @property
     def params(self):
         params = ()
-        for weight_networks in self.weight_networks:
+        params += tuple(self.lstm.parameters())
+        for weight_networks in self.weight_nns:
             params += tuple(weight_networks.parameters())
         return params
 
@@ -69,7 +54,7 @@ class LSTMTransformation(BaseWeightedDirectionTransformation):
         pass
 
     def permute(self, perm):
-        self.weight_networks = self.weight_networks[perm]
+        self.weight_nns = self.weight_nns[perm]
 
     def get_weights(self, inputs, **kwargs):
         """
@@ -80,18 +65,23 @@ class LSTMTransformation(BaseWeightedDirectionTransformation):
 
         packed_data = kwargs.get("packed_data", None)
         if packed_data is None:
-            #print("not using packed data memory")
+            print("not using packed data memory")
             packed_data = get_packed_data(inputs, self.lags)
 
         T, D = inputs.shape
         assert D == self.D, \
             "inputs should have shape {}, instead of {}".format((T, self.D), (T, D))
 
+        # first, transform to LSTM outputs
+        _, (lstm_outputs, _) = self.lstm.forward(packed_data)
+        assert lstm_outputs.shape == (1, T, self.dh), lstm_outputs.shape
+        lstm_outputs = torch.squeeze(lstm_outputs, dim=0)
+
+        # then, perform K different transformations
         # (T, K, 2*Df)
-        weights = \
-            torch.stack([weight_network.forward(packed_data) for weight_network in self.weight_networks], dim=1)
+        weights = torch.stack([weight_nn.forward(lstm_outputs) for weight_nn in self.weight_nns], dim=1)
         assert weights.shape == (T, self.K, 2 * self.Df), \
-            "weights should have shape ({}, {}, {}), instead of {}".format(T, self.K, 2*self.Df,
+            "weights_of_inputs should have shape ({}, {}, {}), instead of {}".format(T, self.K, 2*self.Df,
                                                                                      weights.shape)
 
         return weights[..., 0:self.Df], weights[..., self.Df:]
@@ -111,7 +101,11 @@ class LSTMTransformation(BaseWeightedDirectionTransformation):
         assert T_pre <= self.lags, "T_pre={} must be smaller than or equal to lags={}".format(T_pre, self.lags)
         inputs = inputs[:, None, ]  # (T_pre, 1, 4)
 
-        weights = self.weight_networks[z].forward(inputs)  # (1, 2*Df)
+        _, (h_t, c_t) = self.lstm.forward(inputs)
+        assert h_t.shape == (1, 1, self.dh), h_t.shape
+        h_t = torch.squeeze(h_t, dim=1)
+
+        weights = self.weight_nns[z].forward(h_t)  # (1, 2*Df)
         assert weights.shape == (1, 2*self.Df), \
             "weights should have shape ({}, {}), instead of {}".format(1, 2*self.Df, weights.shape)
 

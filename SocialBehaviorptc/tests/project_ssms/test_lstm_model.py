@@ -60,11 +60,11 @@ def test_tran():
     # test packed sequence
     packed_data = get_packed_data(data, lags=lags)
     weights_of_inputs = \
-        torch.stack([weight_network.forward(packed_data) for weight_network in tran.weight_networks], dim=1)
+        torch.stack([weight_network.forward(packed_data) for weight_network in tran.weight_nns], dim=1)
     assert weights_of_inputs.shape == (T, K, 2*Df)
 
     weights_of_inputs_lagged_data = \
-        torch.stack([weight_network.forward(lagged_data) for weight_network in tran.weight_networks], dim=1)
+        torch.stack([weight_network.forward(lagged_data) for weight_network in tran.weight_nns], dim=1)
     assert weights_of_inputs_lagged_data.shape == (T-lags+1, K, 2*Df), weights_of_inputs_lagged_data.shape
 
     assert torch.allclose(weights_of_inputs[lags-1:], weights_of_inputs_lagged_data), \
@@ -76,6 +76,7 @@ def test_tran():
 
     # precompute memory
     packed_data = get_packed_data(data, lags=lags)
+
     weights_2 = tran.get_weights(data, packed_data=packed_data)
 
     assert torch.allclose(weights[0], weights_2[0])
@@ -166,5 +167,5 @@ def test_model():
     sample_z, sample_x = model.sample(sample_T)
 
 
-#test_tran()
-test_model()
+test_tran()
+#test_model()

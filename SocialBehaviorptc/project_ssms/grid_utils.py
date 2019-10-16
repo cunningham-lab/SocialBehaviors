@@ -82,6 +82,7 @@ def plot_realdata_quiver(realdata, z, K, x_grids=None, y_grids=None,
         plt.figure(figsize=(16, 7))
         if title is not None:
             plt.suptitle(title)
+            plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 
         plt.subplot(1, 2, 1)
         plt.quiver(start[:, 0], start[:, 1], dXY[:, 0], dXY[:, 1],
@@ -130,7 +131,7 @@ def plot_animation(x, z, K, mouse='both', x_grids=None, y_grids=None, grid_alpha
         downsample_n = int(T / max_length)
 
     x = downsample(x, downsample_n)
-    z = downsample(x, downsample_n)
+    z = downsample(z, downsample_n)
 
     colors, cm = get_colors_and_cmap(K)
 
@@ -274,7 +275,7 @@ def plot_weights(weights, Df, K, x_grids, y_grids, max_weight=10, title=None):
             plt.xticks(np.arange(0, 4, 1), ["lower L", "upper L", "lower R", "upper R"])
             plt.legend()
 
-    plt.tight_layout()
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 
 
 def add_percentage(k, percentage, grid_centers):
@@ -333,7 +334,7 @@ def plot_dynamics(weighted_corner_vecs, animal, x_grids, y_grids, K, scale=0.1, 
             plt.subplot(2, int(K/2)+1, k+1)
             plot_dynamics_k(k)
 
-    plt.tight_layout()
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 
 
 def plot_quiver(XYs, dXYs, mouse, K,scale=1, alpha=1, title=None, x_grids=None, y_grids=None, grid_alpha=1):
@@ -353,7 +354,7 @@ def plot_quiver(XYs, dXYs, mouse, K,scale=1, alpha=1, title=None, x_grids=None, 
         add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
         plt.title('K={} '.format(k) + mouse)
 
-    plt.tight_layout()
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 
 
 def get_z_percentage_by_grid(masks_a, z, K, G):
@@ -635,7 +636,7 @@ def plot_space_dist(data, x_grids, y_grids, grid_alpha=1):
         add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
         plt.title("mother")
 
-        plt.tight_layout()
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     else:
         plt.figure(figsize=(8,7))
 
@@ -658,5 +659,5 @@ def test_plot_grid_and_weight_idx(n_x, n_y):
             plt.text(0.8, 0.3, "grid_index: {}".format(grid_idx), fontsize=12, color='k')
             plt.xticks(np.arange(0, 4, 1), ["lower L", "upper L", "lower R", "upper R"])
 
-    plt.tight_layout()
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 

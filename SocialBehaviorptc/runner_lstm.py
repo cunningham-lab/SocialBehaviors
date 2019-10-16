@@ -1,7 +1,8 @@
 from ssm_ptc.models.hmm import HMM
 
 from project_ssms.ar_truncated_normal_observation import ARTruncatedNormalObservation
-from project_ssms.coupled_transformations.lstm_transformation import LSTMTransformation, get_packed_data
+from project_ssms.coupled_transformations.uni_lstm_transformation import UniLSTMTransformation, get_packed_data
+from project_ssms.coupled_transformations.lstm_transformation import LSTMTransformation
 from project_ssms.feature_funcs import f_corner_vec_func
 from project_ssms.momentum_utils import filter_traj_by_speed
 from project_ssms.utils import downsample
@@ -25,6 +26,7 @@ import json
 
 @click.command()
 @click.option('--job_name', default=None, help='name of the job')
+@click.option('--lstm_model_type', default="uni", help='the type of lstm model; choose from uni and multi')
 @click.option('--downsample_n', default=1, help='downsample factor. Data size will reduce to 1/downsample_n')
 @click.option('--filter_traj', is_flag=True, help='whether or not to filter the trajectory by SPEED')
 @click.option('--load_model', is_flag=True, help='Whether to load the (trained) model')
@@ -33,8 +35,9 @@ import json
 @click.option('--sticky_alpha', default=1, help='value of alpha in sticky transition')
 @click.option('--sticky_kappa', default=100, help='value of kappa in sticky transition')
 @click.option('--acc_factor', default=None, help="acc factor in direction model")
-@click.option('--lags', default=30, help="number of lags")
+@click.option('--lags', default=10, help="number of lags")
 @click.option('--dh', default=8, help="number of hidden units in lstm block")
+@click.option('--dhs', default="none", help='list of hidden units in the MLP layer')
 @click.option('--train_model', is_flag=True, help='Whether to train the model')
 @click.option('--pbar_update_interval', default=500, help='progress bar update interval')
 @click.option('--load_opt_dir', default="", help='Directory of optimizer to load.')
@@ -54,15 +57,20 @@ import json
 @click.option('--list_of_k_steps', default='5', help='list of number of steps prediction forward')
 @click.option('--sample_t', default=100, help='length of samples')
 @click.option('--quiver_scale', default=0.8, help='scale for the quiver plots')
-def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_opt_dir,
-         transition, sticky_alpha, sticky_kappa, acc_factor, lags, dh, k, x_grids, y_grids, n_x, n_y,
+def main(job_name, lstm_model_type, downsample_n, filter_traj, load_model, load_model_dir, load_opt_dir,
+         transition, sticky_alpha, sticky_kappa, acc_factor, lags, dh, dhs, k, x_grids, y_grids, n_x, n_y,
          train_model, pbar_update_interval, video_clips, torch_seed, np_seed,
          list_of_num_iters, list_of_lr, list_of_k_steps, sample_t, quiver_scale):
     if job_name is None:
         raise ValueError("Please provide the job name.")
+    assert lstm_model_type in ["uni", "multi"], "lstm_model_dypte must be choosen from 'uni' and 'multi'."
     K = k
     sample_T = sample_t
-    video_clip_start, video_clip_end = [int(x) for x in video_clips.split(",")]
+    video_clip_start, video_clip_end = [float(x) for x in video_clips.split(",")]
+    if dhs == 'none':
+        dhs = None
+    else:
+        dhs = [int(d_hidden) for d_hidden in dhs.split(",")]
     list_of_num_iters = [int(x) for x in list_of_num_iters.split(",")]
     list_of_lr = [float(x) for x in list_of_lr.split(",")]
     list_of_k_steps = [int(x) for x in list_of_k_steps.split(",")]
@@ -83,7 +91,9 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
     data_dir = repo_dir + '/SocialBehaviorptc/data/trajs_all'
     trajs = joblib.load(data_dir)
 
-    traj = trajs[36000*video_clip_start:36000*video_clip_end]
+    start = int(36000*video_clip_start)
+    end = int(36000*video_clip_end)
+    traj = trajs[start:end]
     traj = downsample(traj, downsample_n)
     if filter_traj:
         traj = filter_traj_by_speed(traj, q1=0.99, q2=0.99)
@@ -101,12 +111,12 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
         print("Loading the model from ", load_model_dir)
         model = joblib.load(load_model_dir)
         tran = model.observation.transformation
-        assert isinstance(tran, LSTMTransformation),\
+        assert isinstance(tran, (LSTMTransformation, UniLSTMTransformation)),\
             "tran should be {}, but is {}".format(LSTMTransformation, type(tran))
 
         K = model.K
-
         acc_factor = tran.acc_factor
+        lstm_model_type = "uni" if isinstance(tran, UniLSTMTransformation) else "multi"
 
     else:
         print("Creating the model...")
@@ -116,7 +126,7 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
         if acc_factor is None:
             acc_factor = downsample_n * 10
 
-        tran = LSTMTransformation(K=K, D=D, Df=Df, feature_vec_func=f_corner_vec_func, lags=lags, dh=dh,
+        tran = LSTMTransformation(K=K, D=D, Df=Df, feature_vec_func=f_corner_vec_func, lags=lags, dh=dh, dhs=dhs,
                                   acc_factor=acc_factor)
         obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=lags, bounds=bounds, transformation=tran)
 
@@ -144,7 +154,9 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
 
     # save experiment params
     exp_params = {"job_name":   job_name,
+                  "lstm_model_tyoe": lstm_model_type,
                   'downsample_n': downsample_n,
+                  "filter_traj": filter_traj,
                   "load_model": load_model,
                   "load_model_dir": load_model_dir,
                   "load_opt_dir": load_opt_dir,
@@ -155,6 +167,7 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
                   "K": K,
                   "lags": lags,
                   "dh": dh,
+                  "dhs": dhs,
                   "n_x": n_x,
                   "n_y": n_y,
                   "x_grids": x_grids,
@@ -171,7 +184,7 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
     print("Experiment params:")
     print(exp_params)
 
-    rslt_dir = addDateTime("rslts/lstm/" + job_name)
+    rslt_dir = addDateTime("rslts/lstm/{}/{}".format(lstm_model_type, job_name))
     rslt_dir = os.path.join(repo_dir, rslt_dir)
     if not os.path.exists(rslt_dir):
         os.makedirs(rslt_dir)

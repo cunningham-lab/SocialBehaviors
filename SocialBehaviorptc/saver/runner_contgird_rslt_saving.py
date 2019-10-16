@@ -8,6 +8,7 @@ import joblib
 from project_ssms.coupled_transformations.lineargrid_transformation import LinearGridTransformation
 from project_ssms.coupled_transformations.weightedgrid_transformation import WeightedGridTransformation
 from project_ssms.coupled_transformations.lstm_transformation import LSTMTransformation
+from project_ssms.coupled_transformations.uni_lstm_transformation import UniLSTMTransformation
 from project_ssms.coupled_transformations.lstm_based_transformation import LSTMBasedTransformation
 from project_ssms.utils import k_step_prediction_for_lineargrid_model, k_step_prediction_for_weightedgrid_model, \
     k_step_prediction_for_lstm_model, k_step_prediction_for_lstm_based_model
@@ -50,7 +51,7 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
         x_predict = k_step_prediction_for_lineargrid_model(model, z, data_to_predict, **memory_kwargs)
     elif isinstance(tran, WeightedGridTransformation):
         x_predict = k_step_prediction_for_weightedgrid_model(model, z, data_to_predict, **memory_kwargs)
-    elif isinstance(tran, LSTMTransformation):
+    elif isinstance(tran, (LSTMTransformation, UniLSTMTransformation)):
         x_predict = k_step_prediction_for_lstm_model(model, z, data_to_predict,
                                                      feature_vecs=memory_kwargs["feature_vecs"])
     elif isinstance(tran, LSTMBasedTransformation):
@@ -192,6 +193,7 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
 
     plot_realdata_quiver(data, z, K, x_grids, y_grids, title="ground truth")
     plt.savefig(rslt_dir + "/samples/quiver_ground_truth.jpg", dpi=200)
+    plt.close()
 
     plot_realdata_quiver(sample_x, sample_z, K, x_grids, y_grids, title="sample")
     plt.savefig(rslt_dir + "/samples/quiver_sample_x_{}.jpg".format(sample_T), dpi=200)
