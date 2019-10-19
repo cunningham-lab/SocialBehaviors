@@ -1,8 +1,8 @@
 import numpy as np
 import torch
 
-import matplotlib.pyplot as plt
 import matplotlib.colors
+from matplotlib import pyplot as plt
 from moviepy.editor import VideoClip
 from moviepy.video.io.bindings import mplfig_to_npimage
 import joblib
@@ -11,7 +11,7 @@ import os
 import git
 
 from project_ssms.utils import downsample
-
+from ssm_ptc.utils import get_np
 
 def add_grid(x_grids, y_grids, grid_alpha=1.0):
     if x_grids is None or y_grids is None:
@@ -280,9 +280,80 @@ def plot_animation(save_video_dir, sample_name, x, z, K, fps, xlim, ylim, grid_a
         animation.write_videofile("{}/{}_traj.mp4".format(save_video_dir, sample_name), fps=fps)
 
 
+def plot_data_condition_on_zk(data, z, k, size=2, alpha=0.3):
+
+    data_zk = data[z == k]
+    plt.scatter(data_zk[:, 0], data_zk[:, 1], label='virgin', s=size, alpha=alpha)
+    plt.scatter(data_zk[:, 2], data_zk[:, 3], label='mother', s=size, alpha=alpha)
+
+    lgnd = plt.legend(loc='upper right', scatterpoints=1)
+    for i in range(2):
+        lgnd.legendHandles[i]._sizes = [30]
+
+
+def plot_data_condition_on_all_zs(data, z, K, size=2, alpha=0.3):
+    data = get_np(data)
+
+    n_col = 5
+    n_row = int(K/n_col)
+    if K % n_col > 0:
+        n_row += 1
+
+    plt.figure(figsize=(20, 4*n_row))
+
+    title = "spatial occupation under different hidden states"
+    if title is not None:
+        plt.suptitle(title)
+
+    for k in range(K):
+        plt.subplot(n_row, n_col, k+1)
+        plot_data_condition_on_zk(data, z, k, size=size, alpha=alpha)
+        plt.title('K={} '.format(k))
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+
+def plot_2d_time_plot_condition_on_z(data, z, k, time_start, time_end, size=0.5):
+    """
+    assume data is np.ndarray, and time_start and time_end is not None
+    """
+    data = data[time_start:time_end]
+    z = z[time_start:time_end]
+    time_zk = np.where(z == k)[0]
+    data_zk = data[z == k]
+
+    plt.scatter(time_zk, data_zk[:, 0], label='virgin x', s=size)
+    plt.scatter(time_zk, data_zk[:, 1], label='virgin y', s=size)
+
+    plt.scatter(time_zk, data_zk[:, 2], label='mother x', s=size)
+    plt.scatter(time_zk, data_zk[:, 3], label='mother y', s=size)
+
+    plt.title('k={}'.format(k), x=-0.03, y=0.3, fontsize=20)
+
+    lgnd = plt.legend(loc='upper right', scatterpoints=1)
+    for i in range(4):
+        lgnd.legendHandles[i]._sizes = [30]
+
+
+def plot_2d_time_plot_condition_on_all_zs(data, z, K, title, time_start=None, time_end=None, size=0.5):
+    data = get_np(data)
+
+    T, _ = data.shape
+    time_start = time_start if time_start else 0
+    time_end = time_end if time_end else T
+
+    plt.figure(figsize=(30, 2 * K))
+    if title is not None:
+        plt.suptitle(title)
+
+    for k in range(K):
+        plt.subplot(K, 1, k + 1)
+        plot_2d_time_plot_condition_on_z(data, z, k, time_start, time_end, size)
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+
 if __name__ == "__main__":
     plot_animation_helper()
-
-
 
 

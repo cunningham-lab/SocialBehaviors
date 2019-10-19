@@ -71,7 +71,7 @@ def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_pr
     list_of_num_iters = [int(x) for x in list_of_num_iters.split(",")]
     list_of_lr = [float(x) for x in list_of_lr.split(",")]
     list_of_k_steps = [int(x) for x in list_of_k_steps.split(",")]
-    assert len(list_of_num_iters) == len(list_of_lr), "Length of list_of_num_iters must match length of list-of_lr."
+    assert len(list_of_num_iters) == len(list_of_lr), "Length of list_of_num_iters must match length of list_of_lr."
     for lr in list_of_lr:
         if lr > 1:
             raise ValueError("Learning rate should not be larger than 1!")
@@ -91,10 +91,11 @@ def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_pr
     if filter_traj:
         traj = filter_traj_by_speed(traj, q1=0.99, q2=0.99)
 
-    data = torch.tensor(traj, dtype=torch.float64)
+    data = torch.tensor(traj[0:1000], dtype=torch.float64)
     assert 0 <= held_out_proportion < 0.2, \
         "held_out-portion should be between 0 and 0.2 (inclusive), but is {}".format(held_out_proportion)
     T = data.shape[0]
+    print("T={}".format(T))
     breakpoint = int(T*(1-held_out_proportion))
     training_data = data[:breakpoint]
     valid_data = data[breakpoint:]
@@ -252,13 +253,15 @@ def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_pr
                 rslt_saving(rslt_dir=checkpoint_dir, model=model, data=training_data, memory_kwargs=memory_kwargs,
                             list_of_k_steps=list_of_k_steps, sample_T=sample_T,
                             train_model=train_model, losses=losses, quiver_scale=quiver_scale,
-                            valid_data=valid_data, valid_losses=valid_losses)
+                            valid_data=valid_data, valid_losses=valid_losses,
+                            valid_data_memory_kwargs=valid_data_memory_kwargs)
 
     else:
         # only save the results
         rslt_saving(rslt_dir=rslt_dir, model=model, data=training_data, memory_kwargs=memory_kwargs,
                     list_of_k_steps=list_of_k_steps, sample_T=sample_T, train_model=False, losses=[],
-                    quiver_scale=quiver_scale, valid_data=valid_data, valid_losses=[])
+                    quiver_scale=quiver_scale, valid_data=valid_data, valid_losses=[],
+                    valid_data_memory_kwargs=valid_data_memory_kwargs)
 
     print("Finish running!")
 

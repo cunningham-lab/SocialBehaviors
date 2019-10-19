@@ -12,7 +12,7 @@ from project_ssms.coupled_transformations.uni_lstm_transformation import UniLSTM
 from project_ssms.coupled_transformations.lstm_based_transformation import LSTMBasedTransformation
 from project_ssms.utils import k_step_prediction_for_lineargrid_model, k_step_prediction_for_weightedgrid_model, \
     k_step_prediction_for_lstm_model, k_step_prediction_for_lstm_based_model
-from project_ssms.plot_utils import plot_z, plot_mouse
+from project_ssms.plot_utils import plot_z, plot_mouse, plot_data_condition_on_all_zs, plot_2d_time_plot_condition_on_all_zs
 from project_ssms.grid_utils import plot_quiver, plot_realdata_quiver, \
     get_all_angles, get_speed, plot_list_of_angles, plot_list_of_speed, plot_space_dist
 from project_ssms.constants import *
@@ -173,6 +173,7 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
         saving_dict['losses'] = losses
         plt.figure()
         plt.plot(losses)
+        plt.title("training loss")
         plt.savefig(rslt_dir + "/losses.jpg")
         plt.close()
 
@@ -180,6 +181,7 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
             saving_dict['valid_losses'] = valid_losses
             plt.figure()
             plt.plot(valid_losses)
+            plt.title("validation loss")
             plt.savefig(rslt_dir + "/valid_losses.jpg")
             plt.close()
 
@@ -190,7 +192,7 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     plt.savefig(rslt_dir + "/z.jpg")
     plt.close()
 
-    plot_z(z, K, title="most likely z for valid data")
+    plot_z(z_valid, K, title="most likely z for valid data")
     plt.savefig(rslt_dir + "/z_valid.jpg")
     plt.close()
 
@@ -214,7 +216,7 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     plt.close()
 
     plt.figure(figsize=(4, 4))
-    plot_mouse(data, title="ground truth (valid)", xlim=[ARENA_XMIN - 20, ARENA_YMAX + 20],
+    plot_mouse(valid_data, title="ground truth (valid)", xlim=[ARENA_XMIN - 20, ARENA_YMAX + 20],
                ylim=[ARENA_YMIN - 20, ARENA_YMAX + 20])
     plt.legend()
     plt.savefig(rslt_dir + "/samples/ground_truth_valid.jpg")
@@ -278,6 +280,21 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     if not os.path.exists(rslt_dir + "/distributions"):
         os.makedirs(rslt_dir + "/distributions")
         print("Making distributions directory...")
+
+    # sanity checks
+    plot_data_condition_on_all_zs(data, z, K, size=2, alpha=0.3)
+    plt.savefig(rslt_dir + "/distributions/spatial_occup_groundtruth.jpg", dpi=100)
+    plot_data_condition_on_all_zs(sample_x, sample_z, K, size=2, alpha=0.3)
+    plt.savefig(rslt_dir + "/distributions/spatial_occup_sample_x.jpg", dpi=100)
+    plot_data_condition_on_all_zs(sample_x_center, sample_z_center, K, size=2, alpha=0.3)
+    plt.savefig(rslt_dir + "/distributions/spatial_occup_sample_x_center.jpg", dpi=100)
+
+    plot_2d_time_plot_condition_on_all_zs(data, z, K, title='ground truth')
+    plt.savefig(rslt_dir + "/distributions/4traces_groundtruth.jpg", dpi=100)
+    plot_2d_time_plot_condition_on_all_zs(sample_x, sample_z, K, title='sample_x')
+    plt.savefig(rslt_dir + "/distributions/4traces_sample_x.jpg", dpi=100)
+    plot_2d_time_plot_condition_on_all_zs(sample_x_center, sample_z_center, K, title='sample_x_center')
+    plt.savefig(rslt_dir + "/distributions/4traces_sample_x_center.jpg", dpi=100)
 
     data_angles_a, data_angles_b = get_all_angles(data, x_grids, y_grids)
     sample_angles_a, sample_angles_b = get_all_angles(sample_x, x_grids, y_grids)

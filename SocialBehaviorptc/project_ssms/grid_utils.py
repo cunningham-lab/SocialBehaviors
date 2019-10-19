@@ -1,13 +1,15 @@
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
+from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
 import matplotlib.animation as animation
 
 import seaborn as sns
+from torch import __init__
 
 from ssm_ptc.utils import check_and_convert_to_tensor
-from project_ssms.plot_utils import get_colors_and_cmap
+from project_ssms.plot_utils import get_colors_and_cmap, add_grid
 from project_ssms.utils import downsample
 
 
@@ -82,7 +84,6 @@ def plot_realdata_quiver(realdata, z, K, x_grids=None, y_grids=None,
         plt.figure(figsize=(16, 7))
         if title is not None:
             plt.suptitle(title)
-            plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 
         plt.subplot(1, 2, 1)
         plt.quiver(start[:, 0], start[:, 1], dXY[:, 0], dXY[:, 1],
@@ -117,6 +118,8 @@ def plot_realdata_quiver(realdata, z, K, x_grids=None, y_grids=None,
         if cluster_centers is not None:
             assert isinstance(cluster_centers, np.ndarray), "cluster_centers should be ndarray."
             plt.scatter(cluster_centers[:,2], cluster_centers[:,3], color='k', marker='*')
+
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 
 
 def plot_animation(x, z, K, mouse='both', x_grids=None, y_grids=None, grid_alpha=0.8, xlim=None, ylim=None,
@@ -292,6 +295,9 @@ def add_percentage(k, percentage, grid_centers):
 
 def plot_dynamics(weighted_corner_vecs, animal, x_grids, y_grids, K, scale=0.1, percentage=None, title=None,
                   grid_alpha=1):
+    """
+    This is for the illustration of the dynamics of the discrete grid model. Probably want to make the case of K>8
+    """
     if isinstance(x_grids, torch.Tensor):
         x_grids = x_grids.numpy()
     if isinstance(y_grids, torch.Tensor):
@@ -614,6 +620,24 @@ def plot_list_of_speed(list_of_speed,  labels, title_name, n_x, n_y):
                 plt.legend(custom_lines, ['data', 'sample_x', 'sample_x_center'])
 
 
+def test_plot_grid_and_weight_idx(n_x, n_y):
+
+    plt.figure(figsize=(n_x * 5, n_y * 4))
+
+    for j in range(n_y):
+        for i in range(n_x):
+            plt.subplot(n_y, n_x, (n_y - j - 1) * n_x + i + 1)
+
+            plot_idx = (n_y - j - 1) * n_x + i + 1
+            grid_idx = i * n_y + j
+            plt.text(0.5, 0.5, "plot_index: {}".format(plot_idx), fontsize=12, color='k')
+
+            plt.text(0.8, 0.3, "grid_index: {}".format(grid_idx), fontsize=12, color='k')
+            plt.xticks(np.arange(0, 4, 1), ["lower L", "upper L", "lower R", "upper R"])
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+
 def plot_space_dist(data, x_grids, y_grids, grid_alpha=1):
     # TODO: there are some
     T, D = data.shape
@@ -642,22 +666,4 @@ def plot_space_dist(data, x_grids, y_grids, grid_alpha=1):
 
         sns.kdeplot(data[:,0], data[:,1], n_levels=n_levels)
         add_grid(x_grids, y_grids)
-
-
-def test_plot_grid_and_weight_idx(n_x, n_y):
-
-    plt.figure(figsize=(n_x * 5, n_y * 4))
-
-    for j in range(n_y):
-        for i in range(n_x):
-            plt.subplot(n_y, n_x, (n_y - j - 1) * n_x + i + 1)
-
-            plot_idx = (n_y - j - 1) * n_x + i + 1
-            grid_idx = i * n_y + j
-            plt.text(0.5, 0.5, "plot_index: {}".format(plot_idx), fontsize=12, color='k')
-
-            plt.text(0.8, 0.3, "grid_index: {}".format(grid_idx), fontsize=12, color='k')
-            plt.xticks(np.arange(0, 4, 1), ["lower L", "upper L", "lower R", "upper R"])
-
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 

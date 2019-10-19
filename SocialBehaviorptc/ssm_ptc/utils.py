@@ -105,7 +105,7 @@ def check_and_convert_to_tensor(inputs, dtype=torch.float64):
 
 def get_np(input):
     if isinstance(input, np.ndarray):
-        return np
+        return input
     elif isinstance(input, torch.Tensor):
         if input.requires_grad:
            return input.detach().numpy()
