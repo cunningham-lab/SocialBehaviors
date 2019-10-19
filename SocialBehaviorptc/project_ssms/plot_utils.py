@@ -228,7 +228,8 @@ def plot_animation(save_video_dir, sample_name, x, z, K, fps, xlim, ylim, grid_a
                        angles='xy', scale_units='xy', scale=1, color=colors[z[start_idx]], cmap=cm)
 
             plt.subplot(1, 2, 2)
-            plt.quiver(start[start_idx:num_frame, 2], start[start_idx:num_frame, 3], dXY[start_idx:num_frame, 2], dXY[start_idx:num_frame, 3],
+            plt.quiver(start[start_idx:num_frame, 2], start[start_idx:num_frame, 3],
+                       dXY[start_idx:num_frame, 2], dXY[start_idx:num_frame, 3],
                        angles='xy', scale_units='xy', scale=1, color=colors[z[start_idx]], cmap=cm)
 
             return mplfig_to_npimage(fig)

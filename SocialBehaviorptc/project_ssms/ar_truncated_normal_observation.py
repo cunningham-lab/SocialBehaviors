@@ -61,6 +61,9 @@ class ARTruncatedNormalObservation(BaseObservation):
         self.log_sigmas = torch.tensor(self.log_sigmas[perm], requires_grad=self.log_sigmas.requires_grad)
         self.transformation.permute(perm)
 
+    def log_prior(self):
+        return self.transformation.log_prior()
+
     def log_prob(self, data, **memory_args):
         mus = self._compute_mus_for(data, **memory_args)  # (T, K, D)
 

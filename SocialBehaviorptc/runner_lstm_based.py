@@ -8,7 +8,7 @@ from project_ssms.utils import downsample
 from project_ssms.constants import ARENA_XMIN, ARENA_XMAX, ARENA_YMIN, ARENA_YMAX
 
 from saver.rslts_saving import addDateTime, NumpyEncoder
-from saver.runner_contgird_rslt_saving import rslt_saving
+from saver.runner_contgrid_rslt_saving import rslt_saving
 
 import torch
 import numpy as np

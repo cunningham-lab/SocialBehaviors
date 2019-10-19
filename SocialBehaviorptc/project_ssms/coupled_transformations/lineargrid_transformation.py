@@ -11,14 +11,21 @@ class LinearGridTransformation(BaseTransformation):
     weights of any random point = 2D linear interpolation of the nearby four grid points
     """
 
-    def __init__(self, K, D, x_grids, y_grids, Df, feature_vec_func, acc_factor=2, lags=1):
+    def __init__(self, K, D, x_grids, y_grids, Df, feature_vec_func, acc_factor=2, lags=1,
+                 use_log_prior=False, add_log_diagonal_prior=False, log_prior_sigma_sq=-np.log(1e3)):
         assert lags == 1, "lags should be 1 for lineargrid transformation."
         super(LinearGridTransformation, self).__init__(K, D)
 
         self.d = int(self.D / 2)
 
+        self.use_log_prior = use_log_prior
+        self.add_log_diagonal_prior = add_log_diagonal_prior
+        self.log_prior_sigma_sq = torch.tensor(log_prior_sigma_sq, dtype=torch.float64)
+
         self.x_grids = check_and_convert_to_tensor(x_grids, dtype=torch.float64)  # [x_0, x_1, ..., x_m]
         self.y_grids = check_and_convert_to_tensor(y_grids, dtype=torch.float64)  # a list [y_0, y_1, ..., y_n]
+        self.n_x = len(x_grids) - 1
+        self.n_y = len(y_grids) - 1
 
         self.Df = Df
         self.feature_vec_func = feature_vec_func
@@ -42,6 +49,33 @@ class LinearGridTransformation(BaseTransformation):
 
     def permute(self, perm):
         self.Ws = self.Ws[perm]
+
+    def log_prior(self):
+        if not self.use_log_prior:
+            return 0
+
+        # first, (K, 2, Df)
+        log_p_vertical = torch.stack([self.Ws[:,:,i*(self.n_y+1)+j] - self.Ws[:,:,i*(self.n_y+1)+j+1]
+                                      for i in range(self.n_x+1) for j in range(self.n_y)], dim=2)
+        assert log_p_vertical.shape == (self.K, 2, (self.n_x+1)*self.n_y, self.Df)
+        log_p_horizontal = torch.stack([self.Ws[:,:,i*(self.n_y+1)+j] - self.Ws[:,:,(i+1)*(self.n_y+1)+j]
+                                        for i in range(self.n_x) for j in range(self.n_y+1)], dim=2)
+        assert log_p_horizontal.shape == (self.K, 2, self.n_x*(self.n_y+1), self.Df)
+        #TODO: add diagonal term
+        log_prior = torch.sum(log_p_vertical**2) + torch.sum(log_p_horizontal**2)
+        if self.add_log_diagonal_prior:
+            log_p_diagonal_ll_to_ur = torch.stack([self.Ws[:,:,i*(self.n_y+1)+j] - self.Ws[:,:,(i+1)*(self.n_y+1)+j+1]
+                                                   for i in range(self.n_x) for j in range(self.n_y)], dim=2)
+            assert log_p_diagonal_ll_to_ur.shape == (self.K, 2, self.n_x*self.n_y, self.Df)
+            log_p_diagonal_ul_to_lr = torch.stack([self.Ws[:,:,i*(self.n_y+1)+j+1] - self.Ws[:,:,(i+1)*(self.n_y+1)+j]
+                                                   for i in range(self.n_x) for j in range(self.n_y)], dim=2)
+            assert log_p_diagonal_ul_to_lr.shape == (self.K, 2, self.n_x*self.n_y, self.Df)
+            log_prior = log_prior + torch.sum(log_p_diagonal_ll_to_ur**2) + torch.sum(log_p_diagonal_ul_to_lr**2)
+
+        log_prior = -1/2 * (torch.log(torch.tensor(2*np.pi, dtype=torch.float64)) + self.log_prior_sigma_sq) \
+                    - log_prior/(2*torch.exp(self.log_prior_sigma_sq))
+        assert log_prior.shape == ()
+        return log_prior
 
     def transform(self, inputs, gridpoints=None, gridpoints_idx=None, feature_vecs=None):
         # do a 2D interpolation of weights, and use that for transformation

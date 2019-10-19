@@ -27,3 +27,7 @@ class BaseTransformation:
     @abstractmethod
     def permute(self, perm):
         pass
+
+    def log_prior(self):
+        return 0
+

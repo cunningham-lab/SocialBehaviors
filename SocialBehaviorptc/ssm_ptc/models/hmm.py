@@ -354,8 +354,8 @@ class HMM:
 
     @ensure_args_are_lists_of_tensors
     def fit(self, datas, inputs=None, optimizer=None, method='adam', num_iters=1000, lr=0.001,
-            pbar_update_interval=10, **memory_kwargs):
-
+            pbar_update_interval=10, valid_data=None, valid_data_memory_kwargs=None, **memory_kwargs):
+        # TODO, need to add valid_data to valid_datas
         # TODO: need to modify this
         if isinstance(self.transition, InputDrivenTransition) and inputs is None:
             raise ValueError("Please provide input.")
@@ -377,6 +377,9 @@ class HMM:
                 param_group['lr'] = lr
 
         losses = []
+        if valid_data is not None:
+            valid_losses = []
+            valid_data_memory_kwargs = valid_data_memory_kwargs if valid_data_memory_kwargs else {}
         for i in np.arange(num_iters):
 
             optimizer.zero_grad()
@@ -388,11 +391,18 @@ class HMM:
             loss = loss.detach().numpy()
             losses.append(loss)
 
+            if valid_data is not None:
+                with torch.no_grad():
+                    valid_losses.append(self.loss(valid_data, **valid_data_memory_kwargs).numpy())
+
             if i % pbar_update_interval == 0:
                 pbar.set_description('iter {} loss {:.2f}'.format(i, loss))
                 pbar.update(pbar_update_interval)
 
         pbar.close()
+
+        if valid_data is not None:
+            return losses, optimizer, valid_losses
 
         return losses, optimizer
 

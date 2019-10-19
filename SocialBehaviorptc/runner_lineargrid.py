@@ -8,7 +8,7 @@ from project_ssms.utils import downsample
 from project_ssms.constants import ARENA_XMIN, ARENA_XMAX, ARENA_YMIN, ARENA_YMAX
 
 from saver.rslts_saving import addDateTime, NumpyEncoder
-from saver.runner_contgird_rslt_saving import rslt_saving
+from saver.runner_contgrid_rslt_saving import rslt_saving
 
 import torch
 import numpy as np
@@ -27,6 +27,10 @@ import json
 @click.option('--job_name', default=None, help='name of the job')
 @click.option('--downsample_n', default=1, help='downsample factor. Data size will reduce to 1/downsample_n')
 @click.option('--filter_traj', is_flag=True, help='whether or not to filter the trajectory by SPEED')
+@click.option('--use_log_prior', is_flag=True, help='whether to use log_prior to smooth the dynamics')
+@click.option('--add_log_diagonal_prior', is_flag=True,
+              help='whether to add log_diagonal_prior to smooth the dynamics diagonally')
+@click.option('--log_prior_sigma_sq', default=-np.log(1e3), help='the variance for the weight smoothing prior')
 @click.option('--load_model', is_flag=True, help='Whether to load the (trained) model')
 @click.option('--load_model_dir', default="", help='Directory of model to load')
 @click.option('--transition', default="stationary", help='type of transition (str)')
@@ -37,6 +41,7 @@ import json
 @click.option('--pbar_update_interval', default=500, help='progress bar update interval')
 @click.option('--load_opt_dir', default="", help='Directory of optimizer to load.')
 @click.option('--video_clips', default="0,1", help='The starting video clip of the training data')
+@click.option('--held_out_proportion', default=0.05, help='the proportion of the held-out dataset in the whole dataset')
 @click.option('--torch_seed', default=0, help='torch random seed')
 @click.option('--np_seed', default=0, help='numpy random seed')
 @click.option('--k', default=4, help='number of hidden states. Would be overwritten if load model.')
@@ -52,14 +57,16 @@ import json
 @click.option('--list_of_k_steps', default='5', help='list of number of steps prediction forward')
 @click.option('--sample_t', default=100, help='length of samples')
 @click.option('--quiver_scale', default=0.8, help='scale for the quiver plots')
-def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_opt_dir,
+def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_prior, log_prior_sigma_sq,
+         load_model, load_model_dir, load_opt_dir,
          transition, sticky_alpha, sticky_kappa, acc_factor, k, x_grids, y_grids, n_x, n_y,
-         train_model, pbar_update_interval, video_clips, torch_seed, np_seed,
+         train_model, pbar_update_interval, video_clips, held_out_proportion, torch_seed, np_seed,
          list_of_num_iters, list_of_lr, list_of_k_steps, sample_t, quiver_scale):
     if job_name is None:
         raise ValueError("Please provide the job name.")
     K = k
     sample_T = sample_t
+    log_prior_sigma_sq = float(log_prior_sigma_sq)
     video_clip_start, video_clip_end = [int(x) for x in video_clips.split(",")]
     list_of_num_iters = [int(x) for x in list_of_num_iters.split(",")]
     list_of_lr = [float(x) for x in list_of_lr.split(",")]
@@ -85,6 +92,12 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
         traj = filter_traj_by_speed(traj, q1=0.99, q2=0.99)
 
     data = torch.tensor(traj, dtype=torch.float64)
+    assert 0 <= held_out_proportion < 0.2, \
+        "held_out-portion should be between 0 and 0.2 (inclusive), but is {}".format(held_out_proportion)
+    T = data.shape[0]
+    breakpoint = int(T*(1-held_out_proportion))
+    training_data = data[:breakpoint]
+    valid_data = data[breakpoint:]
 
     ######################### model ####################
 
@@ -129,7 +142,9 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
             acc_factor = downsample_n * 10
 
         tran = LinearGridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids,
-                                        Df=Df, feature_vec_func=f_corner_vec_func, acc_factor=acc_factor)
+                                        Df=Df, feature_vec_func=f_corner_vec_func, acc_factor=acc_factor,
+                                        use_log_prior=use_log_prior, add_log_diagonal_prior=add_log_diagonal_prior,
+                                        log_prior_sigma_sq=log_prior_sigma_sq)
         obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=1, bounds=bounds, transformation=tran)
 
         if transition == 'sticky':
@@ -137,11 +152,15 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
         else:
             transition_kwargs = None
         model = HMM(K=K, D=D, M=M, transition=transition, observation=obs, transition_kwargs=transition_kwargs)
-        model.observation.mus_init = data[0] * torch.ones(K, D, dtype=torch.float64)
+        model.observation.mus_init = training_data[0] * torch.ones(K, D, dtype=torch.float64)
 
     # save experiment params
     exp_params = {"job_name":   job_name,
                   'downsample_n': downsample_n,
+                  "filter_traj": filter_traj,
+                  "use_log_prior": use_log_prior,
+                  "add_log_diagonal_prior": add_log_diagonal_prior,
+                  "log_prior_sigma_sq": log_prior_sigma_sq,
                   "load_model": load_model,
                   "load_model_dir": load_model_dir,
                   "load_opt_dir": load_opt_dir,
@@ -150,17 +169,22 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
                   "sticky_kappa": sticky_kappa,
                   "acc_factor": acc_factor,
                   "K": K,
-                  "n_x": n_x,
-                  "n_y": n_y,
                   "x_grids": x_grids,
                   "y_grids": y_grids,
+                  "n_x": n_x,
+                  "n_y": n_y,
                   "train_model": train_model,
                   "pbar_update_interval": pbar_update_interval,
-                  "list_of_num_iters": list_of_num_iters,
-                  "list_of_lr": list_of_lr,
                   "video_clip_start": video_clip_start,
                   "video_clip_end": video_clip_end,
-                  "sample_T": sample_T}
+                  "held_out_proportion": held_out_proportion,
+                  "torch_seed": torch_seed,
+                  "np_seed": np_seed,
+                  "list_of_num_iters": list_of_num_iters,
+                  "list_of_lr": list_of_lr,
+                  "list_of_k_steps": list_of_k_steps,
+                  "sample_T": sample_T,
+                  "quiver_scale": quiver_scale}
 
     print("Experiment params:")
     print(exp_params)
@@ -176,18 +200,30 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
 
     # compute memory
     print("Computing memory...")
-    gridpoints_idx_a = tran.get_gridpoints_idx_for_batch(data[:-1, 0:2])  # (T-1, GP, 4)
-    gridpoints_idx_b = tran.get_gridpoints_idx_for_batch(data[:-1, 2:4])  # (T-1, GP, 4)
+    gridpoints_idx_a = tran.get_gridpoints_idx_for_batch(training_data[:-1, 0:2])  # (T-1, GP, 4)
+    gridpoints_idx_b = tran.get_gridpoints_idx_for_batch(training_data[:-1, 2:4])  # (T-1, GP, 4)
     gridpoints_a = tran.get_gridpoints_for_batch(gridpoints_idx_a)  # (T-1, d, 2)
     gridpoints_b = tran.get_gridpoints_for_batch(gridpoints_idx_b)  # (T-1, d, 2)
-    feature_vecs_a = f_corner_vec_func(data[:-1, 0:2])  # (T, Df, 2)
-    feature_vecs_b = f_corner_vec_func(data[:-1, 2:4])  # (T, Df, 2)
+    feature_vecs_a = f_corner_vec_func(training_data[:-1, 0:2])  # (T, Df, 2)
+    feature_vecs_b = f_corner_vec_func(training_data[:-1, 2:4])  # (T, Df, 2)
 
     gridpoints_idx = (gridpoints_idx_a, gridpoints_idx_b)
     gridpoints = (gridpoints_a, gridpoints_b)
     feature_vecs = (feature_vecs_a, feature_vecs_b)
 
+    gridpoints_idx_a_v = tran.get_gridpoints_idx_for_batch(valid_data[:-1, 0:2])  # (T-1, GP, 4)
+    gridpoints_idx_b_v = tran.get_gridpoints_idx_for_batch(valid_data[:-1, 2:4])  # (T-1, GP, 4)
+    gridpoints_a_v = tran.get_gridpoints_for_batch(gridpoints_idx_a_v)  # (T-1, d, 2)
+    gridpoints_b_v = tran.get_gridpoints_for_batch(gridpoints_idx_b_v)  # (T-1, d, 2)
+    feature_vecs_a_v = f_corner_vec_func(valid_data[:-1, 0:2])  # (T, Df, 2)
+    feature_vecs_b_v = f_corner_vec_func(valid_data[:-1, 2:4])  # (T, Df, 2)
+
+    gridpoints_idx_v = (gridpoints_idx_a_v, gridpoints_idx_b_v)
+    gridpoints_v = (gridpoints_a_v, gridpoints_b_v)
+    feature_vecs_v = (feature_vecs_a_v, feature_vecs_b_v)
+
     memory_kwargs = dict(gridpoints_idx=gridpoints_idx, gridpoints=gridpoints, feature_vecs=feature_vecs)
+    valid_data_memory_kwargs = dict(gridpoints_idx=gridpoints_idx_v, gridpoints=gridpoints_v, feature_vecs=feature_vecs_v)
 
     ##################### training ############################
     if train_model:
@@ -198,9 +234,9 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
         else:
             opt = None
         for i, (num_iters, lr) in enumerate(zip(list_of_num_iters, list_of_lr)):
-            losses, opt = model.fit(data, optimizer=opt, method='adam', num_iters=num_iters, lr=lr,
-                                    pbar_update_interval=pbar_update_interval,
-                                    **memory_kwargs)
+            losses, opt, valid_losses = model.fit(training_data, optimizer=opt, method='adam', num_iters=num_iters, lr=lr,
+                                    pbar_update_interval=pbar_update_interval, valid_data=valid_data,
+                                    valid_data_memory_kwargs=valid_data_memory_kwargs, **memory_kwargs)
             list_of_losses.append(losses)
 
             checkpoint_dir = rslt_dir + "/checkpoint_{}".format(i)
@@ -212,13 +248,17 @@ def main(job_name, downsample_n, filter_traj, load_model, load_model_dir, load_o
             joblib.dump(model, checkpoint_dir+"/model")
             joblib.dump(opt, checkpoint_dir+"/optimizer")
             # save rest
-            rslt_saving(checkpoint_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
-                        train_model, losses, quiver_scale)
+            with torch.no_grad():
+                rslt_saving(rslt_dir=checkpoint_dir, model=model, data=training_data, memory_kwargs=memory_kwargs,
+                            list_of_k_steps=list_of_k_steps, sample_T=sample_T,
+                            train_model=train_model, losses=losses, quiver_scale=quiver_scale,
+                            valid_data=valid_data, valid_losses=valid_losses)
 
     else:
         # only save the results
-        rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
-                    False, [], quiver_scale)
+        rslt_saving(rslt_dir=rslt_dir, model=model, data=training_data, memory_kwargs=memory_kwargs,
+                    list_of_k_steps=list_of_k_steps, sample_T=sample_T, train_model=False, losses=[],
+                    quiver_scale=quiver_scale, valid_data=valid_data, valid_losses=[])
 
     print("Finish running!")
 
