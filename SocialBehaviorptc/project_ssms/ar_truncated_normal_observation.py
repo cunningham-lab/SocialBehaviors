@@ -85,6 +85,7 @@ class ARTruncatedNormalObservation(BaseObservation):
         if xhist is None or xhist.shape[0] == 0:
 
             mu = self.mus_init[z]  # (D,)
+            log_sigma = self.log_sigmas_init[z]
         else:
             # sample from the autoregressive distribution
 
@@ -94,6 +95,8 @@ class ARTruncatedNormalObservation(BaseObservation):
             else:
                 mu = self.transformation.transform_condition_on_z(z, xhist[-self.lags:], **memory_kwargs)  # (D, )
             assert mu.shape == (self.D,)
+
+            log_sigma = self.log_sigmas[z]
 
         if transformation:
             samples = mu
@@ -108,7 +111,7 @@ class ARTruncatedNormalObservation(BaseObservation):
 
         else:
             # TODO: fix domain error here, add debug infor to print arg check
-            dist = TruncatedNormal(mus=mu, log_sigmas=self.log_sigmas[z], bounds=self.bounds)
+            dist = TruncatedNormal(mus=mu, log_sigmas=log_sigma, bounds=self.bounds)
             samples = dist.sample()
 
         if return_np:

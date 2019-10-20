@@ -91,7 +91,7 @@ def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_pr
     if filter_traj:
         traj = filter_traj_by_speed(traj, q1=0.99, q2=0.99)
 
-    data = torch.tensor(traj[0:1000], dtype=torch.float64)
+    data = torch.tensor(traj, dtype=torch.float64)
     assert 0 <= held_out_proportion < 0.2, \
         "held_out-portion should be between 0 and 0.2 (inclusive), but is {}".format(held_out_proportion)
     T = data.shape[0]

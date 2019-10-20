@@ -75,8 +75,10 @@ class TruncatedNormal(BaseDistribution):
         sigma = torch.exp(self.log_sigmas)
         bb = self.bounds[..., 1] - self.mus
         aa = self.bounds[..., 0] - self.mus
-        out = normal_log_pdf((data-self.mus)/sigma + 1e-15) - self.log_sigmas - \
-              torch.log(normal_cdf(bb/sigma) - normal_cdf(aa/sigma) + 1e-15)
+        out = normal_log_pdf((data - self.mus) / sigma + 1e-15) - self.log_sigmas - \
+              torch.log(normal_cdf(bb / sigma) - normal_cdf(aa / sigma) + 1e-15)
+        #out = normal_log_pdf((data-self.mus)/(sigma + 1e-15)+1e-15) - self.log_sigmas - \
+         #     torch.log(normal_cdf(bb/(sigma+1e-15)) - normal_cdf(aa/(sigma + 1e-15)) + 1e-15)
         return out
 
     def pdf(self, data):
