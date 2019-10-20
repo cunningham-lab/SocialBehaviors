@@ -149,12 +149,12 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     summary_dict = {"init_dist": model.init_dist.detach().numpy(),
                     "transition_matrix": transition_matrix,
                     "variance": torch.exp(model.observation.log_sigmas).detach().numpy(),
-                    "log_likes": model.log_likelihood(data).detach().numpy(),
+                    "log_likes": model.log_likelihood(data, **memory_kwargs).detach().numpy(),
                     "avg_data_speed": avg_data_speed,
                     "avg_sample_speed": avg_sample_speed, "avg_sample_center_speed": avg_sample_center_speed}
     summary_dict = {**dict_of_x_predict_k_err, **summary_dict}
     if valid_data is not None:
-        summary_dict["valid_log_likes"] = model.log_likelihood(valid_data).detach().numpy()
+        summary_dict["valid_log_likes"] = model.log_likelihood(valid_data, **valid_data_memory_kwargs).detach().numpy()
     if isinstance(tran, WeightedGridTransformation):
         summary_dict["beta"] = get_np(tran.beta)
     if isinstance(tran, (LinearGridTransformation, WeightedGridTransformation)):
