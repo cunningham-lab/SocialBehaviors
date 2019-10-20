@@ -112,7 +112,7 @@ def k_step_prediction_for_lineargrid_model(model, model_z, data, gridpoints=None
         feature_vecs_a, feature_vecs_b = feature_vecs
 
         x_predict_arr = []
-        x_predict = model.observation.sample_x(model_z[0], data[:0], return_np=True)
+        x_predict = model.observation.sample_x(model_z[0], data[:0], return_np=True, transformation=True)
         x_predict_arr.append(x_predict)
         for t in range(1, data.shape[0]):
             grid_points_idx_t = (grid_points_idx_a[t - 1], grid_points_idx_b[t - 1])
