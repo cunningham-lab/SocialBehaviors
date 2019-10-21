@@ -31,9 +31,11 @@ class LinearGridTransformation(BaseTransformation):
         self.Df = Df
         self.feature_vec_func = feature_vec_func
         self.acc_factor = acc_factor
+        self.device = device
 
         # shape: (d, GP)
-        self.gridpoints = torch.tensor([(x_grid, y_grid) for x_grid in self.x_grids for y_grid in self.y_grids])
+        self.gridpoints = torch.tensor([(x_grid, y_grid) for x_grid in self.x_grids for y_grid in self.y_grids],
+                                       device=device)
         self.gridpoints = torch.transpose(self.gridpoints, 0, 1)
 
         # number of basis grid points
@@ -77,7 +79,7 @@ class LinearGridTransformation(BaseTransformation):
             assert log_p_diagonal_ul_to_lr.shape == (self.K, 2, self.n_x*self.n_y, self.Df)
             log_prior = log_prior + torch.sum(log_p_diagonal_ll_to_ur**2) + torch.sum(log_p_diagonal_ul_to_lr**2)
 
-        log_prior = -1/2 * (torch.log(torch.tensor(2*np.pi, dtype=torch.float64)) + self.log_prior_sigma_sq) \
+        log_prior = -1/2 * (torch.log(torch.tensor(2*np.pi, dtype=torch.float64, device=self.device)) + self.log_prior_sigma_sq) \
                     - log_prior/(2*torch.exp(self.log_prior_sigma_sq))
         assert log_prior.shape == ()
         return log_prior
