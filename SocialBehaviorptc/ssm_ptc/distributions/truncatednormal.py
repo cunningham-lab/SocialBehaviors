@@ -32,13 +32,13 @@ class TruncatedNormal(BaseDistribution):
     Normal -> scaled sigmoid
     """
 
-    def __init__(self, mus, log_sigmas, bounds):
+    def __init__(self, mus, log_sigmas, bounds, device=torch.device('cpu')):
         super(TruncatedNormal, self).__init__()
 
         self.mus = mus
         self.log_sigmas = log_sigmas
 
-        self.bounds = check_and_convert_to_tensor(bounds, dtype=torch.float64)  # mus.shape + (2, )
+        self.bounds = check_and_convert_to_tensor(bounds, dtype=torch.float64, device=device)  # mus.shape + (2, )
         # assert self.bounds.shape == self.mus.shape + (2,)
 
     def sample(self, sample_shape=torch.Size()):

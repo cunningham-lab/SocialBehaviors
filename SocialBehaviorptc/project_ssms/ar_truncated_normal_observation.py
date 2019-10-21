@@ -31,11 +31,12 @@ class ARTruncatedNormalObservation(BaseObservation):
         self.bounds = check_and_convert_to_tensor(bounds)
         assert self.bounds.shape == (self.D, 2)
 
-        self.mus_init = torch.eye(self.K, self.D, dtype=torch.float64)
+        self.mus_init = torch.eye(self.K, self.D, dtype=torch.float64, device=device)
         self.log_sigmas_init = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, device=device)
         self.log_sigmas = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, device=device,
                                        requires_grad=train_sigma)
-
+        
+        self.device = device
         if isinstance(transformation, BaseTransformation):
             self.transformation = transformation
         elif isinstance(transformation, str):
@@ -69,7 +70,7 @@ class ARTruncatedNormalObservation(BaseObservation):
     def log_prob(self, data, **memory_args):
         mus = self._compute_mus_for(data, **memory_args)  # (T, K, D)
 
-        dist = TruncatedNormal(mus=mus, log_sigmas=self.log_sigmas, bounds=self.bounds)
+        dist = TruncatedNormal(mus=mus, log_sigmas=self.log_sigmas, bounds=self.bounds, device=self.device)
 
         out = dist.log_prob(data[:, None])  # (T, K, D)
         out = torch.sum(out, dim=-1)  # (T, K)
