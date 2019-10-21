@@ -15,7 +15,7 @@ from ssm_ptc.observations.ar_logit_normal_observation import ARLogitNormalObserv
 from ssm_ptc.observations.ar_truncated_normal_observation import ARTruncatedNormalObservation
 from ssm_ptc.message_passing.primitives import viterbi
 from ssm_ptc.message_passing.normalizer import hmmnorm_cython
-from ssm_ptc.utils import check_and_convert_to_tensor, set_param, ensure_args_are_lists_of_tensors
+from ssm_ptc.utils import check_and_convert_to_tensor, set_param, ensure_args_are_lists_of_tensors, get_np
 
 from tqdm import trange
 
@@ -182,11 +182,11 @@ class HMM:
 
         if prefix is None:
             if return_np:
-                return z.numpy(), data.numpy()
+                return get_np(z), get_np(data)
             return z, data
         else:
             if return_np:
-                return z[T_pre:].numpy(), data[T_pre:].numpy()
+                return get_np(z[T_pre:]), get_np(data[T_pre:])
             return z[T_pre:], data[T_pre:]
 
     def loss(self, data, input=None, **memory_kwargs):
@@ -294,19 +294,19 @@ class HMM:
         data = check_and_convert_to_tensor(data)
         T = data.shape[0]
 
-        log_pi0 = self.init_dist.detach().numpy()  # (K, )
+        log_pi0 = get_np(self.init_dist)  # (K, )
 
         if isinstance(self.transition, StationaryTransition):
             log_Ps = self.transition.log_stationary_transition_matrix
-            log_Ps = log_Ps.detach().numpy()  # (K, K)
+            log_Ps = get_np(log_Ps)  # (K, K)
             log_Ps = log_Ps[None,]
         else:
             # TODO: test this
             log_Ps = self.transition.transition_matrix(data, input, log=True)
-            log_Ps = log_Ps.detach().numpy()
+            log_Ps = get_np(log_Ps)
             assert log_Ps.shape == (T - 1, self.K, self.K)
 
-        log_likes = self.observation.log_prob(data, **memory_kwargs).detach().numpy()
+        log_likes = get_np(self.observation.log_prob(data, **memory_kwargs))
         return viterbi(log_pi0, log_Ps, log_likes)
 
     def permute(self, perm):
@@ -349,7 +349,7 @@ class HMM:
             xs[t] = x_t
 
         if return_np:
-            return xs.numpy()
+            return get_np(xs)
         return xs
 
     @ensure_args_are_lists_of_tensors
@@ -387,12 +387,12 @@ class HMM:
             loss.backward()
             optimizer.step()
 
-            loss = loss.detach().numpy()
+            loss = get_np(loss)
             losses.append(loss)
 
             if valid_data is not None:
                 with torch.no_grad():
-                    valid_losses.append(self.loss(valid_data, **valid_data_memory_kwargs).numpy())
+                    valid_losses.append(get_np(self.loss(valid_data, **valid_data_memory_kwargs)))
 
             if i % pbar_update_interval == 0:
                 pbar.set_description('iter {} loss {:.2f}'.format(i, loss))
