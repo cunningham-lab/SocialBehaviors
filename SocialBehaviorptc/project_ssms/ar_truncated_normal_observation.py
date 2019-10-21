@@ -28,7 +28,7 @@ class ARTruncatedNormalObservation(BaseObservation):
 
         if bounds is None:
             raise ValueError("Must provide bounds.")
-        self.bounds = check_and_convert_to_tensor(bounds)
+        self.bounds = check_and_convert_to_tensor(bounds, device=device)
         assert self.bounds.shape == (self.D, 2)
 
         self.mus_init = torch.eye(self.K, self.D, dtype=torch.float64, device=device)
