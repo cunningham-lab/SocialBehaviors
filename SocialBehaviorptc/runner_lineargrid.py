@@ -19,6 +19,8 @@ import os
 import click
 import json
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print("Using device {} \n\n".format(device))
 
 ################### specifying default arguments ################
 
@@ -91,11 +93,10 @@ def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_pr
     if filter_traj:
         traj = filter_traj_by_speed(traj, q1=0.99, q2=0.99)
 
-    data = torch.tensor(traj, dtype=torch.float64)
+    data = torch.tensor(traj, dtype=torch.float64, device=device)
     assert 0 <= held_out_proportion < 0.2, \
         "held_out-portion should be between 0 and 0.2 (inclusive), but is {}".format(held_out_proportion)
     T = data.shape[0]
-    print("T={}".format(T))
     breakpoint = int(T*(1-held_out_proportion))
     training_data = data[:breakpoint]
     valid_data = data[breakpoint:]
@@ -145,15 +146,16 @@ def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_pr
         tran = LinearGridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids,
                                         Df=Df, feature_vec_func=f_corner_vec_func, acc_factor=acc_factor,
                                         use_log_prior=use_log_prior, add_log_diagonal_prior=add_log_diagonal_prior,
-                                        log_prior_sigma_sq=log_prior_sigma_sq)
-        obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=1, bounds=bounds, transformation=tran)
+                                        log_prior_sigma_sq=log_prior_sigma_sq, device=device)
+        obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=1, bounds=bounds, transformation=tran, device=device)
 
         if transition == 'sticky':
             transition_kwargs = dict(alpha=sticky_alpha, kappa=sticky_kappa)
         else:
             transition_kwargs = None
-        model = HMM(K=K, D=D, M=M, transition=transition, observation=obs, transition_kwargs=transition_kwargs)
-        model.observation.mus_init = training_data[0] * torch.ones(K, D, dtype=torch.float64)
+        model = HMM(K=K, D=D, M=M, transition=transition, observation=obs, transition_kwargs=transition_kwargs,
+                    device=device)
+        model.observation.mus_init = training_data[0] * torch.ones(K, D, dtype=torch.float64, device=device)
 
     # save experiment params
     exp_params = {"job_name":   job_name,
@@ -261,7 +263,7 @@ def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_pr
         rslt_saving(rslt_dir=rslt_dir, model=model, data=training_data, memory_kwargs=memory_kwargs,
                     list_of_k_steps=list_of_k_steps, sample_T=sample_T, train_model=False, losses=[],
                     quiver_scale=quiver_scale, valid_data=valid_data, valid_losses=[],
-                    valid_data_memory_kwargs=valid_data_memory_kwargs)
+                    valid_data_memory_kwargs=valid_data_memory_kwargs, device=device)
 
     print("Finish running!")
 
