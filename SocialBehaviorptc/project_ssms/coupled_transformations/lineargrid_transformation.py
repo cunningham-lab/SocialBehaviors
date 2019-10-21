@@ -209,7 +209,7 @@ class LinearGridTransformation(BaseTransformation):
         assert point.shape == (2, )
         find = False
 
-        idx = torch.zeros((self.GP, 4), dtype=torch.float64)
+        idx = torch.zeros((self.GP, 4), dtype=torch.float64, device=self.device)
 
         l_y = len(self.y_grids)
         for i in range(len(self.x_grids)-1):
