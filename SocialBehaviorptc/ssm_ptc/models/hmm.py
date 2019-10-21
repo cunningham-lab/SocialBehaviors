@@ -83,6 +83,8 @@ class HMM:
         else:
             raise ValueError("Invalid observation type.")
 
+        self.device = device
+
     @ensure_args_are_lists_of_tensors
     def initialize(self, datas, inputs=None):
         self.transition.initialize(datas, inputs)
@@ -99,7 +101,7 @@ class HMM:
         assert isinstance(self.transition, StationaryTransition), \
             "Sampling the makov chain only supports for stationary transition"
 
-        z = torch.empty(T, dtype=torch.int)
+        z = torch.empty(T, dtype=torch.int, device=self.device)
         pi0 = self.init_dist.detach()
         z[0] = npr.choice(self.K, p=pi0)
 
@@ -135,8 +137,8 @@ class HMM:
         if prefix is None:
             # no prefix is given. Sample the initial state as the prefix
             T_pre = 1
-            z = torch.empty(T, dtype=torch.int)
-            data = torch.empty((T, D), dtype=dtype)
+            z = torch.empty(T, dtype=torch.int, device=self.device)
+            data = torch.empty((T, D), dtype=dtype, device=self.device)
 
             # sample the first state from the initial distribution
             pi0 = self.init_dist.detach()
@@ -156,9 +158,9 @@ class HMM:
             x_pre = check_and_convert_to_tensor(x_pre, dtype=dtype)
 
             # construct the states and data
-            z = torch.cat((z_pre, torch.empty(T, dtype=torch.int)))
+            z = torch.cat((z_pre, torch.empty(T, dtype=torch.int, device=self.device)))
             assert z.shape == (T_pre + T, )
-            data = torch.cat((x_pre, torch.empty((T, D), dtype=dtype)))
+            data = torch.cat((x_pre, torch.empty((T, D), dtype=dtype, device=self.device)))
 
         if isinstance(self.transition, StationaryTransition):
             P = self.transition.stationary_transition_matrix.detach() # (K, K)
