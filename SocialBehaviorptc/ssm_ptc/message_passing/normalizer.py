@@ -26,7 +26,7 @@ class HMMNormalizerCython(Function):
     @staticmethod
     def backward(ctx, grad_output):
         alphas, log_As = ctx.saved_tensors
-        alphas, log_As = alphas.detach().numpy(), log_As.detach().numpy()
+        alphas, log_As = alphas.detach().cpu().numpy(), log_As.detach().cpu().numpy()
         T, K = alphas.shape
 
         d_log_pi0 = np.zeros(K)
