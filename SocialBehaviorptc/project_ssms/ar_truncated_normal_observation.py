@@ -35,7 +35,7 @@ class ARTruncatedNormalObservation(BaseObservation):
         self.log_sigmas_init = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, device=device)
         self.log_sigmas = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, device=device,
                                        requires_grad=train_sigma)
-        
+
         self.device = device
         if isinstance(transformation, BaseTransformation):
             self.transformation = transformation
