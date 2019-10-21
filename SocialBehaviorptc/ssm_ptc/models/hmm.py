@@ -102,10 +102,10 @@ class HMM:
             "Sampling the makov chain only supports for stationary transition"
 
         z = torch.empty(T, dtype=torch.int, device=self.device)
-        pi0 = self.init_dist.detach()
+        pi0 = get_np(self.init_dist)
         z[0] = npr.choice(self.K, p=pi0)
 
-        P = self.transition.stationary_transition_matrix.detach()  # (K, K)
+        P = get_np(self.transition.stationary_transition_matrix)  # (K, K)
         for t in range(1, T):
             z[t] = npr.choice(self.K, p=P[z[t - 1]])
         return z
@@ -141,7 +141,7 @@ class HMM:
             data = torch.empty((T, D), dtype=dtype, device=self.device)
 
             # sample the first state from the initial distribution
-            pi0 = self.init_dist.detach()
+            pi0 = get_np(self.init_dist)
             z[0] = npr.choice(self.K, p=pi0)
             data[0] = self.observation.sample_x(z[0], data[:0], expectation=transformation, return_np=False, **kwargs)
 
@@ -163,14 +163,14 @@ class HMM:
             data = torch.cat((x_pre, torch.empty((T, D), dtype=dtype, device=self.device)))
 
         if isinstance(self.transition, StationaryTransition):
-            P = self.transition.stationary_transition_matrix.detach() # (K, K)
+            P = get_np(self.transition.stationary_transition_matrix) # (K, K)
             for t in range(T_pre, T_pre + T):
                 z[t] = npr.choice(K, p=P[z[t-1]])
                 data[t] = self.observation.sample_x(z[t], data[:t], transformation=transformation, return_np=False,
                                                     **kwargs)
         else:
             for t in range(T_pre, T_pre + T):
-                P = self.transition.transition_matrix(data[t-1:t+1], input[t-1:t+1]).detach()
+                P = get_np(self.transition.transition_matrix(data[t-1:t+1], input[t-1:t+1]))
                 assert P.shape == (1, self.K, self.K)
                 P = torch.squeeze(P)
                 assert P.shape == (self.K, self.K)
