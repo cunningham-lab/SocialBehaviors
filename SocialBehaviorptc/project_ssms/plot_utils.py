@@ -118,6 +118,7 @@ def plot_4_traces(data, title):
 def plot_animation_helper(save_video_dir, v_start, v_end, data_downsample_n, checkpoint_dir,
                           video_start_and_end, video_downsample_n, fps, xlim, ylim, grid_alpha, video_data_type,
                           color_only, traj_only):
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     if save_video_dir is None:
         raise ValueError("Please provide save_video_dir!")
     if not os.path.exists(save_video_dir):
@@ -147,7 +148,7 @@ def plot_animation_helper(save_video_dir, v_start, v_end, data_downsample_n, che
 
         traj = trajs[36000 * v_start:36000 * v_end]
         traj = downsample(traj, data_downsample_n)
-        data = torch.tensor(traj, dtype=torch.float64)
+        data = torch.tensor(traj, dtype=torch.float64, device=device)
         z = numbers['z']
 
         T, D = data.shape

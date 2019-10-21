@@ -4,7 +4,7 @@ from ssm_ptc.utils import ensure_args_are_lists_of_tensors
 
 class BaseTransition:
 
-    def __init__(self, K, D, M=0):
+    def __init__(self, K, D, M=0, device=torch.device('cpu')):
         self.K, self.D, self.M = K, D, M
 
     @property

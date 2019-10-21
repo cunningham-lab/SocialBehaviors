@@ -26,8 +26,8 @@ class StickyTransition(StationaryTransition):
         pi_k ~ Dir(alpha + kappa * e_k)
     """
 
-    def __init__(self, K, D, M=0, Pi=None, alpha=1, kappa=10):
-        super(StickyTransition, self).__init__(K, D, M, Pi)
+    def __init__(self, K, D, M=0, Pi=None, alpha=1, kappa=10, device=torch.device('cpu')):
+        super(StickyTransition, self).__init__(K, D, M, Pi, device)
 
         # not tensor
         self.alpha = alpha

@@ -19,7 +19,8 @@ TRANSFORMATION_CLASSES = dict(
 
 
 class ARTruncatedNormalObservation(BaseObservation):
-    def __init__(self, K, D, M=0, lags=1, bounds=None, transformation="grid", transformation_kwargs=None, train_sigma=True):
+    def __init__(self, K, D, M=0, lags=1, bounds=None, transformation="grid",
+                 transformation_kwargs=None, train_sigma=True, device=torch.device('cpu')):
 
         super(ARTruncatedNormalObservation, self).__init__(K, D, M)
 
@@ -31,8 +32,9 @@ class ARTruncatedNormalObservation(BaseObservation):
         assert self.bounds.shape == (self.D, 2)
 
         self.mus_init = torch.eye(self.K, self.D, dtype=torch.float64)
-        self.log_sigmas_init = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64)
-        self.log_sigmas = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, requires_grad=train_sigma)
+        self.log_sigmas_init = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, device=device)
+        self.log_sigmas = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, device=device,
+                                       requires_grad=train_sigma)
 
         if isinstance(transformation, BaseTransformation):
             self.transformation = transformation
@@ -43,7 +45,7 @@ class ARTruncatedNormalObservation(BaseObservation):
 
             transformation_kwargs = transformation_kwargs or {}
             self.transformation = TRANSFORMATION_CLASSES[transformation](K=self.K, D=self.D, M=self.M, lags=self.lags,
-                                                                         **transformation_kwargs)
+                                                                         device=device, **transformation_kwargs)
 
     @property
     def params(self):

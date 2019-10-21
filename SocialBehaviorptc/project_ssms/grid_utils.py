@@ -462,19 +462,19 @@ def get_angles_single_from_quiver(dXY):
     return angles
 
 
-def get_all_angles(data, x_grids, y_grids):
+def get_all_angles(data, x_grids, y_grids, device=torch.device('cpu')):
 
     dXY = data[1:] - data[:-1]
     if isinstance(dXY, torch.Tensor):
         dXY = dXY.numpy()
 
-    return get_all_angles_from_quiver(data[:-1], dXY, x_grids, y_grids)
+    return get_all_angles_from_quiver(data[:-1], dXY, x_grids, y_grids, device=device)
 
 
-def get_all_angles_from_quiver(XY, dXY, x_grids, y_grids):
+def get_all_angles_from_quiver(XY, dXY, x_grids, y_grids, device=torch.device('cpu')):
     # XY and dXY should have the same shape
     if isinstance(XY, np.ndarray):
-        XY = torch.tensor(XY, dtype=torch.float64)
+        XY = torch.tensor(XY, dtype=torch.float64, device=device)
 
     _, D = XY.shape
 
@@ -557,27 +557,27 @@ def plot_list_of_angles(list_of_angles, labels, title_name, n_x, n_y):
                        [0, r'$\pi/2$', r'$\pi$', r'$3\pi/2$', r'$2\pi$'])
 
 
-def get_speed(data, x_grids, y_grids):
+def get_speed(data, x_grids, y_grids, device=torch.device('cpu')):
     # data (T, 4)
     _, D = data.shape
     assert D == 4 or D == 2
     if D == 4:
-        speed_a = get_speed_for_single_animal(data[:, 0:2], x_grids, y_grids)
-        speed_b = get_speed_for_single_animal(data[:, 2:4], x_grids, y_grids)
+        speed_a = get_speed_for_single_animal(data[:, 0:2], x_grids, y_grids, device=device)
+        speed_b = get_speed_for_single_animal(data[:, 2:4], x_grids, y_grids, device=device)
         return speed_a, speed_b
     else:
         speed_a = get_speed_for_single_animal(data, x_grids, y_grids)
         return speed_a
 
 
-def get_speed_for_single_animal(data, x_grids, y_grids):
+def get_speed_for_single_animal(data, x_grids, y_grids, device=torch.device('cpu')):
     # data: (T, 2)
     _, D = data.shape
     assert D == 2
 
     if isinstance(data, np.ndarray):
         diff = np.diff(data, axis=0)  # (T-1, 2)
-        data = torch.tensor(data, dtype=torch.float64)
+        data = torch.tensor(data, dtype=torch.float64, device=device)
         masks_a = get_masks_for_single_animal(data[:-1], x_grids, y_grids)
     elif isinstance(data, torch.Tensor):
         masks_a = get_masks_for_single_animal(data[:-1], x_grids, y_grids)

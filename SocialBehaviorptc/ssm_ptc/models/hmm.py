@@ -31,7 +31,7 @@ OBSERVATION_CLASSES = dict(gaussian=ARGaussianObservation,
 class HMM:
 
     def __init__(self, K, D, M=0, transition='stationary', observation="gaussian", pi0=None, Pi=None,
-                 transition_kwargs=None, observation_kwargs=None):
+                 transition_kwargs=None, observation_kwargs=None, device=torch.device('cpu')):
         """
         :param K: number of hidden states
         :param D: dimension of observations
@@ -47,9 +47,9 @@ class HMM:
 
         # parameter for the softmax distribution
         if pi0 is None:
-            self.pi0 = torch.ones(self.K, dtype=torch.float64, requires_grad=True)
+            self.pi0 = torch.ones(self.K, dtype=torch.float64, requires_grad=True, device=device)
         else:
-            self.pi0 = check_and_convert_to_tensor(pi0, dtype=torch.float64)
+            self.pi0 = check_and_convert_to_tensor(pi0, dtype=torch.float64, device=device)
 
         if isinstance(transition, str):
             transition = transition.lower()
@@ -60,7 +60,7 @@ class HMM:
                 raise ValueError("Invalid transition model: {}. Please select from {}.".format(
                     transition, list(TRANSITION_CLASSES.keys())))
 
-            self.transition = TRANSITION_CLASSES[transition](self.K, self.D, self.M, Pi, **transition_kwargs)
+            self.transition = TRANSITION_CLASSES[transition](self.K, self.D, self.M, Pi, device=device, **transition_kwargs)
 
         elif isinstance(transition, BaseTransition):
             self.transition = transition
@@ -76,7 +76,7 @@ class HMM:
                 raise ValueError("Invalid observaiton model: {}. Please select from {}.".format(
                     observation, list(OBSERVATION_CLASSES.keys())))
 
-            self.observation = OBSERVATION_CLASSES[observation](self.K, self.D, self.M, **observation_kwargs)
+            self.observation = OBSERVATION_CLASSES[observation](self.K, self.D, self.M, device=device, **observation_kwargs)
 
         elif isinstance(observation, BaseObservation):
             self.observation = observation

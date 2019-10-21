@@ -8,8 +8,8 @@ from ssm_ptc.utils import set_param
 
 class StationaryTransition(BaseTransition):
 
-    def __init__(self, K, D, M=0, Pi=None, **kwargs):
-        super(StationaryTransition, self).__init__(K, D, M)
+    def __init__(self, K, D, M=0, Pi=None, device=torch.device('cpu'), **kwargs):
+        super(StationaryTransition, self).__init__(K, D, M, device=device)
 
         if Pi is None:
             Pi = 2 * np.eye(K) + .05 * npr.rand(K, K)
@@ -17,7 +17,7 @@ class StationaryTransition(BaseTransition):
             assert isinstance(Pi, np.ndarray)
             assert Pi.shape == (K, K)
 
-        self.Pi = torch.tensor(Pi, dtype=torch.float64, requires_grad=True)
+        self.Pi = torch.tensor(Pi, dtype=torch.float64, device=device, requires_grad=True)
 
     @property
     def params(self):

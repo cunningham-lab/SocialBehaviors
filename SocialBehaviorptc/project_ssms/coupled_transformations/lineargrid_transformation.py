@@ -12,7 +12,8 @@ class LinearGridTransformation(BaseTransformation):
     """
 
     def __init__(self, K, D, x_grids, y_grids, Df, feature_vec_func, acc_factor=2, lags=1,
-                 use_log_prior=False, add_log_diagonal_prior=False, log_prior_sigma_sq=-np.log(1e3)):
+                 use_log_prior=False, add_log_diagonal_prior=False, log_prior_sigma_sq=-np.log(1e3),
+                 device=torch.device('cpu')):
         assert lags == 1, "lags should be 1 for lineargrid transformation."
         super(LinearGridTransformation, self).__init__(K, D)
 
@@ -20,10 +21,10 @@ class LinearGridTransformation(BaseTransformation):
 
         self.use_log_prior = use_log_prior
         self.add_log_diagonal_prior = add_log_diagonal_prior
-        self.log_prior_sigma_sq = torch.tensor(log_prior_sigma_sq, dtype=torch.float64)
+        self.log_prior_sigma_sq = torch.tensor(log_prior_sigma_sq, dtype=torch.float64, device=device)
 
-        self.x_grids = check_and_convert_to_tensor(x_grids, dtype=torch.float64)  # [x_0, x_1, ..., x_m]
-        self.y_grids = check_and_convert_to_tensor(y_grids, dtype=torch.float64)  # a list [y_0, y_1, ..., y_n]
+        self.x_grids = check_and_convert_to_tensor(x_grids, dtype=torch.float64, device=device)  # [x_0, x_1, ..., x_m]
+        self.y_grids = check_and_convert_to_tensor(y_grids, dtype=torch.float64, device=device)  # a list [y_0, y_1, ..., y_n]
         self.n_x = len(x_grids) - 1
         self.n_y = len(y_grids) - 1
 
@@ -37,7 +38,7 @@ class LinearGridTransformation(BaseTransformation):
 
         # number of basis grid points
         self.GP = self.gridpoints.shape[1]
-        self.Ws = torch.rand(self.K, 2, self.GP, self.Df, dtype=torch.float64, requires_grad=True)
+        self.Ws = torch.rand(self.K, 2, self.GP, self.Df, dtype=torch.float64, requires_grad=True, device=device)
 
     @property
     def params(self):
