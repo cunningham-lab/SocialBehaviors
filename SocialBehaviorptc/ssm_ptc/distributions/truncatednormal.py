@@ -6,7 +6,7 @@ import numpy as np
 
 import math
 from ssm_ptc.distributions.base_distribution import BaseDistribution
-from ssm_ptc.utils import check_and_convert_to_tensor
+from ssm_ptc.utils import check_and_convert_to_tensor, get_np
 
 from scipy.stats import truncnorm
 
@@ -18,12 +18,6 @@ def normal_log_pdf(kexi):
 
 def normal_cdf(x):
     return 0.5 * (1 + torch.erf(x / math.sqrt(2)))
-
-def to_np(t):
-    if t.requires_grad:
-        return t.detach().numpy()
-    else:
-        return t.numpy()
 
 
 class TruncatedNormal(BaseDistribution):
@@ -49,17 +43,17 @@ class TruncatedNormal(BaseDistribution):
         """
 
         # first, transform to standard normal
-        scale = np.exp(to_np(self.log_sigmas))  # (D, )
-        loc = to_np(self.mus)  # (D, )
-        bb = (self.bounds[...,1].numpy() - loc) / scale  # (D, )
-        aa = (self.bounds[...,0].numpy() - loc) / scale  # (D, )
+        scale = np.exp(get_np(self.log_sigmas))  # (D, )
+        loc = get_np(self.mus)  # (D, )
+        bb = (get_np(self.bounds[...,1]) - loc) / scale  # (D, )
+        aa = (get_np(self.bounds[...,0]) - loc) / scale  # (D, )
         if sample_shape == ():
             D = bb.shape[0]
             samples = truncnorm.rvs(a=aa, b=bb, loc=loc, scale=scale, size=(D))
 
             # some adhoc way to fix the infinity in sample
-            samples[samples == -np.inf] = self.bounds[...,1].numpy()[samples == -np.inf]
-            samples[samples == np.inf] = self.bounds[...,0].numpy()[samples == np.inf]
+            samples[samples == -np.inf] = get_np(self.bounds[...,1])[samples == -np.inf]
+            samples[samples == np.inf] = get_np(self.bounds[...,0])[samples == np.inf]
         else:
             samples = truncnorm.rvs(a=aa, b=bb, loc=loc, scale=scale, size=sample_shape)
 
