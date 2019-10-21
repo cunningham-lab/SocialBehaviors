@@ -126,7 +126,7 @@ class HMM:
             raise ValueError("Please provide input.")
 
         if input is not None:
-            input = check_and_convert_to_tensor(input)
+            input = check_and_convert_to_tensor(input, device=self.device)
 
         K = self.K
         D = self.D
@@ -154,8 +154,8 @@ class HMM:
             T_pre = z_pre.shape[0]
             assert x_pre.shape == (T_pre, self.D)
 
-            z_pre = check_and_convert_to_tensor(z_pre, dtype=torch.int)
-            x_pre = check_and_convert_to_tensor(x_pre, dtype=dtype)
+            z_pre = check_and_convert_to_tensor(z_pre, dtype=torch.int, device=self.device)
+            x_pre = check_and_convert_to_tensor(x_pre, dtype=dtype, device=self.device)
 
             # construct the states and data
             z = torch.cat((z_pre, torch.empty(T, dtype=torch.int, device=self.device)))
@@ -223,7 +223,7 @@ class HMM:
 
         ll = 0
         for data, input, m_kwargs in zip(datas, inputs, list_of_memory_kwargs):
-            data = check_and_convert_to_tensor(data, torch.float64)
+            data = check_and_convert_to_tensor(data, torch.float64, device=self.device)
 
             T = data.shape[0]
             log_pi0 = torch.nn.LogSoftmax(dim=0)(self.pi0)  # (K, )
@@ -291,9 +291,9 @@ class HMM:
             raise ValueError("Please provide input.")
 
         if input is not None:
-            input = check_and_convert_to_tensor(input)
+            input = check_and_convert_to_tensor(input, device=self.device)
 
-        data = check_and_convert_to_tensor(data)
+        data = check_and_convert_to_tensor(data, device=self.device)
         T = data.shape[0]
 
         log_pi0 = get_np(self.init_dist)  # (K, )
@@ -326,7 +326,7 @@ class HMM:
         :return: generated samples (T, D)
         """
 
-        zs = check_and_convert_to_tensor(zs, dtype=torch.int)
+        zs = check_and_convert_to_tensor(zs, dtype=torch.int, device=self.device)
         T = zs.shape[0]
 
         assert T > 0
@@ -342,7 +342,7 @@ class HMM:
         if x0 is None:
             x0 = self.observation.sample_x(zs[0], expectation=transformation, return_np=False)
         else:
-            x0 = check_and_convert_to_tensor(x0, dtype=torch.float64)
+            x0 = check_and_convert_to_tensor(x0, dtype=torch.float64, device=self.device)
             assert x0.shape == (self.D, )
 
         xs[0] = x0
