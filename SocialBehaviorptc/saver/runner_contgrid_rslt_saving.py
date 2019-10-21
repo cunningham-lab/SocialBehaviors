@@ -24,7 +24,7 @@ from saver.rslts_saving import NumpyEncoder
 
 def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
                 train_model, losses, quiver_scale, x_grids=None, y_grids=None, dynamics_T=None,
-                valid_data=None, valid_losses=None, valid_data_memory_kwargs=None):
+                valid_data=None, valid_losses=None, valid_data_memory_kwargs=None, device=torch.device('cpu')):
 
     valid_data_memory_kwargs = valid_data_memory_kwargs if valid_data_memory_kwargs else {}
 
@@ -70,8 +70,8 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
                                                            feature_vecs=valid_data_memory_kwargs["feature_vecs"])
     else:
         raise ValueError("Unsupported transformation!")
-    x_predict_err = np.mean(np.abs(x_predict - data_to_predict.numpy()), axis=0)
-    x_predict_valid_err = np.mean(np.abs(x_predict_valid - valid_data.numpy()), axis=0)
+    x_predict_err = np.mean(np.abs(x_predict - get_np(data_to_predict)), axis=0)
+    x_predict_valid_err = np.mean(np.abs(x_predict_valid - get_np(valid_data)), axis=0)
 
     dict_of_x_predict_k = dict(x_predict_0=x_predict, x_predict_v_0=x_predict_valid)
     dict_of_x_predict_k_err = dict(x_predict_0_err=x_predict_err, x_predict_v_0_err=x_predict_valid_err)
@@ -83,8 +83,8 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
         else:
             x_predict_k = k_step_prediction(model, z, data_to_predict, k=k_step)
             x_predict_valid_k = k_step_prediction(model, z_valid, valid_data, k=k_step)
-        x_predict_k_err = np.mean(np.abs(x_predict_k - data_to_predict[k_step:].numpy()), axis=0)
-        x_predict_valid_k_err = np.mean(np.abs(x_predict_valid_k - valid_data[k_step:].numpy()), axis=0)
+        x_predict_k_err = np.mean(np.abs(x_predict_k - get_np(data_to_predict[k_step:])), axis=0)
+        x_predict_valid_k_err = np.mean(np.abs(x_predict_valid_k - get_np(valid_data[k_step:])), axis=0)
         dict_of_x_predict_k["x_predict_{}".format(k_step)] = x_predict_k
         dict_of_x_predict_k["x_predict_v_{}".format(k_step)] = x_predict_valid_k
         dict_of_x_predict_k_err["x_predict_{}_err".format(k_step)] = x_predict_k_err
@@ -92,8 +92,8 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
 
 
     ################### samples #########################
-    center_z = torch.tensor([0], dtype=torch.int)
-    center_x = torch.tensor([[150, 190, 200, 200]], dtype=torch.float64)
+    center_z = torch.tensor([0], dtype=torch.int, device=device)
+    center_x = torch.tensor([[150, 190, 200, 200]], dtype=torch.float64, device=device)
 
     if isinstance(tran, LSTMBasedTransformation):
         lstm_states = {}
@@ -116,8 +116,8 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
         XY = np.column_stack((np.ravel(XX), np.ravel(YY)))  # shape (900,2) grid values
         XY_grids = np.concatenate((XY, XY), axis=1)
 
-        XY_next = tran.transform(torch.tensor(XY_grids, dtype=torch.float64))
-        dXY = XY_next.detach().numpy() - XY_grids[:, None]
+        XY_next = tran.transform(torch.tensor(XY_grids, dtype=torch.float64, device=device))
+        dXY = get_np(XY_next) - XY_grids[:, None]
 
     # TODO: maybe use sample condition on z (transformation) to show the dynamics
     samples_on_fixed_zs = []
@@ -139,22 +139,22 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
         avg_transform_speed = np.average(np.abs(dXY), axis=0)
     avg_sample_speed = np.average(np.abs(np.diff(sample_x, axis=0)), axis=0)
     avg_sample_center_speed = np.average(np.abs(np.diff(sample_x_center, axis=0)), axis=0)
-    avg_data_speed = np.average(np.abs(np.diff(data.numpy(), axis=0)), axis=0)
+    avg_data_speed = np.average(np.abs(np.diff(get_np(data), axis=0)), axis=0)
 
     transition_matrix = model.transition.stationary_transition_matrix
     if transition_matrix.requires_grad:
-        transition_matrix = transition_matrix.detach().numpy()
+        transition_matrix = get_np(transition_matrix)
     else:
-        transition_matrix = transition_matrix.numpy()
-    summary_dict = {"init_dist": model.init_dist.detach().numpy(),
+        transition_matrix = get_np(transition_matrix)
+    summary_dict = {"init_dist": get_np(model.init_dist),
                     "transition_matrix": transition_matrix,
-                    "variance": torch.exp(model.observation.log_sigmas).detach().numpy(),
-                    "log_likes": model.log_likelihood(data, **memory_kwargs).detach().numpy(),
+                    "variance": get_np(torch.exp(model.observation.log_sigmas)),
+                    "log_likes": get_np(model.log_likelihood(data, **memory_kwargs)),
                     "avg_data_speed": avg_data_speed,
                     "avg_sample_speed": avg_sample_speed, "avg_sample_center_speed": avg_sample_center_speed}
     summary_dict = {**dict_of_x_predict_k_err, **summary_dict}
     if valid_data is not None:
-        summary_dict["valid_log_likes"] = model.log_likelihood(valid_data, **valid_data_memory_kwargs).detach().numpy()
+        summary_dict["valid_log_likes"] = get_np(model.log_likelihood(valid_data, **valid_data_memory_kwargs))
     if isinstance(tran, WeightedGridTransformation):
         summary_dict["beta"] = get_np(tran.beta)
     if isinstance(tran, (LinearGridTransformation, WeightedGridTransformation)):
@@ -296,9 +296,10 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     plot_2d_time_plot_condition_on_all_zs(sample_x_center, sample_z_center, K, title='sample_x_center')
     plt.savefig(rslt_dir + "/distributions/4traces_sample_x_center.jpg", dpi=100)
 
-    data_angles_a, data_angles_b = get_all_angles(data, x_grids, y_grids)
-    sample_angles_a, sample_angles_b = get_all_angles(sample_x, x_grids, y_grids)
-    sample_x_center_angles_a, sample_x_center_angles_b = get_all_angles(sample_x_center, x_grids, y_grids)
+    data_angles_a, data_angles_b = get_all_angles(data, x_grids, y_grids, device=device)
+    sample_angles_a, sample_angles_b = get_all_angles(sample_x, x_grids, y_grids, device=device)
+    sample_x_center_angles_a, sample_x_center_angles_b = get_all_angles(sample_x_center, x_grids, y_grids,
+                                                                        device=device)
 
     plot_list_of_angles([data_angles_a, sample_angles_a, sample_x_center_angles_a],
                         ['data', 'sample', 'sample_c'], "direction distribution (virgin)", n_x, n_y)
@@ -309,9 +310,9 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     plt.savefig(rslt_dir + "/distributions/angles_b.jpg")
     plt.close()
 
-    data_speed_a, data_speed_b = get_speed(data, x_grids, y_grids)
-    sample_speed_a, sample_speed_b = get_speed(sample_x, x_grids, y_grids)
-    sample_x_center_speed_a, sample_x_center_speed_b = get_speed(sample_x_center, x_grids, y_grids)
+    data_speed_a, data_speed_b = get_speed(data, x_grids, y_grids, device=device)
+    sample_speed_a, sample_speed_b = get_speed(sample_x, x_grids, y_grids, device=device)
+    sample_x_center_speed_a, sample_x_center_speed_b = get_speed(sample_x_center, x_grids, y_grids, device=device)
 
     plot_list_of_speed([data_speed_a, sample_speed_a, sample_x_center_speed_a],
                        ['data', 'sample', 'sample_c'], "speed distribution (virgin)", n_x, n_y)

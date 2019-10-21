@@ -15,9 +15,9 @@ class HMMNormalizerCython(Function):
                                      log_likes.detach()
         # (K, ), (T, K, K), (T, K)
         alphas = np.zeros((T, K))
-        Z = forward_pass_cython(log_pi0.numpy(),
-                                log_As.numpy(),
-                                log_likes.numpy(),
+        Z = forward_pass_cython(log_pi0.cpu().numpy(),
+                                log_As.cpu().numpy(),
+                                log_likes.cpu().numpy(),
                                 alphas)
         ctx.save_for_backward(torch.tensor(alphas, dtype=torch.float64),
                               log_As)

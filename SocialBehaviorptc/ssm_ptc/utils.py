@@ -108,9 +108,9 @@ def get_np(input):
         return input
     elif isinstance(input, torch.Tensor):
         if input.requires_grad:
-           return input.detach().numpy()
+           return input.detach().cpu().numpy()
         else:
-            return input.numpy()
+            return input.cpu().numpy()
     raise ValueError("Inputs must be an ndarray or tensor.")
 
 def set_param(param, value):
