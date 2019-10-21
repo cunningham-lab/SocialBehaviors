@@ -4,7 +4,7 @@ import numpy as np
 from ssm_ptc.transformations.base_transformation import BaseTransformation
 from ssm_ptc.observations.base_observation import BaseObservation
 from ssm_ptc.distributions.truncatednormal import TruncatedNormal
-from ssm_ptc.utils import check_and_convert_to_tensor, set_param
+from ssm_ptc.utils import check_and_convert_to_tensor, set_param, get_np
 
 from project_ssms.coupled_transformations.grid_transformation import GridTransformation
 from project_ssms.coupled_transformations.lineargrid_transformation import LinearGridTransformation
@@ -118,7 +118,7 @@ class ARTruncatedNormalObservation(BaseObservation):
             samples = dist.sample()
 
         if return_np:
-            return samples.numpy()
+            return get_np(samples)
         return samples
 
     def _compute_mus_for(self, data, **memory_args):
