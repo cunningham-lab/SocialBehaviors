@@ -2,7 +2,7 @@ import torch
 import numpy as np
 
 from ssm_ptc.transformations.base_transformation import BaseTransformation
-from ssm_ptc.utils import set_param, check_and_convert_to_tensor
+from ssm_ptc.utils import set_param, check_and_convert_to_tensor, get_np
 
 
 class LinearGridTransformation(BaseTransformation):
@@ -33,7 +33,7 @@ class LinearGridTransformation(BaseTransformation):
         self.acc_factor = acc_factor
         self.device = device
 
-        # shape: (d, GP)
+        # shape: (d, n_gps)
         self.gridpoints = torch.tensor([(x_grid, y_grid) for x_grid in self.x_grids for y_grid in self.y_grids],
                                        device=device)
         self.gridpoints = torch.transpose(self.gridpoints, 0, 1)
@@ -204,7 +204,7 @@ class LinearGridTransformation(BaseTransformation):
         """
 
         :param point: (2,)
-        :return: idx (GP, 4)
+        :return: idx (n_gps, 4)
         """
         assert point.shape == (2, )
         find = False
@@ -226,7 +226,7 @@ class LinearGridTransformation(BaseTransformation):
             if find:
                 break
         if not find:
-            raise ValueError("value {} out of the grid world.".format(point.numpy()))
+            raise ValueError("value {} out of the grid world.".format(get_np(point)))
         return idx
 
     def get_gridpoints_idx_for_batch(self, points):
@@ -237,20 +237,20 @@ class LinearGridTransformation(BaseTransformation):
     def get_gridpoints_for_single(self, idx):
         """
 
-        :param idx: (GP, 4)
+        :param idx: (n_gps, 4)
         :return: gridpoints: (d, 2)
         """
-        # (d, GP) * (GP, 2) --> (d, 2)
+        # (d, n_gps) * (n_gps, 2) --> (d, 2)
         out = torch.matmul(self.gridpoints, idx[:, [0, -1]])
         return out
 
     def get_gridpoints_for_batch(self, idx):
         """
 
-        :param idx: (T, GP, 4)
+        :param idx: (T, n_gps, 4)
         :return: gridpoints: (T, d, 2)
         """
-        # (d, GP) * (T, GP, 4) --> (T, d, 2)
+        # (d, n_gps) * (T, n_gps, 4) --> (T, d, 2)
         out = torch.matmul(self.gridpoints, idx[:, :, [0, -1]])
         return out
 
@@ -260,14 +260,14 @@ class LinearGridTransformation(BaseTransformation):
         :param point: (2, )
         :param animal_idx: 0 or 1
         :param grid_points: (d, 2)
-        :param grid_points_idx: (GP, 4)
+        :param grid_points_idx: (n_gps, 4)
         :param z: scalar
         :return: (1, Df)
         """
         assert point.shape == (self.d, )
         assert grid_points.shape == (self.d, 2)
 
-        # (Df,GP) * (GP, 4) -->  (Df, 4)
+        # (Df,n_gps) * (n_gps, 4) -->  (Df, 4)
         grid_points_weights = torch.matmul(torch.transpose(self.Ws[z, animal_idx], 0, 1), grid_points_idx)
 
         weight = two_d_interpolation(point, grid_points[:,0], grid_points[:,1],
@@ -282,13 +282,13 @@ class LinearGridTransformation(BaseTransformation):
         :param points: (T, 2)
         :param animal_idx: 0 or 1
         :param grid_points: nearby grid points: (T, d, 2)
-        :param grid_points_idx: (T, GP, 4)
+        :param grid_points_idx: (T, n_gps, 4)
         :return: (T, Df)
         """
         T, d = points.shape
         assert d == self.d
 
-        # (1, K, Df, GP)* (T, 1, GP, 4)  --> (T, K, Df, 4)
+        # (1, K, Df, n_gps)* (T, 1, n_gps, 4)  --> (T, K, Df, 4)
         grid_point_weights = torch.matmul(torch.transpose(self.Ws[:, animal_idx], 1, 2)[None, ], grid_points_idx[:, None])
 
         # (T, K, Df)

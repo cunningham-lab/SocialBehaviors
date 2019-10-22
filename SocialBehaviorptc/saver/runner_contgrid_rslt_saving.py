@@ -6,11 +6,13 @@ import json
 import joblib
 
 from project_ssms.coupled_transformations.lineargrid_transformation import LinearGridTransformation
+from project_ssms.coupled_transformations.gpgrid_transformation import GPGridTransformation
 from project_ssms.coupled_transformations.weightedgrid_transformation import WeightedGridTransformation
 from project_ssms.coupled_transformations.lstm_transformation import LSTMTransformation
 from project_ssms.coupled_transformations.uni_lstm_transformation import UniLSTMTransformation
 from project_ssms.coupled_transformations.lstm_based_transformation import LSTMBasedTransformation
-from project_ssms.utils import k_step_prediction_for_lineargrid_model, k_step_prediction_for_weightedgrid_model, \
+from project_ssms.utils import k_step_prediction_for_lineargrid_model, k_step_prediction_for_gpgrid_model, \
+    k_step_prediction_for_weightedgrid_model, \
     k_step_prediction_for_lstm_model, k_step_prediction_for_lstm_based_model
 from project_ssms.plot_utils import plot_z, plot_mouse, plot_data_condition_on_all_zs, plot_2d_time_plot_condition_on_all_zs
 from project_ssms.grid_utils import plot_quiver, plot_realdata_quiver, \
@@ -55,6 +57,9 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     if isinstance(tran, LinearGridTransformation):
         x_predict = k_step_prediction_for_lineargrid_model(model, z, data_to_predict, **memory_kwargs)
         x_predict_valid = k_step_prediction_for_lineargrid_model(model, z_valid, valid_data, **valid_data_memory_kwargs)
+    elif isinstance(tran, GPGridTransformation):
+        x_predict = k_step_prediction_for_gpgrid_model(model, z, data_to_predict, **memory_kwargs)
+        x_predict_valid = k_step_prediction_for_gpgrid_model(model, z_valid, valid_data, **valid_data_memory_kwargs)
     elif isinstance(tran, WeightedGridTransformation):
         x_predict = k_step_prediction_for_weightedgrid_model(model, z, data_to_predict, **memory_kwargs)
         x_predict_valid = k_step_prediction_for_weightedgrid_model(model, z_valid, valid_data, **valid_data_memory_kwargs)
@@ -75,6 +80,7 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
 
     dict_of_x_predict_k = dict(x_predict_0=x_predict, x_predict_v_0=x_predict_valid)
     dict_of_x_predict_k_err = dict(x_predict_0_err=x_predict_err, x_predict_v_0_err=x_predict_valid_err)
+
     for k_step in list_of_k_steps:
         print("{} step prediction".format(k_step))
         if isinstance(tran, LSTMBasedTransformation):
@@ -92,6 +98,7 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
 
 
     ################### samples #########################
+    print("sampling")
     center_z = torch.tensor([0], dtype=torch.int, device=device)
     center_x = torch.tensor([[150, 190, 200, 200]], dtype=torch.float64, device=device)
 
@@ -109,12 +116,12 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
 
     ################## dynamics #####################
 
-    if isinstance(tran, (LinearGridTransformation, WeightedGridTransformation)):
+    if isinstance(tran, (LinearGridTransformation, GPGridTransformation, WeightedGridTransformation)):
         # quiver
         XX, YY = np.meshgrid(np.linspace(20, 310, 30),
                              np.linspace(0, 380, 30))
         XY = np.column_stack((np.ravel(XX), np.ravel(YY)))  # shape (900,2) grid values
-        XY_grids = np.concatenate((XY, XY), axis=1)
+        XY_grids = np.concatenate((XY, XY), axis=1)  # (900, 4)
 
         XY_next = tran.transform(torch.tensor(XY_grids, dtype=torch.float64, device=device))
         dXY = get_np(XY_next) - XY_grids[:, None]
@@ -135,7 +142,7 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     print("begin saving...")
 
     # save summary
-    if isinstance(tran, (LinearGridTransformation, WeightedGridTransformation)):
+    if isinstance(tran, (LinearGridTransformation, GPGridTransformation, WeightedGridTransformation)):
         avg_transform_speed = np.average(np.abs(dXY), axis=0)
     avg_sample_speed = np.average(np.abs(np.diff(sample_x, axis=0)), axis=0)
     avg_sample_center_speed = np.average(np.abs(np.diff(sample_x_center, axis=0)), axis=0)
@@ -252,7 +259,7 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     plt.savefig(rslt_dir + "/samples/quiver_sample_x_center_{}.jpg".format(sample_T), dpi=200)
     plt.close()
 
-    if isinstance(tran, (LinearGridTransformation, WeightedGridTransformation)):
+    if isinstance(tran, (LinearGridTransformation, GPGridTransformation, WeightedGridTransformation)):
         if not os.path.exists(rslt_dir + "/dynamics"):
             os.makedirs(rslt_dir + "/dynamics")
             print("Making dynamics directory...")

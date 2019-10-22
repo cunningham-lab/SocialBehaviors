@@ -21,7 +21,7 @@ def normal_cdf(x):
 
 
 class TruncatedNormal(BaseDistribution):
-    r"""
+    """
     Creates a sigmoid-normal distribution parameterized by a mean vector, a covariance matrix and bounds
     Normal -> scaled sigmoid
     """

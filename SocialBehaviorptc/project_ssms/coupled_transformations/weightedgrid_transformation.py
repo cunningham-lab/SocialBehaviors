@@ -19,7 +19,7 @@ class WeightedGridTransformation(BaseWeightedDirectionTransformation):
 
         self.x_grids = check_and_convert_to_tensor(x_grids, dtype=torch.float64)  # [x_0, x_1, ..., x_m]
         self.y_grids = check_and_convert_to_tensor(y_grids, dtype=torch.float64)  # a list [y_0, y_1, ..., y_n]
-        # shape: (d, GP)
+        # shape: (d, n_gps)
         self.gridpoints = torch.tensor([(x_grid, y_grid) for x_grid in self.x_grids for y_grid in self.y_grids])
         self.gridpoints = torch.transpose(self.gridpoints, 0, 1)
         # number of basis grid points
@@ -70,17 +70,17 @@ class WeightedGridTransformation(BaseWeightedDirectionTransformation):
         distances_s = kwargs.get(distances_key, None)
         if distances_s is None:
             #print("not providing distance memories")
-            distances_s = pairwise_dist(inputs, self.gridpoints.t())  # (T, GP)
+            distances_s = pairwise_dist(inputs, self.gridpoints.t())  # (T, n_gps)
         assert distances_s.shape == (T, self.GP), \
             "distances_s should have shape {}, instead of {}".format((T, self.GP), distances_s.shape)
 
-        # coefficients of the grid weights: (T, K, GP)
-        # (K, 1) * (T, 1, GP) -> (T, K, GP)
+        # coefficients of the grid weights: (T, K, n_gps)
+        # (K, 1) * (T, 1, n_gps) -> (T, K, n_gps)
         coef = torch.softmax(-torch.matmul(self.beta[:, animal_idx, None], distances_s[:, None]), dim=-1)
         assert coef.shape == (T, self.K, self.GP), \
             "coef should have shape {}, instead of {}".format((T, self.K, self.GP), coef.shape)
 
-        # (T, K, 1, GP) * (K, GP, Df) --> (T, K, 1, Df)
+        # (T, K, 1, n_gps) * (K, n_gps, Df) --> (T, K, 1, Df)
         weigths_of_inputs = torch.matmul(coef[:,:, None, ], self.Ws[:, animal_idx])
         assert weigths_of_inputs.shape == (T, self.K, 1, self.Df), \
             "weights_of_inputs should ahve shape {}, instead of {}".format((T, self.K, 1, self.Df),
@@ -111,16 +111,16 @@ class WeightedGridTransformation(BaseWeightedDirectionTransformation):
         distance_s = kwargs.get(distance_key, None)
         if distance_s is None:
             #print("not providing distance memory")
-            distance_s = pairwise_dist(inputs[-1:], self.gridpoints.t())  #  (1, GP)
+            distance_s = pairwise_dist(inputs[-1:], self.gridpoints.t())  #  (1, n_gps)
         assert distance_s.shape == (1, self.GP), \
             "distance_a should have shape {}, instead of {}".format((1, self.GP), distance_s.shape)
 
-        # coefficients of the grid weights: (1, GP)
-        # () * (1, GP) -> (1, GP)
+        # coefficients of the grid weights: (1, n_gps)
+        # () * (1, n_gps) -> (1, n_gps)
         coef = torch.softmax(-self.beta[z, animal_idx] * distance_s, dim=-1)
         assert coef.shape == (1, self.GP), "coef should have shape {}, instead of {}".format((1, self.GP), coef.shape)
 
-        # (1, GP) * (GP, Df) --> (1, Df)
+        # (1, n_gps) * (n_gps, Df) --> (1, Df)
         weight_of_input = torch.matmul(coef, self.Ws[z, animal_idx])
         assert weight_of_input.shape == (1, self.Df), \
             "weight_of_input should have shape {}, instead of {}".format((1, self.Df), weight_of_input.shape)

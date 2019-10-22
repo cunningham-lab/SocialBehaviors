@@ -1,7 +1,8 @@
 from ssm_ptc.models.hmm import HMM
+from ssm_ptc.utils import get_np
 
 from project_ssms.ar_truncated_normal_observation import ARTruncatedNormalObservation
-from project_ssms.coupled_transformations.lineargrid_transformation import LinearGridTransformation
+from project_ssms.coupled_transformations.gpgrid_transformation import GPGridTransformation, pairwise_xydist_sq
 from project_ssms.feature_funcs import f_corner_vec_func
 from project_ssms.momentum_utils import filter_traj_by_speed
 from project_ssms.utils import downsample
@@ -9,6 +10,7 @@ from project_ssms.constants import ARENA_XMIN, ARENA_XMAX, ARENA_YMIN, ARENA_YMA
 
 from saver.rslts_saving import addDateTime, NumpyEncoder
 from saver.runner_contgrid_rslt_saving import rslt_saving
+
 
 import torch
 import numpy as np
@@ -53,6 +55,10 @@ print("Using device {} \n\n".format(device))
                                        ' Would be overwritten if x_grids is provided, or load model.')
 @click.option('--n_y', default=3, help='number of grids in y_axis.'
                                        ' Would be overwritten if y_grids is provided, or load model.')
+@click.option('--rs_factor', default='30,30', help='rs factor. please input two numbers. '
+                                                   'If want to use default, input 0,0')
+@click.option('--rs', default=10, help='length scale')
+@click.option('--train_rs', is_flag=True, help='whether to train length scale (r)')
 @click.option('--list_of_num_iters', default='5000,5000',
               help='a list of checkpoint numbers of iterations for training')
 @click.option('--list_of_lr', default='0.005, 0.005', help='learning rate for training')
@@ -61,7 +67,7 @@ print("Using device {} \n\n".format(device))
 @click.option('--quiver_scale', default=0.8, help='scale for the quiver plots')
 def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_prior, log_prior_sigma_sq,
          load_model, load_model_dir, load_opt_dir,
-         transition, sticky_alpha, sticky_kappa, acc_factor, k, x_grids, y_grids, n_x, n_y,
+         transition, sticky_alpha, sticky_kappa, acc_factor, k, x_grids, y_grids, n_x, n_y, rs_factor, rs, train_rs,
          train_model, pbar_update_interval, video_clips, held_out_proportion, torch_seed, np_seed,
          list_of_num_iters, list_of_lr, list_of_k_steps, sample_t, quiver_scale):
     if job_name is None:
@@ -69,6 +75,10 @@ def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_pr
     K = k
     sample_T = sample_t
     log_prior_sigma_sq = float(log_prior_sigma_sq)
+    rs_factor = np.array([float(x) for x in rs_factor.split(",")])
+    if rs_factor[0] == 0 and rs_factor[1] == 0:
+        rs_factor = None
+    rs = float(rs)
     video_clip_start, video_clip_end = [float(x) for x in video_clips.split(",")]
     list_of_num_iters = [int(x) for x in list_of_num_iters.split(",")]
     list_of_lr = [float(x) for x in list_of_lr.split(",")]
@@ -143,10 +153,10 @@ def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_pr
         if acc_factor is None:
             acc_factor = downsample_n * 10
 
-        tran = LinearGridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids,
-                                        Df=Df, feature_vec_func=f_corner_vec_func, acc_factor=acc_factor,
-                                        use_log_prior=use_log_prior, add_log_diagonal_prior=add_log_diagonal_prior,
-                                        log_prior_sigma_sq=log_prior_sigma_sq, device=device)
+        tran = GPGridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids,
+                                    Df=Df, feature_vec_func=f_corner_vec_func, acc_factor=acc_factor,
+                                    rs_factor=rs_factor, rs=None, train_rs=train_rs,
+                                    device=device)
         obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=1, bounds=bounds, transformation=tran, device=device)
 
         if transition == 'sticky':
@@ -176,6 +186,9 @@ def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_pr
                   "y_grids": y_grids,
                   "n_x": n_x,
                   "n_y": n_y,
+                  "rs_factor": get_np(tran.rs_factor),
+                  "rs": rs,
+                  "train_rs": train_rs,
                   "train_model": train_model,
                   "pbar_update_interval": pbar_update_interval,
                   "video_clip_start": video_clip_start,
@@ -192,7 +205,7 @@ def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_pr
     print("Experiment params:")
     print(exp_params)
 
-    rslt_dir = addDateTime("rslts/lineargrid/" + job_name)
+    rslt_dir = addDateTime("rslts/gp/" + job_name)
     rslt_dir = os.path.join(repo_dir, rslt_dir)
     if not os.path.exists(rslt_dir):
         os.makedirs(rslt_dir)
@@ -203,30 +216,36 @@ def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_pr
 
     # compute memory
     print("Computing memory...")
-    gridpoints_idx_a = tran.get_gridpoints_idx_for_batch(training_data[:-1, 0:2])  # (T-1, n_gps, 4)
-    gridpoints_idx_b = tran.get_gridpoints_idx_for_batch(training_data[:-1, 2:4])  # (T-1, n_gps, 4)
-    gridpoints_a = tran.get_gridpoints_for_batch(gridpoints_idx_a)  # (T-1, d, 2)
-    gridpoints_b = tran.get_gridpoints_for_batch(gridpoints_idx_b)  # (T-1, d, 2)
-    feature_vecs_a = f_corner_vec_func(training_data[:-1, 0:2])  # (T, Df, 2)
-    feature_vecs_b = f_corner_vec_func(training_data[:-1, 2:4])  # (T, Df, 2)
+    def get_memory_kwargs(data, train_rs):
+        feature_vecs_a = f_corner_vec_func(data[:-1, 0:2])
+        feature_vecs_b = f_corner_vec_func(data[:-1, 2:4])
 
-    gridpoints_idx = (gridpoints_idx_a, gridpoints_idx_b)
-    gridpoints = (gridpoints_a, gridpoints_b)
-    feature_vecs = (feature_vecs_a, feature_vecs_b)
+        gpt_idx_a, grid_idx_a = tran.get_gpt_idx_and_grid_idx_for_batch(data[:-1, 0:2])
+        gpt_idx_b, grid_idx_b = tran.get_gpt_idx_and_grid_idx_for_batch(data[:-1, 2:4])
 
-    gridpoints_idx_a_v = tran.get_gridpoints_idx_for_batch(valid_data[:-1, 0:2])  # (T-1, n_gps, 4)
-    gridpoints_idx_b_v = tran.get_gridpoints_idx_for_batch(valid_data[:-1, 2:4])  # (T-1, n_gps, 4)
-    gridpoints_a_v = tran.get_gridpoints_for_batch(gridpoints_idx_a_v)  # (T-1, d, 2)
-    gridpoints_b_v = tran.get_gridpoints_for_batch(gridpoints_idx_b_v)  # (T-1, d, 2)
-    feature_vecs_a_v = f_corner_vec_func(valid_data[:-1, 0:2])  # (T, Df, 2)
-    feature_vecs_b_v = f_corner_vec_func(valid_data[:-1, 2:4])  # (T, Df, 2)
+        if train_rs:
+            nearby_gpts_a = tran.gridpoints[gpt_idx_a]
+            dist_sq_a = (data[:-1, None, 0:2] - nearby_gpts_a) ** 2
 
-    gridpoints_idx_v = (gridpoints_idx_a_v, gridpoints_idx_b_v)
-    gridpoints_v = (gridpoints_a_v, gridpoints_b_v)
-    feature_vecs_v = (feature_vecs_a_v, feature_vecs_b_v)
+            nearby_gpts_b = tran.gridpoints[gpt_idx_b]
+            dist_sq_b = (data[:-1, None, 2:4] - nearby_gpts_b) ** 2
 
-    memory_kwargs = dict(gridpoints_idx=gridpoints_idx, gridpoints=gridpoints, feature_vecs=feature_vecs)
-    valid_data_memory_kwargs = dict(gridpoints_idx=gridpoints_idx_v, gridpoints=gridpoints_v, feature_vecs=feature_vecs_v)
+            return dict(feature_vecs_a=feature_vecs_a, feature_vecs_b=feature_vecs_b,
+                                 gpt_idx_a=gpt_idx_a, gpt_idx_b=gpt_idx_b, grid_idx_a=grid_idx_a,
+                                 grid_idx_b=grid_idx_b, dist_sq_a=dist_sq_a, dist_sq_b=dist_sq_b)
+
+        else:
+            coeff_a = tran.get_gp_coefficients(data[:-1, 0:2], 0, gpt_idx_a, grid_idx_a)
+            coeff_b = tran.get_gp_coefficients(data[:-1, 2:4], 0, gpt_idx_b, grid_idx_b)
+
+            return dict(feature_vecs_a=feature_vecs_a, feature_vecs_b=feature_vecs_b,
+                                 gpt_idx_a=gpt_idx_a, gpt_idx_b=gpt_idx_b, grid_idx_a=grid_idx_a,
+                                 grid_idx_b=grid_idx_b, coeff_a=coeff_a, coeff_b=coeff_b)
+
+    memory_kwargs = get_memory_kwargs(training_data, train_rs)
+    valid_data_memory_kwargs = get_memory_kwargs(valid_data, train_rs)
+
+    log_prob = model.log_likelihood(training_data, **memory_kwargs)
 
     ##################### training ############################
     if train_model:
@@ -271,10 +290,7 @@ def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_pr
 if __name__ == "__main__":
     main()
 
-# --train_model --downsample_n=2 --job_name=local/test_general --video_clips=0,1 --transition=stationary
-# --n_x=4 --n_y=4 --list_of_num_iters=50 --list_of_lr=0.005 --list_of_k_steps=5,10 --sample_t=100
-# --pbar_update_interval=10
-
-# --train_model --downsample_n=2 --job_name=local/train_v01 --video_clips=0,1 --transition=stationary
-# --n_x=4 --n_y=4 --list_of_num_iters=3000,2000 --list_of_lr=0.1,0.05 --sample_t=10000 --pbar_update_interval=10
+# --train_model --job_name=local/v35_downsamplen2_K6 --video_clips=3,5 --downsample_n=2 --k=6 --n_x=6 --n_y=6
+# --list_of_num_iters=1000,2000,3000,5000,2000,2000 --list_of_lr=0.5,0.1,0.05,0.01,0.005,0.005
+# --sample_t=36000 --pbar_update_interval=10
 

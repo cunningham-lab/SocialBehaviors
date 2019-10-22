@@ -44,8 +44,8 @@ cdef dlse(double[::1] a,
 # def dLSE_da(a, B):
 #     return np.exp(a + B.T - logsumexp(a + B.T, axis=1, keepdims=True))
 #
-# def vjp_LSE_B(a, B, v):
-#     return v * dLSE_da(a, B).T
+# def vjp_LSE_B(a, B, vs):
+#     return vs * dLSE_da(a, B).T
 
 
 cpdef forward_pass(double[::1] log_pi0,

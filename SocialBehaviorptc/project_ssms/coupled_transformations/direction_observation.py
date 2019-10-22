@@ -209,8 +209,8 @@ class DirectionObservation(BaseObservation):
     Consider a coupled momentum model:
 
     transformation:
-    x^a_t \sim x^a_{t-1} + v * sigmoid(\alpha_a) \frac{m_t}{momentum_lags} + v * sigmoid(Wf(x^a_t-1, x^b_t-1)+b)
-    x^b_t \sim x^b_{t-1} + v * sigmoid(\alpha_b) \frac{m_t}{momentum_lags} + v * sigmoid(Wf(x^b_t-1, x^a_t-1)+b)
+    x^a_t \sim x^a_{t-1} + vs * sigmoid(\alpha_a) \frac{m_t}{momentum_lags} + vs * sigmoid(Wf(x^a_t-1, x^b_t-1)+b)
+    x^b_t \sim x^b_{t-1} + vs * sigmoid(\alpha_b) \frac{m_t}{momentum_lags} + vs * sigmoid(Wf(x^b_t-1, x^a_t-1)+b)
 
     constrained observation:
     ar_truncated_normal_observation

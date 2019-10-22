@@ -152,6 +152,50 @@ def k_step_prediction_for_weightedgrid_model(model, model_z, data, distances_a=N
         return x_predict_arr
 
 
+def k_step_prediction_for_gpgrid_model(model, model_z, data, **memory_kwargs):
+    data = check_and_convert_to_tensor(data)
+
+    if memory_kwargs == {}:
+        print("Did not provide memory information")
+        return k_step_prediction(model, model_z, data)
+    else:
+
+        feature_vecs_a =memory_kwargs.get("feature_vecs_a", None)
+        feature_vecs_b = memory_kwargs.get("feature_vecs_b", None)
+        gpt_idx_a = memory_kwargs.get("gpt_idx_a", None)
+        gpt_idx_b= memory_kwargs.get("gpt_idx_b", None)
+        grid_idx_a = memory_kwargs.get("grid_idx_a", None)
+        grid_idx_b = memory_kwargs.get("grid_idx_b")
+        coeff_a = memory_kwargs.get("coeff_a", None)
+        coeff_b = memory_kwargs.get("coeff_b", None)
+        dist_sq_a = memory_kwargs.get("dist_sq_a", None)
+        dist_sq_b = memory_kwargs.get("dist_sq_b", None)
+
+
+
+        x_predict_arr = []
+        x_predict = model.observation.sample_x(model_z[0], data[:0], return_np=True)
+        x_predict_arr.append(x_predict)
+        for t in range(1, data.shape[0]):
+            if dist_sq_a is None:
+                x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True, transformation=True,
+                                                       feature_vec_a=feature_vecs_a[t-1:t], feature_vec_b=feature_vecs_b[t-1:t],
+                                                       gpt_idx_a=gpt_idx_a[t-1:t], gpt_idx_b=gpt_idx_b[t-1:t],
+                                                       grid_idx_a=grid_idx_a[t-1:t], grid_idx_b=grid_idx_b[t-1:t],
+                                                       coeff_a=coeff_a[t-1:t], coeff_b=coeff_b[t-1:t])
+            else:
+                x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True, transformation=True,
+                                                       feature_vec_a=feature_vecs_a[t - 1:t],
+                                                       feature_vec_b=feature_vecs_b[t - 1:t],
+                                                       gpt_idx_a=gpt_idx_a[t - 1:t], gpt_idx_b=gpt_idx_b[t - 1:t],
+                                                       grid_idx_a=grid_idx_a[t - 1:t], grid_idx_b=grid_idx_b[t - 1:t],
+                                                       dist_sq_a=dist_sq_a[t - 1:t], dist_sq_b=dist_sq_b[t - 1:t])
+            x_predict_arr.append(x_predict)
+
+        x_predict_arr = np.array(x_predict_arr)
+        return x_predict_arr
+
+
 def k_step_prediction_for_lstm_model(model, model_z, data, feature_vecs=None):
     data = check_and_convert_to_tensor(data)
 

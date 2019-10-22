@@ -15,7 +15,7 @@ def log_d_sigmoid(x):
 
 
 class LogitNormal(BaseDistribution):
-    r"""
+    """
     Creates a sigmoid-normal distribution parameterized by a mean vector, a covariance matrix and bounds
     Normal -> scaled sigmoid
     """

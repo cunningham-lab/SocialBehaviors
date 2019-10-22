@@ -42,28 +42,23 @@ class BaseWeightedDirectionTransformation(BaseTransformation):
 
         # get weigths
         weights_a, weights_b = self.get_weights(inputs, **kwargs)
-        #weights_a = self.get_weights(inputs[:, 0:2], 0, **kwargs)
-        #weights_b = self.get_weights(inputs[:, 2:4], 1, **kwargs)
         assert weights_a.shape == (T, self.K, self.Df), \
             "weigths_a should have shape {}, instead of {}".format((T, self.K, self.Df), weights_a.shape)
         assert weights_b.shape == (T, self.K, self.Df), \
             "weights_b should have shape {}, instead of {}".format((T, self.K, self.Df), weights_b.shape)
 
         # feature vecs
-        feature_vecs = kwargs.get("feature_vecs", None)
-        if feature_vecs is None:
-            #print("not using feature vecs memory")
-            feature_vecs_a = self.feature_vec_func(inputs[:, 0:2])  # (T, Df, 2)
-            feature_vecs_b = self.feature_vec_func(inputs[:, 2:4])  # (T, Df, 2)
-        else:
-            assert isinstance(feature_vecs, tuple)
-            feature_vecs_a, feature_vecs_b = feature_vecs
-        assert feature_vecs_a.shape == (T, self.Df, self.d), \
-            "feature_vecs_a should have shape ({}, {}, {}), but is of shape {}".format(T, self.Df, self.d,
-                                                                                       feature_vecs_a.shape)
-        assert feature_vecs_b.shape == (T, self.Df, self.d), \
-            "feature_vecs_b should have shape ({}, {}, {}), but is of shape {}".format(T, self.Df, self.d,
-                                                                                       feature_vecs_b.shape)
+        # TODO: accomodate to thhe subclasses
+        feature_vecs_a = kwargs.get("feature_vecs_a", None)
+        if feature_vecs_a is None:
+            #print("not using feature_vecs_a memories")
+            feature_vecs_a = self.feature_vec_func(inputs[:, 0:2])
+        assert feature_vecs_a.shape == (T, self.Df, 2)
+        feature_vecs_b = kwargs.get("feature_vecs_b", None)
+        if feature_vecs_b is None:
+            #print("not using feature_vecs_b memories")
+            feature_vecs_b = self.feature_vec_func(inputs[:,2:4])
+        assert feature_vecs_b.shape == (T, self.Df, 2)
 
         # make transformation
         # (T, K, Df) * (T, Df, d) --> (T, K, d)
@@ -93,13 +88,14 @@ class BaseWeightedDirectionTransformation(BaseTransformation):
         assert weights_b.shape == (1, self.Df)
 
         # feature vec
-        feature_vec = kwargs.get("feature_vec", None)
-        if feature_vec is None:
+        feature_vec_a = kwargs.get("feature_vec_a", None)
+        feature_vec_b = kwargs.get("feature_vec_b", None)
+        if feature_vec_a is None:
             #print("not using feature_vec memory")
             feature_vec_a = self.feature_vec_func(inputs[-1:, 0:2])
+
+        if feature_vec_b is None:
             feature_vec_b = self.feature_vec_func(inputs[-1:, 2:4])
-        else:
-            feature_vec_a, feature_vec_b = feature_vec
 
         assert feature_vec_a.shape == (1, self.Df, self.d)
         assert feature_vec_b.shape == (1, self.Df, self.d)
