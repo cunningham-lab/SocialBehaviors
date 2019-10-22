@@ -275,7 +275,7 @@ def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_pr
                             list_of_k_steps=list_of_k_steps, sample_T=sample_T,
                             train_model=train_model, losses=losses, quiver_scale=quiver_scale,
                             valid_data=valid_data, valid_losses=valid_losses,
-                            valid_data_memory_kwargs=valid_data_memory_kwargs)
+                            valid_data_memory_kwargs=valid_data_memory_kwargs, device=device)
 
     else:
         # only save the results
