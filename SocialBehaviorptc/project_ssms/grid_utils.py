@@ -46,6 +46,7 @@ def add_grid_to_ax(ax, x_grids, y_grids):
 
 def plot_realdata_quiver(realdata, z, K, x_grids=None, y_grids=None,
                          xlim=None, ylim=None, title=None, cluster_centers=None, grid_alpha=0.8, **quiver_args):
+    # TODO: fix the case for K=1. color mapping only work for K>=2. need to use only one color for K=1
     if isinstance(realdata, torch.Tensor):
         realdata = realdata.numpy()
 

@@ -69,7 +69,7 @@ def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_pr
     K = k
     sample_T = sample_t
     log_prior_sigma_sq = float(log_prior_sigma_sq)
-    video_clip_start, video_clip_end = [int(x) for x in video_clips.split(",")]
+    video_clip_start, video_clip_end = [float(x) for x in video_clips.split(",")]
     list_of_num_iters = [int(x) for x in list_of_num_iters.split(",")]
     list_of_lr = [float(x) for x in list_of_lr.split(",")]
     list_of_k_steps = [int(x) for x in list_of_k_steps.split(",")]
@@ -88,7 +88,7 @@ def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_pr
     data_dir = repo_dir + '/SocialBehaviorptc/data/trajs_all'
     trajs = joblib.load(data_dir)
 
-    traj = trajs[36000*video_clip_start:36000*video_clip_end]
+    traj = trajs[int(36000*video_clip_start):int(36000*video_clip_end)]
     traj = downsample(traj, downsample_n)
     if filter_traj:
         traj = filter_traj_by_speed(traj, q1=0.99, q2=0.99)

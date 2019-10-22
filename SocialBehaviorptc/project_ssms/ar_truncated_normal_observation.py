@@ -61,7 +61,8 @@ class ARTruncatedNormalObservation(BaseObservation):
         self.mus_init = self.mus_init[perm]
         self.log_sigmas_init = self.log_sigmas_init[perm]
 
-        self.log_sigmas = torch.tensor(self.log_sigmas[perm], requires_grad=self.log_sigmas.requires_grad)
+        self.log_sigmas = torch.tensor(self.log_sigmas[perm], requires_grad=self.log_sigmas.requires_grad,
+                                       device=self.device)
         self.transformation.permute(perm)
 
     def log_prior(self):
@@ -106,9 +107,9 @@ class ARTruncatedNormalObservation(BaseObservation):
             # some ad-hoc way to address bound issue
             for d in range(self.D):
                 if samples[d] <= self.bounds[d,0]:
-                    samples[d] = self.bounds[d,0] + 0.1 * torch.rand(1, dtype=torch.float64)
+                    samples[d] = self.bounds[d,0] + 0.1 * torch.rand(1, dtype=torch.float64, device=self.device)
                 elif samples[d] >= self.bounds[d,1]:
-                    samples[d] = self.bounds[d,1] - 0.1 * torch.rand(1, dtype=torch.float64)
+                    samples[d] = self.bounds[d,1] - 0.1 * torch.rand(1, dtype=torch.float64, device=self.device)
 
             samples = samples.detach()
 
