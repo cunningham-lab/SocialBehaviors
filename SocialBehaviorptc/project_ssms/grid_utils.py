@@ -8,8 +8,8 @@ import matplotlib.animation as animation
 import seaborn as sns
 from torch import __init__
 
-from ssm_ptc.utils import check_and_convert_to_tensor
-from project_ssms.plot_utils import get_colors_and_cmap, add_grid
+from ssm_ptc.utils import check_and_convert_to_tensor, get_np
+from project_ssms.plot_utils import get_colors_and_cmap
 from project_ssms.utils import downsample
 
 
@@ -17,9 +17,9 @@ def add_grid(x_grids, y_grids, grid_alpha=1.0):
     if x_grids is None or y_grids is None:
         return
     if isinstance(x_grids, torch.Tensor):
-        x_grids = x_grids.numpy()
+        x_grids = get_np(x_grids)
     if isinstance(y_grids, torch.Tensor):
-        y_grids = y_grids.numpy()
+        y_grids = get_np(y_grids)
 
     plt.scatter([x_grids[0], x_grids[0], x_grids[-1], x_grids[-1]],
                 [y_grids[0], y_grids[1], y_grids[0], y_grids[1]], alpha=grid_alpha)
@@ -32,9 +32,9 @@ def add_grid(x_grids, y_grids, grid_alpha=1.0):
 
 def add_grid_to_ax(ax, x_grids, y_grids):
     if isinstance(x_grids, torch.Tensor):
-        x_grids = x_grids.numpy()
+        x_grids = get_np(x_grids)
     if isinstance(y_grids, torch.Tensor):
-        y_grids = y_grids.numpy()
+        y_grids = get_np(y_grids)
 
     ax.scatter([x_grids[0], x_grids[0], x_grids[-1], x_grids[-1]], [y_grids[0], y_grids[-1], y_grids[0], y_grids[-1]])
     for j in range(len(y_grids)):
@@ -48,7 +48,7 @@ def plot_realdata_quiver(realdata, z, K, x_grids=None, y_grids=None,
                          xlim=None, ylim=None, title=None, cluster_centers=None, grid_alpha=0.8, **quiver_args):
     # TODO: fix the case for K=1. color mapping only work for K>=2. need to use only one color for K=1
     if isinstance(realdata, torch.Tensor):
-        realdata = realdata.numpy()
+        realdata = get_np(realdata)
 
     _, D = realdata.shape
     assert D == 4 or D == 2
@@ -300,9 +300,9 @@ def plot_dynamics(weighted_corner_vecs, animal, x_grids, y_grids, K, scale=0.1, 
     This is for the illustration of the dynamics of the discrete grid model. Probably want to make the case of K>8
     """
     if isinstance(x_grids, torch.Tensor):
-        x_grids = x_grids.numpy()
+        x_grids = get_np(x_grids)
     if isinstance(y_grids, torch.Tensor):
-        y_grids = y_grids.numpy()
+        y_grids = get_np(y_grids)
 
     result_corner_vecs = np.sum(weighted_corner_vecs, axis=2)
     n_x = len(x_grids) - 1
@@ -365,7 +365,7 @@ def plot_quiver(XYs, dXYs, mouse, K,scale=1, alpha=1, title=None, x_grids=None, 
 
 
 def get_z_percentage_by_grid(masks_a, z, K, G):
-    masks_z_a = np.array([(z[:-1] + 1) * masks_a[g].numpy() for g in range(G)])
+    masks_z_a = np.array([(z[:-1] + 1) * get_np(masks_a[g]) for g in range(G)])
 
     # (G, K) For each grid g, number of data in that grid = k
     grid_z_a = np.array([[sum(masks_z_a[g] == k) for k in range(1, K + 1)] for g in range(G)])
@@ -467,7 +467,7 @@ def get_all_angles(data, x_grids, y_grids, device=torch.device('cpu')):
 
     dXY = data[1:] - data[:-1]
     if isinstance(dXY, torch.Tensor):
-        dXY = dXY.numpy()
+        dXY = get_np(dXY)
 
     return get_all_angles_from_quiver(data[:-1], dXY, x_grids, y_grids, device=device)
 
@@ -481,8 +481,8 @@ def get_all_angles_from_quiver(XY, dXY, x_grids, y_grids, device=torch.device('c
 
     if D == 4:
         masks_a, masks_b = get_masks_for_two_animals(XY, x_grids, y_grids)
-        masks_a = masks_a.numpy()
-        masks_b = masks_b.numpy()
+        masks_a = get_np(masks_a)
+        masks_b = get_np(masks_b)
 
         angles_a = []
         angles_b = []
@@ -497,7 +497,7 @@ def get_all_angles_from_quiver(XY, dXY, x_grids, y_grids, device=torch.device('c
         return angles_a, angles_b
     elif D == 2:
         masks_a = get_masks_for_single_animal(XY, x_grids, y_grids)
-        masks_a = masks_a.numpy()
+        masks_a = get_np(masks_a)
 
         angles_a = []
         G = (len(x_grids) - 1) * (len(y_grids) - 1)
@@ -582,7 +582,7 @@ def get_speed_for_single_animal(data, x_grids, y_grids, device=torch.device('cpu
         masks_a = get_masks_for_single_animal(data[:-1], x_grids, y_grids)
     elif isinstance(data, torch.Tensor):
         masks_a = get_masks_for_single_animal(data[:-1], x_grids, y_grids)
-        diff = np.diff(data.numpy(), axis=0)  # (T-1, 2)
+        diff = np.diff(get_np(data), axis=0)  # (T-1, 2)
     else:
         raise ValueError("Data must be either np.ndarray or torch.Tensor")
 
@@ -591,7 +591,7 @@ def get_speed_for_single_animal(data, x_grids, y_grids, device=torch.device('cpu
     speed_a = []
     G = (len(x_grids) - 1) * (len(y_grids) - 1)
     for g in range(G):
-        speed_a_g = speed_a_all[masks_a[g].numpy() == 1]
+        speed_a_g = speed_a_all[get_np(masks_a[g]) == 1]
 
         speed_a.append(speed_a_g)
 
@@ -644,7 +644,7 @@ def plot_space_dist(data, x_grids, y_grids, grid_alpha=1):
     T, D = data.shape
     assert D == 2 or D == 4
     if isinstance(data, torch.Tensor):
-        data = data.numpy()
+        data = get_np(data)
 
     n_levels = int(T / 36)
 

@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import datetime
 
-from ssm_ptc.utils import k_step_prediction, check_and_convert_to_tensor
+from ssm_ptc.utils import k_step_prediction, check_and_convert_to_tensor, get_np
 
 
 def k_step_prediction_for_momentum_feature_model(model, model_z, data, momentum_vecs=None, features=None):
@@ -260,7 +260,7 @@ def k_step_prediction_for_lstm_based_model(model, model_z, data, k=0, feature_ve
                     z, x = model.sample(1, prefix=(z, x), return_np=False, transformation=True,
                                         lstm_states=sampled_lstm_states)
             assert x.shape == (1, D)
-            x_predict_arr.append(x[0].numpy())
+            x_predict_arr.append(get_np(x[0]))
 
     x_predict_arr = np.array(x_predict_arr)
     assert x_predict_arr.shape == (T-k, D)
