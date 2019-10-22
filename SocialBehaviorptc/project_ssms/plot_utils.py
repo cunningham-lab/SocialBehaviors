@@ -17,9 +17,9 @@ def add_grid(x_grids, y_grids, grid_alpha=1.0):
     if x_grids is None or y_grids is None:
         return
     if isinstance(x_grids, torch.Tensor):
-        x_grids = x_grids.numpy()
+        x_grids = get_np(x_grids)
     if isinstance(y_grids, torch.Tensor):
-        y_grids = y_grids.numpy()
+        y_grids = get_np(y_grids)
 
     plt.scatter([x_grids[0], x_grids[0], x_grids[-1], x_grids[-1]],
                 [y_grids[0], y_grids[1], y_grids[0], y_grids[1]], alpha=grid_alpha)
@@ -74,7 +74,7 @@ def plot_z(z, K, plot_range=None, ylim=None, title=None):
 
 def plot_mouse(data, alpha=.8, title=None, xlim=None, ylim=None, mouse='both'):
     if isinstance(data, torch.Tensor):
-        data = data.numpy()
+        data = get_np(data)
     if title is not None:
         plt.title(title)
     _, D = data.shape
