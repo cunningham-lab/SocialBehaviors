@@ -49,7 +49,7 @@ class GPGridTransformation(BaseWeightedDirectionTransformation):
             x_gap = (x_grids[-1] - x_grids[0])/(len(x_grids)-1)
             y_gap = (y_grids[-1] - y_grids[0])/(len(y_grids)-1)
             rs_factor = np.array([x_gap, y_gap])
-        self.rs_factor = check_and_convert_to_tensor(rs_factor)
+        self.rs_factor = check_and_convert_to_tensor(rs_factor, device=self.device)
         if rs is None:
             rs = np.array([10, 10])
         self.rs = torch.tensor(rs, dtype=torch.float64, device=self.device, requires_grad=train_rs)

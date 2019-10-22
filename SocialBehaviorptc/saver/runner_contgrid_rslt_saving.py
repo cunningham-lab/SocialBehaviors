@@ -162,9 +162,11 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     summary_dict = {**dict_of_x_predict_k_err, **summary_dict}
     if valid_data is not None:
         summary_dict["valid_log_likes"] = get_np(model.log_likelihood(valid_data, **valid_data_memory_kwargs))
+    if isinstance(tran, GPGridTransformation):
+        summary_dict["real_rs"] = get_np(tran.rs_factor * torch.sigmoid(tran.rs))
     if isinstance(tran, WeightedGridTransformation):
         summary_dict["beta"] = get_np(tran.beta)
-    if isinstance(tran, (LinearGridTransformation, WeightedGridTransformation)):
+    if isinstance(tran, (LinearGridTransformation, GPGridTransformation, WeightedGridTransformation)):
         summary_dict["avg_transform_speed"] = avg_transform_speed
     with open(rslt_dir + "/summary.json", "w") as f:
         json.dump(summary_dict, f, indent=4, cls=NumpyEncoder)
