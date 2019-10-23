@@ -34,6 +34,11 @@ class HMMNormalizerCython(Function):
     @staticmethod
     def backward(ctx, grad_output):
         alphas, log_As = ctx.saved_tensors
+
+        device = alphas.device
+        print("inside hmm normalized backward pass")
+        print("device = {}".format(device))
+
         alphas, log_As = alphas.detach().cpu().numpy(), log_As.detach().cpu().numpy()
         T, K = alphas.shape
 
@@ -42,10 +47,6 @@ class HMMNormalizerCython(Function):
         d_log_likes = np.zeros((T, K))
 
         backward_pass_cython(log_As, alphas, d_log_pi0, d_log_As, d_log_likes)
-
-        device = alphas.device
-        print("inside hmm normalized backward pass")
-        print("device = {}".format(device))
 
         return torch.tensor(d_log_pi0, dtype=torch.float64, device=device) * grad_output, \
                torch.tensor(d_log_As, dtype=torch.float64, device=device) * grad_output, \
