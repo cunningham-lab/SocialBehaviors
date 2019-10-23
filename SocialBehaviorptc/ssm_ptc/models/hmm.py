@@ -243,8 +243,7 @@ class HMM:
                 assert log_Ps.shape == (T-1, self.K, self.K)
 
             log_likes = self.observation.log_prob(data, **m_kwargs)  # (T, K)
-            print("ll device {}".format(ll.device))
-
+           
             ll = ll + hmmnorm_cython(log_pi0, log_Ps, log_likes)
 
         return ll
