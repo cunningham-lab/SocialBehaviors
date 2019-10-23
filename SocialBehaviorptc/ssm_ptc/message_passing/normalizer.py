@@ -7,9 +7,6 @@ import numpy as np
 
 class HMMNormalizerCython(Function):
 
-    def set(self, device):
-        self.device = device
-
     @staticmethod
     def forward(ctx, log_pi0, log_As, log_likes):
         T, K = log_likes.shape
@@ -34,6 +31,7 @@ class HMMNormalizerCython(Function):
     def backward(ctx, grad_output):
         alphas, log_As = ctx.saved_tensors
         device = alphas.device
+        print("backward device = {}".format(device))
 
         alphas, log_As = alphas.detach().cpu().numpy(), log_As.detach().cpu().numpy()
         T, K = alphas.shape
