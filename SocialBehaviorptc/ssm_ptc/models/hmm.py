@@ -244,14 +244,12 @@ class HMM:
             log_likes = self.observation.log_prob(data, **m_kwargs)  # (T, K)
 
             ll = ll + hmmnorm_cython(log_pi0, log_Ps, log_likes)
-            out = hmmnorm_cython(log_pi0, log_Ps, log_likes)
-            print("out device{}".format(out.device))
-            print("LL device {}".format(ll.device))
 
         return ll
 
     @ensure_args_are_lists_of_tensors
     def log_probability(self, datas, inputs=None, **memory_kwargs):
+        print("log prior device {}".format(self.log_prior().device))
         return self.log_likelihood(datas, inputs, **memory_kwargs) + self.log_prior()
 
     @property
