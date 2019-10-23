@@ -30,6 +30,7 @@ print("Using device {} \n\n".format(device))
 
 @click.command()
 @click.option('--job_name', default=None, help='name of the job')
+@click.option('--cuda_num', default=0, help='which cuda device to use')
 @click.option('--downsample_n', default=1, help='downsample factor. Data size will reduce to 1/downsample_n')
 @click.option('--filter_traj', is_flag=True, help='whether or not to filter the trajectory by SPEED')
 @click.option('--use_log_prior', is_flag=True, help='whether to use log_prior to smooth the dynamics')
@@ -67,13 +68,18 @@ print("Using device {} \n\n".format(device))
 @click.option('--list_of_k_steps', default='5', help='list of number of steps prediction forward')
 @click.option('--sample_t', default=100, help='length of samples')
 @click.option('--quiver_scale', default=0.8, help='scale for the quiver plots')
-def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_prior, log_prior_sigma_sq,
+def main(job_name, cuda_num, downsample_n, filter_traj, use_log_prior, add_log_diagonal_prior, log_prior_sigma_sq,
          load_model, load_model_dir, load_opt_dir,
          transition, sticky_alpha, sticky_kappa, acc_factor, k, x_grids, y_grids, n_x, n_y, rs_factor, rs, train_rs,
          train_model, pbar_update_interval, video_clips, held_out_proportion, torch_seed, np_seed,
          list_of_num_iters, ckpts_not_to_save, list_of_lr, list_of_k_steps, sample_t, quiver_scale):
     if job_name is None:
         raise ValueError("Please provide the job name.")
+
+    cuda_num = int(cuda_num)
+    device = torch.device("cuda:{}".format(cuda_num) if torch.cuda.is_available() else "cpu")
+    print("Using device {} \n\n".format(device))
+
     K = k
     sample_T = sample_t
     log_prior_sigma_sq = float(log_prior_sigma_sq)

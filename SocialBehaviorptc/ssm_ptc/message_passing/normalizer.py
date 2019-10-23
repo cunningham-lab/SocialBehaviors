@@ -4,7 +4,7 @@ from ssm_ptc.message_passing.hmm import forward_pass as forward_pass_cython
 from ssm_ptc.message_passing.hmm import backward_pass as backward_pass_cython
 import numpy as np
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+#device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class HMMNormalizerCython(Function):
 
@@ -36,6 +36,7 @@ class HMMNormalizerCython(Function):
 
         backward_pass_cython(log_As, alphas, d_log_pi0, d_log_As, d_log_likes)
 
+        device = grad_output.device
         return torch.tensor(d_log_pi0, dtype=torch.float64, device=device) * grad_output, \
                torch.tensor(d_log_As, dtype=torch.float64, device=device) * grad_output, \
                torch.tensor(d_log_likes, dtype=torch.float64, device=device) * grad_output
