@@ -12,7 +12,7 @@ class LinearGridTransformation(BaseTransformation):
     """
 
     def __init__(self, K, D, x_grids, y_grids, Df, feature_vec_func, acc_factor=2, lags=1,
-                 use_log_prior=False, add_log_diagonal_prior=False, log_prior_sigma_sq=-np.log(1e3),
+                 use_log_prior=False, no_boundary_prior=False, add_log_diagonal_prior=False, log_prior_sigma_sq=-np.log(1e3),
                  device=torch.device('cpu')):
         assert lags == 1, "lags should be 1 for lineargrid transformation."
         super(LinearGridTransformation, self).__init__(K, D)
@@ -21,6 +21,7 @@ class LinearGridTransformation(BaseTransformation):
 
         self.use_log_prior = use_log_prior
         self.add_log_diagonal_prior = add_log_diagonal_prior
+        self.no_boundary_prior = False
         self.log_prior_sigma_sq = torch.tensor(log_prior_sigma_sq, dtype=torch.float64, device=device)
 
         self.x_grids = check_and_convert_to_tensor(x_grids, dtype=torch.float64, device=device)  # [x_0, x_1, ..., x_m]
@@ -57,16 +58,30 @@ class LinearGridTransformation(BaseTransformation):
         if not self.use_log_prior:
             return 0
 
-        # first, (K, 2, Df)
-        log_p_vertical = self.acc_factor*torch.stack([torch.sigmoid(self.Ws[:,:,i*(self.n_y+1)+j])
-                                      - torch.sigmoid(self.Ws[:,:,i*(self.n_y+1)+j+1])
-                                      for i in range(self.n_x+1) for j in range(self.n_y)], dim=2)
-        assert log_p_vertical.shape == (self.K, 2, (self.n_x+1)*self.n_y, self.Df)
-        log_p_horizontal = self.acc_factor*torch.stack([torch.sigmoid(self.Ws[:,:,i*(self.n_y+1)+j]) -
-                                        torch.sigmoid(self.Ws[:,:,(i+1)*(self.n_y+1)+j])
-                                        for i in range(self.n_x) for j in range(self.n_y+1)], dim=2)
-        assert log_p_horizontal.shape == (self.K, 2, self.n_x*(self.n_y+1), self.Df)
-        #TODO: add diagonal term
+        if self.no_boundary_prior:
+            if self.n_x <= 2 or self.n_y <= 2:
+                return 0
+            log_p_vertical = self.acc_factor * torch.stack([torch.sigmoid(self.Ws[:, :, i * (self.n_y + 1) + j])
+                                                            - torch.sigmoid(self.Ws[:, :, i * (self.n_y + 1) + j + 1])
+                                                            for i in range(1, self.n_x) for j in range(1, self.n_y-1)],
+                                                           dim=2)
+            assert log_p_vertical.shape == (self.K, 2, (self.n_x - 1) * (self.n_y - 2), self.Df)
+            log_p_horizontal = self.acc_factor * torch.stack([torch.sigmoid(self.Ws[:, :, i * (self.n_y + 1) + j]) -
+                                                              torch.sigmoid(self.Ws[:, :, (i + 1) * (self.n_y + 1) + j])
+                                                              for i in range(1, self.n_x-1) for j in range(1, self.n_y)],
+                                                             dim=2)
+            assert log_p_horizontal.shape == (self.K, 2, (self.n_x - 2) * (self.n_y - 1), self.Df)
+        else:
+            # first, (K, 2, Df)
+            log_p_vertical = self.acc_factor*torch.stack([torch.sigmoid(self.Ws[:,:,i*(self.n_y+1)+j])
+                                          - torch.sigmoid(self.Ws[:,:,i*(self.n_y+1)+j+1])
+                                          for i in range(self.n_x+1) for j in range(self.n_y)], dim=2)
+            assert log_p_vertical.shape == (self.K, 2, (self.n_x+1)*self.n_y, self.Df)
+            log_p_horizontal = self.acc_factor*torch.stack([torch.sigmoid(self.Ws[:,:,i*(self.n_y+1)+j]) -
+                                            torch.sigmoid(self.Ws[:,:,(i+1)*(self.n_y+1)+j])
+                                            for i in range(self.n_x) for j in range(self.n_y+1)], dim=2)
+            assert log_p_horizontal.shape == (self.K, 2, self.n_x*(self.n_y+1), self.Df)
+
         log_prior = torch.sum(log_p_vertical**2) + torch.sum(log_p_horizontal**2)
         if self.add_log_diagonal_prior:
             log_p_diagonal_ll_to_ur = self.acc_factor*torch.stack([torch.sigmoid(self.Ws[:,:,i*(self.n_y+1)+j])

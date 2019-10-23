@@ -10,6 +10,8 @@ from project_ssms.constants import ARENA_XMIN, ARENA_XMAX, ARENA_YMIN, ARENA_YMA
 from saver.rslts_saving import addDateTime, NumpyEncoder
 from saver.runner_contgrid_rslt_saving import rslt_saving
 
+import matplotlib.pyplot as plt
+
 import torch
 import numpy as np
 
@@ -30,6 +32,7 @@ print("Using device {} \n\n".format(device))
 @click.option('--downsample_n', default=1, help='downsample factor. Data size will reduce to 1/downsample_n')
 @click.option('--filter_traj', is_flag=True, help='whether or not to filter the trajectory by SPEED')
 @click.option('--use_log_prior', is_flag=True, help='whether to use log_prior to smooth the dynamics')
+@click.option('--no_boundary_prior', is_flag=False, help='whether to drop priors on the boundary')
 @click.option('--add_log_diagonal_prior', is_flag=True,
               help='whether to add log_diagonal_prior to smooth the dynamics diagonally')
 @click.option('--log_prior_sigma_sq', default=-np.log(1e3), help='the variance for the weight smoothing prior')
@@ -55,15 +58,16 @@ print("Using device {} \n\n".format(device))
                                        ' Would be overwritten if y_grids is provided, or load model.')
 @click.option('--list_of_num_iters', default='5000,5000',
               help='a list of checkpoint numbers of iterations for training')
+@click.option('--ckpts_not_to_save', default=None, help='where to skip saving rslts')
 @click.option('--list_of_lr', default='0.005, 0.005', help='learning rate for training')
 @click.option('--list_of_k_steps', default='5', help='list of number of steps prediction forward')
 @click.option('--sample_t', default=100, help='length of samples')
 @click.option('--quiver_scale', default=0.8, help='scale for the quiver plots')
-def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_prior, log_prior_sigma_sq,
+def main(job_name, downsample_n, filter_traj, use_log_prior, no_boundary_prior, add_log_diagonal_prior, log_prior_sigma_sq,
          load_model, load_model_dir, load_opt_dir,
          transition, sticky_alpha, sticky_kappa, acc_factor, k, x_grids, y_grids, n_x, n_y,
          train_model, pbar_update_interval, video_clips, held_out_proportion, torch_seed, np_seed,
-         list_of_num_iters, list_of_lr, list_of_k_steps, sample_t, quiver_scale):
+         list_of_num_iters, ckpts_not_to_save, list_of_lr, list_of_k_steps, sample_t, quiver_scale):
     if job_name is None:
         raise ValueError("Please provide the job name.")
     K = k
@@ -77,6 +81,9 @@ def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_pr
     for lr in list_of_lr:
         if lr > 1:
             raise ValueError("Learning rate should not be larger than 1!")
+
+    ckpts_not_to_save = ckpts_not_to_save if ckpts_not_to_save else ""
+    ckpts_not_to_save = [int(x) for x in ckpts_not_to_save.split(',')]
 
     repo = git.Repo('.', search_parent_directories=True)  # SocialBehaviorectories=True)
     repo_dir = repo.working_tree_dir  # SocialBehavior
@@ -145,7 +152,8 @@ def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_pr
 
         tran = LinearGridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids,
                                         Df=Df, feature_vec_func=f_corner_vec_func, acc_factor=acc_factor,
-                                        use_log_prior=use_log_prior, add_log_diagonal_prior=add_log_diagonal_prior,
+                                        use_log_prior=use_log_prior, no_boundary_prior=no_boundary_prior,
+                                        add_log_diagonal_prior=add_log_diagonal_prior,
                                         log_prior_sigma_sq=log_prior_sigma_sq, device=device)
         obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=1, bounds=bounds, transformation=tran, device=device)
 
@@ -163,6 +171,7 @@ def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_pr
                   "filter_traj": filter_traj,
                   "use_log_prior": use_log_prior,
                   "add_log_diagonal_prior": add_log_diagonal_prior,
+                  "no_boundary_prior": no_boundary_prior,
                   "log_prior_sigma_sq": log_prior_sigma_sq,
                   "load_model": load_model,
                   "load_model_dir": load_model_dir,
@@ -184,6 +193,7 @@ def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_pr
                   "torch_seed": torch_seed,
                   "np_seed": np_seed,
                   "list_of_num_iters": list_of_num_iters,
+                  "ckpts_not_to_save": ckpts_not_to_save,
                   "list_of_lr": list_of_lr,
                   "list_of_k_steps": list_of_k_steps,
                   "sample_T": sample_T,
@@ -237,10 +247,10 @@ def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_pr
         else:
             opt = None
         for i, (num_iters, lr) in enumerate(zip(list_of_num_iters, list_of_lr)):
-            losses, opt, valid_losses = model.fit(training_data, optimizer=opt, method='adam', num_iters=num_iters, lr=lr,
+            training_losses, opt, valid_losses = model.fit(training_data, optimizer=opt, method='adam', num_iters=num_iters, lr=lr,
                                     pbar_update_interval=pbar_update_interval, valid_data=valid_data,
                                     valid_data_memory_kwargs=valid_data_memory_kwargs, **memory_kwargs)
-            list_of_losses.append(losses)
+            list_of_losses.append(training_losses)
 
             checkpoint_dir = rslt_dir + "/checkpoint_{}".format(i)
 
@@ -250,19 +260,37 @@ def main(job_name, downsample_n, filter_traj, use_log_prior, add_log_diagonal_pr
             # save model and opt
             joblib.dump(model, checkpoint_dir+"/model")
             joblib.dump(opt, checkpoint_dir+"/optimizer")
+
+            # save losses
+            losses = dict(training_loss=training_losses, valid_loss=valid_losses)
+            joblib.dump(losses, checkpoint_dir+"/losses")
+
+            plt.figure()
+            plt.plot(training_losses)
+            plt.title("training loss")
+            plt.savefig(checkpoint_dir + "/training_losses.jpg")
+            plt.close()
+
+            plt.figure()
+            plt.plot(valid_losses)
+            plt.title("validation loss")
+            plt.savefig(checkpoint_dir + "/valid_losses.jpg")
+            plt.close()
             # save rest
+            if i in ckpts_not_to_save:
+                print("ckpt {}: skip!\n".format(i))
+                continue
             with torch.no_grad():
                 rslt_saving(rslt_dir=checkpoint_dir, model=model, data=training_data, memory_kwargs=memory_kwargs,
                             list_of_k_steps=list_of_k_steps, sample_T=sample_T,
-                            train_model=train_model, losses=losses, quiver_scale=quiver_scale,
-                            valid_data=valid_data, valid_losses=valid_losses,
+                            quiver_scale=quiver_scale, valid_data=valid_data,
                             valid_data_memory_kwargs=valid_data_memory_kwargs, device=device)
 
     else:
         # only save the results
         rslt_saving(rslt_dir=rslt_dir, model=model, data=training_data, memory_kwargs=memory_kwargs,
-                    list_of_k_steps=list_of_k_steps, sample_T=sample_T, train_model=False, losses=[],
-                    quiver_scale=quiver_scale, valid_data=valid_data, valid_losses=[],
+                    list_of_k_steps=list_of_k_steps, sample_T=sample_T,
+                    quiver_scale=quiver_scale, valid_data=valid_data,
                     valid_data_memory_kwargs=valid_data_memory_kwargs, device=device)
 
     print("Finish running!")

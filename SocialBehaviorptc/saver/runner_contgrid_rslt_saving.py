@@ -25,8 +25,8 @@ from saver.rslts_saving import NumpyEncoder
 
 
 def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
-                train_model, losses, quiver_scale, x_grids=None, y_grids=None, dynamics_T=None,
-                valid_data=None, valid_losses=None, valid_data_memory_kwargs=None, device=torch.device('cpu')):
+                quiver_scale, x_grids=None, y_grids=None, dynamics_T=None,
+                valid_data=None, valid_data_memory_kwargs=None, device=torch.device('cpu')):
 
     valid_data_memory_kwargs = valid_data_memory_kwargs if valid_data_memory_kwargs else {}
 
@@ -177,22 +177,6 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     saving_dict = {**dict_of_x_predict_k, **saving_dict}
     if isinstance(tran, LSTMBasedTransformation):
         saving_dict["samples_on_fixed_zs"] = samples_on_fixed_zs
-
-    if train_model:
-        saving_dict['losses'] = losses
-        plt.figure()
-        plt.plot(losses)
-        plt.title("training loss")
-        plt.savefig(rslt_dir + "/losses.jpg")
-        plt.close()
-
-        if valid_losses is not None and len(valid_losses) != 0:
-            saving_dict['valid_losses'] = valid_losses
-            plt.figure()
-            plt.plot(valid_losses)
-            plt.title("validation loss")
-            plt.savefig(rslt_dir + "/valid_losses.jpg")
-            plt.close()
 
     joblib.dump(saving_dict, rslt_dir + "/numbers")
 
