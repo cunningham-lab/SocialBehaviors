@@ -3,14 +3,14 @@ import numpy as np
 
 from project_ssms.constants import ARENA_XMIN, ARENA_XMAX, ARENA_YMIN, ARENA_YMAX
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+#device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # some constants
 
 # specify some locations
-WATER = torch.tensor([50, 50], dtype=torch.float64, device=device)
-FOOD = torch.tensor([270, 50], dtype=torch.float64, device=device)
-NEST = torch.tensor([270, 330], dtype=torch.float64, device=device)
-CORNER = torch.tensor([50, 330], dtype=torch.float64, device=device)
+WATER = torch.tensor([50, 50], dtype=torch.float64)
+FOOD = torch.tensor([270, 50], dtype=torch.float64)
+NEST = torch.tensor([270, 330], dtype=torch.float64)
+CORNER = torch.tensor([50, 330], dtype=torch.float64)
 
 arena_xmax = 320
 arena_ymax = 370
@@ -115,15 +115,17 @@ def feature_direction_vec(s, corners):
     :param corners: a list or array of 4, each is (2,)
     :return: (T, 4, 2) unit vecs to each corner
     """
-
+    corners = torch.tensor(corners, dtype=torch.float64, device=s.device)
     features = [unit_vector_to_fixed_loc(s, corners[i]) for i in range(4)]  # each is a tensor of shape (T,2), and there are Df items of them
     features = torch.stack(features, dim=1)
     return features
 
 
 # feature_funcs
-CORNERS = torch.tensor([[ARENA_XMIN, ARENA_YMIN], [ARENA_XMIN, ARENA_YMAX],
-                        [ARENA_XMAX, ARENA_YMIN], [ARENA_XMAX, ARENA_YMAX]], dtype=torch.float64, device=device)
+#CORNERS = torch.tensor([[ARENA_XMIN, ARENA_YMIN], [ARENA_XMIN, ARENA_YMAX],
+ #                       [ARENA_XMAX, ARENA_YMIN], [ARENA_XMAX, ARENA_YMAX]], dtype=torch.float64)
+CORNERS = np.array([[ARENA_XMIN, ARENA_YMIN], [ARENA_XMIN, ARENA_XMAX],
+                    [ARENA_XMAX, ARENA_YMIN], [ARENA_XMAX, ARENA_YMAX]])
 
 
 def f_corner_vec_func(s):

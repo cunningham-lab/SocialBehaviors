@@ -22,9 +22,6 @@ import os
 import click
 import json
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-print("Using device {} \n\n".format(device))
-
 ################### specifying default arguments ################
 
 

@@ -33,6 +33,7 @@ class HMMNormalizerCython(Function):
     @staticmethod
     def backward(ctx, grad_output):
         alphas, log_As = ctx.saved_tensors
+        device = alphas.device
 
         alphas, log_As = alphas.detach().cpu().numpy(), log_As.detach().cpu().numpy()
         T, K = alphas.shape
