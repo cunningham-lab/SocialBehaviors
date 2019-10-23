@@ -36,7 +36,9 @@ class HMMNormalizerCython(Function):
 
         backward_pass_cython(log_As, alphas, d_log_pi0, d_log_As, d_log_likes)
 
+        print("inside hmm normalizer")
         device = grad_output.device
+        print("device:{}".format(device))
         return torch.tensor(d_log_pi0, dtype=torch.float64, device=device) * grad_output, \
                torch.tensor(d_log_As, dtype=torch.float64, device=device) * grad_output, \
                torch.tensor(d_log_likes, dtype=torch.float64, device=device) * grad_output
