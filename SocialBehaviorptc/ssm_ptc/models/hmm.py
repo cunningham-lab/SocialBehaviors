@@ -221,7 +221,6 @@ class HMM:
                 for i in range(batch_size):
                     list_of_memory_kwargs[i][key] = val[i]
 
-        ll = 0
         for data, input, m_kwargs in zip(datas, inputs, list_of_memory_kwargs):
             data = check_and_convert_to_tensor(data, torch.float64, device=self.device)
 
@@ -243,8 +242,11 @@ class HMM:
                 assert log_Ps.shape == (T-1, self.K, self.K)
 
             log_likes = self.observation.log_prob(data, **m_kwargs)  # (T, K)
-           
+
             ll = ll + hmmnorm_cython(log_pi0, log_Ps, log_likes)
+            out = hmmnorm_cython(log_pi0, log_Ps, log_likes)
+            print("out device{}".format(out.device))
+            print("LL device {}".format(ll.device))
 
         return ll
 
