@@ -19,34 +19,59 @@ TRANSFORMATION_CLASSES = dict(
 
 
 class ARTruncatedNormalObservation(BaseObservation):
-    def __init__(self, K, D, M=0, lags=1, bounds=None, transformation="grid",
+    def __init__(self, K, D, M=0, obs=None, lags=1, bounds=None, transformation="grid",
                  transformation_kwargs=None, train_sigma=True, device=torch.device('cpu')):
 
         super(ARTruncatedNormalObservation, self).__init__(K, D, M)
 
-        self.lags = lags
-
-        if bounds is None:
-            raise ValueError("Must provide bounds.")
-        self.bounds = check_and_convert_to_tensor(bounds, device=device)
-        assert self.bounds.shape == (self.D, 2)
-
-        self.mus_init = torch.eye(self.K, self.D, dtype=torch.float64, device=device)
-        self.log_sigmas_init = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, device=device)
-        self.log_sigmas = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, device=device,
-                                       requires_grad=train_sigma)
-
         self.device = device
-        if isinstance(transformation, BaseTransformation):
-            self.transformation = transformation
-        elif isinstance(transformation, str):
-            if transformation not in TRANSFORMATION_CLASSES:
-                raise Exception("Invalid transformation model: {}. Must be one of {}".
-                                format(transformation, list(TRANSFORMATION_CLASSES.keys())))
 
-            transformation_kwargs = transformation_kwargs or {}
-            self.transformation = TRANSFORMATION_CLASSES[transformation](K=self.K, D=self.D, M=self.M, lags=self.lags,
-                                                                         device=device, **transformation_kwargs)
+        if obs is not None:
+            assert K == obs.K
+            assert D == obs.D
+            assert M == obs.M
+
+            self.lags = obs.lags
+            self.bounds = check_and_convert_to_tensor(get_np(obs.bounds), device=self.device)
+            assert self.bounds.shape == (self.D, 2)
+
+            self.mus_init = torch.tensor(obs.mus_init, dtype=torch.float64, device=self.device)
+            self.log_sigmas_init = torch.tensor(get_np(obs.log_sigmas_init), device=self.device)
+            self.log_sigmas = torch.tensor(get_np(obs.log_sigmas), dtype=torch.float64, device=self.device,
+                                           requires_grad=train_sigma)
+
+            tran = obs.transformation
+            if isinstance(tran, LinearGridTransformation):
+                self.transformation = LinearGridTransformation(K=self.K, D=self.D, x_grids=get_np(tran.x_grids),
+                                                               y_grids=get_np(tran.y_grids), Df=tran.Df,
+                                                               feature_vec_func=tran.feature_vec_func,
+                                                               tran=obs.transformation, device=self.device)
+            else:
+                raise ValueError("unsupported transformation here")
+
+        else:
+            self.lags = lags
+
+            if bounds is None:
+                raise ValueError("Must provide bounds.")
+            self.bounds = check_and_convert_to_tensor(bounds, device=self.device)
+            assert self.bounds.shape == (self.D, 2)
+
+            self.mus_init = torch.eye(self.K, self.D, dtype=torch.float64, device=self.device)
+            self.log_sigmas_init = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, device=self.device)
+            self.log_sigmas = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, device=self.device,
+                                           requires_grad=train_sigma)
+
+            if isinstance(transformation, BaseTransformation):
+                self.transformation = transformation
+            elif isinstance(transformation, str):
+                if transformation not in TRANSFORMATION_CLASSES:
+                    raise Exception("Invalid transformation model: {}. Must be one of {}".
+                                    format(transformation, list(TRANSFORMATION_CLASSES.keys())))
+
+                transformation_kwargs = transformation_kwargs or {}
+                self.transformation = TRANSFORMATION_CLASSES[transformation](K=self.K, D=self.D, M=self.M, lags=self.lags,
+                                                                             device=device, **transformation_kwargs)
 
     @property
     def params(self):

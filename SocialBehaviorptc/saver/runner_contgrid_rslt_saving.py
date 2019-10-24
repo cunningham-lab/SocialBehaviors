@@ -48,6 +48,7 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     z = model.most_likely_states(data, **memory_kwargs)
     z_valid = model.most_likely_states(valid_data, **valid_data_memory_kwargs)
 
+    # TODO: address valida_data = None
     print("0 step prediction")
     # TODO: add valid data for other model
     if data.shape[0] <= 10000:
@@ -185,9 +186,10 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     plt.savefig(rslt_dir + "/z.jpg")
     plt.close()
 
-    plot_z(z_valid, K, title="most likely z for valid data")
-    plt.savefig(rslt_dir + "/z_valid.jpg")
-    plt.close()
+    if len(valid_data) >0:
+        plot_z(z_valid, K, title="most likely z for valid data")
+        plt.savefig(rslt_dir + "/z_valid.jpg")
+        plt.close()
 
     if not os.path.exists(rslt_dir + "/samples"):
         os.makedirs(rslt_dir + "/samples")
@@ -208,12 +210,13 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     plt.savefig(rslt_dir + "/samples/ground_truth.jpg")
     plt.close()
 
-    plt.figure(figsize=(4, 4))
-    plot_mouse(valid_data, title="ground truth (valid)", xlim=[ARENA_XMIN - 20, ARENA_YMAX + 20],
-               ylim=[ARENA_YMIN - 20, ARENA_YMAX + 20])
-    plt.legend()
-    plt.savefig(rslt_dir + "/samples/ground_truth_valid.jpg")
-    plt.close()
+    if len(valid_data) > 0:
+        plt.figure(figsize=(4, 4))
+        plot_mouse(valid_data, title="ground truth (valid)", xlim=[ARENA_XMIN - 20, ARENA_YMAX + 20],
+                   ylim=[ARENA_YMIN - 20, ARENA_YMAX + 20])
+        plt.legend()
+        plt.savefig(rslt_dir + "/samples/ground_truth_valid.jpg")
+        plt.close()
 
     plt.figure(figsize=(4, 4))
     plot_mouse(sample_x, title="sample", xlim=[ARENA_XMIN - 20, ARENA_YMAX + 20],
@@ -233,9 +236,10 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     plt.savefig(rslt_dir + "/samples/quiver_ground_truth.jpg", dpi=200)
     plt.close()
 
-    plot_realdata_quiver(valid_data, z_valid, K, x_grids, y_grids, title="ground truth (valid)")
-    plt.savefig(rslt_dir + "/samples/quiver_ground_truth_valid.jpg", dpi=200)
-    plt.close()
+    if len(valid_data) > 0:
+        plot_realdata_quiver(valid_data, z_valid, K, x_grids, y_grids, title="ground truth (valid)")
+        plt.savefig(rslt_dir + "/samples/quiver_ground_truth_valid.jpg", dpi=200)
+        plt.close()
 
     plot_realdata_quiver(sample_x, sample_z, K, x_grids, y_grids, title="sample")
     plt.savefig(rslt_dir + "/samples/quiver_sample_x_{}.jpg".format(sample_T), dpi=200)

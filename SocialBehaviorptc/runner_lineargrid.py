@@ -1,4 +1,5 @@
 from ssm_ptc.models.hmm import HMM
+from ssm_ptc.utils import get_np
 
 from project_ssms.ar_truncated_normal_observation import ARTruncatedNormalObservation
 from project_ssms.coupled_transformations.lineargrid_transformation import LinearGridTransformation
@@ -108,6 +109,7 @@ def main(job_name, cuda_num, downsample_n, filter_traj, use_log_prior, no_bounda
     T = data.shape[0]
     breakpoint = int(T*(1-held_out_proportion))
     training_data = data[:breakpoint]
+
     valid_data = data[breakpoint:]
 
     ######################### model ####################
@@ -119,18 +121,34 @@ def main(job_name, cuda_num, downsample_n, filter_traj, use_log_prior, no_bounda
 
     if load_model:
         print("Loading the model from ", load_model_dir)
-        model = joblib.load(load_model_dir)
-        tran = model.observation.transformation
+        pretrained_model = joblib.load(load_model_dir)
+        pretrained_transition = pretrained_model.transition
+        pretrained_observation = pretrained_model.observation
+        pretrained_tran = pretrained_model.observation.transformation
 
-        K = model.K
+        # set prior info
+        pretrained_tran.use_log_prior = use_log_prior
+        pretrained_tran.no_boundary_prior = no_boundary_prior
+        pretrained_tran.add_log_diagonal_prior = add_log_diagonal_prior
+        pretrained_tran.log_prior_sigma_sq = torch.tensor(log_prior_sigma_sq, dtype=torch.float64, device=device)
 
-        n_x = len(tran.x_grids) - 1
-        n_y = len(tran.y_grids) - 1
+        acc_factor = pretrained_tran.acc_factor
 
-        acc_factor = tran.acc_factor
+        K = pretrained_model.K
+
+        obs = ARTruncatedNormalObservation(K=K, D=D, M=0, obs=pretrained_observation, device=device)
+        tran = obs.transformation
+
+        if transition == 'sticky':
+            transition_kwargs = dict(alpha=sticky_alpha, kappa=sticky_kappa)
+        else:
+            transition_kwargs = None
+        model = HMM(K=K, D=D, M=M, pi0=get_np(pretrained_model.pi0), Pi=get_np(pretrained_transition.Pi),
+                    transition=transition, observation=obs, transition_kwargs=transition_kwargs,
+                    device=device)
+        model.observation.mus_init = training_data[0] * torch.ones(K, D, dtype=torch.float64, device=device)
 
     else:
-        print("Creating the model...")
         bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX],
                            [ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX]])
 
@@ -152,6 +170,7 @@ def main(job_name, cuda_num, downsample_n, filter_traj, use_log_prior, no_bounda
         if acc_factor is None:
             acc_factor = downsample_n * 10
 
+        print("Creating the model...")
         tran = LinearGridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids,
                                         Df=Df, feature_vec_func=f_corner_vec_func, acc_factor=acc_factor,
                                         use_log_prior=use_log_prior, no_boundary_prior=no_boundary_prior,
@@ -225,20 +244,25 @@ def main(job_name, cuda_num, downsample_n, filter_traj, use_log_prior, no_bounda
     gridpoints_idx = (gridpoints_idx_a, gridpoints_idx_b)
     gridpoints = (gridpoints_a, gridpoints_b)
     feature_vecs = (feature_vecs_a, feature_vecs_b)
-
-    gridpoints_idx_a_v = tran.get_gridpoints_idx_for_batch(valid_data[:-1, 0:2])  # (T-1, n_gps, 4)
-    gridpoints_idx_b_v = tran.get_gridpoints_idx_for_batch(valid_data[:-1, 2:4])  # (T-1, n_gps, 4)
-    gridpoints_a_v = tran.get_gridpoints_for_batch(gridpoints_idx_a_v)  # (T-1, d, 2)
-    gridpoints_b_v = tran.get_gridpoints_for_batch(gridpoints_idx_b_v)  # (T-1, d, 2)
-    feature_vecs_a_v = f_corner_vec_func(valid_data[:-1, 0:2])  # (T, Df, 2)
-    feature_vecs_b_v = f_corner_vec_func(valid_data[:-1, 2:4])  # (T, Df, 2)
-
-    gridpoints_idx_v = (gridpoints_idx_a_v, gridpoints_idx_b_v)
-    gridpoints_v = (gridpoints_a_v, gridpoints_b_v)
-    feature_vecs_v = (feature_vecs_a_v, feature_vecs_b_v)
-
     memory_kwargs = dict(gridpoints_idx=gridpoints_idx, gridpoints=gridpoints, feature_vecs=feature_vecs)
-    valid_data_memory_kwargs = dict(gridpoints_idx=gridpoints_idx_v, gridpoints=gridpoints_v, feature_vecs=feature_vecs_v)
+
+    if len(valid_data) > 0:
+        gridpoints_idx_a_v = tran.get_gridpoints_idx_for_batch(valid_data[:-1, 0:2])  # (T-1, n_gps, 4)
+        gridpoints_idx_b_v = tran.get_gridpoints_idx_for_batch(valid_data[:-1, 2:4])  # (T-1, n_gps, 4)
+        gridpoints_a_v = tran.get_gridpoints_for_batch(gridpoints_idx_a_v)  # (T-1, d, 2)
+        gridpoints_b_v = tran.get_gridpoints_for_batch(gridpoints_idx_b_v)  # (T-1, d, 2)
+        feature_vecs_a_v = f_corner_vec_func(valid_data[:-1, 0:2])  # (T, Df, 2)
+        feature_vecs_b_v = f_corner_vec_func(valid_data[:-1, 2:4])  # (T, Df, 2)
+
+        gridpoints_idx_v = (gridpoints_idx_a_v, gridpoints_idx_b_v)
+        gridpoints_v = (gridpoints_a_v, gridpoints_b_v)
+        feature_vecs_v = (feature_vecs_a_v, feature_vecs_b_v)
+        valid_data_memory_kwargs = dict(gridpoints_idx=gridpoints_idx_v, gridpoints=gridpoints_v,
+                                        feature_vecs=feature_vecs_v)
+    else:
+        valid_data_memory_kwargs = {}
+
+    print("log likelihood ", model.log_likelihood(training_data, **memory_kwargs))
 
     ##################### training ############################
     if train_model:

@@ -11,37 +11,48 @@ class LinearGridTransformation(BaseTransformation):
     weights of any random point = 2D linear interpolation of the nearby four grid points
     """
 
-    def __init__(self, K, D, x_grids, y_grids, Df, feature_vec_func, acc_factor=2, lags=1,
+    def __init__(self, K, D, x_grids, y_grids, Df, feature_vec_func, tran=None, acc_factor=2, lags=1,
                  use_log_prior=False, no_boundary_prior=False, add_log_diagonal_prior=False, log_prior_sigma_sq=-np.log(1e3),
                  device=torch.device('cpu')):
         assert lags == 1, "lags should be 1 for lineargrid transformation."
         super(LinearGridTransformation, self).__init__(K, D)
 
         self.d = int(self.D / 2)
-
-        self.use_log_prior = use_log_prior
-        self.add_log_diagonal_prior = add_log_diagonal_prior
-        self.no_boundary_prior = no_boundary_prior
-        self.log_prior_sigma_sq = torch.tensor(log_prior_sigma_sq, dtype=torch.float64, device=device)
-
-        self.x_grids = check_and_convert_to_tensor(x_grids, dtype=torch.float64, device=device)  # [x_0, x_1, ..., x_m]
-        self.y_grids = check_and_convert_to_tensor(y_grids, dtype=torch.float64, device=device)  # a list [y_0, y_1, ..., y_n]
-        self.n_x = len(x_grids) - 1
-        self.n_y = len(y_grids) - 1
-
-        self.Df = Df
-        self.feature_vec_func = feature_vec_func
-        self.acc_factor = acc_factor
         self.device = device
 
+        self.x_grids = check_and_convert_to_tensor(x_grids, dtype=torch.float64, device=self.device)  # [x_0, x_1, ..., x_m]
+        self.y_grids = check_and_convert_to_tensor(y_grids, dtype=torch.float64, device=self.device)  # a list [y_0, y_1, ..., y_n]
+        self.n_x = len(x_grids) - 1
+        self.n_y = len(y_grids) - 1
         # shape: (d, n_gps)
         self.gridpoints = torch.tensor([(x_grid, y_grid) for x_grid in self.x_grids for y_grid in self.y_grids],
                                        device=device)
         self.gridpoints = torch.transpose(self.gridpoints, 0, 1)
-
         # number of basis grid points
         self.GP = self.gridpoints.shape[1]
-        self.Ws = torch.rand(self.K, 2, self.GP, self.Df, dtype=torch.float64, requires_grad=True, device=device)
+
+        self.Df = Df
+        self.feature_vec_func = feature_vec_func
+
+        if tran is not None:
+            assert isinstance(tran, LinearGridTransformation)
+            self.use_log_prior = tran.use_log_prior
+            self.add_log_diagonal_prior = tran.add_log_diagonal_prior
+            self.no_boundary_prior = tran.no_boundary_prior
+            self.log_prior_sigma_sq = torch.tensor(get_np(tran.log_prior_sigma_sq), dtype=torch.float64,
+                                                   device=self.device)
+            self.acc_factor = tran.acc_factor
+            self.Ws = torch.tensor(get_np(tran.Ws), dtype=torch.float64, requires_grad=True, device=self.device)
+
+        else:
+            self.use_log_prior = use_log_prior
+            self.add_log_diagonal_prior = add_log_diagonal_prior
+            self.no_boundary_prior = no_boundary_prior
+            self.log_prior_sigma_sq = torch.tensor(log_prior_sigma_sq, dtype=torch.float64, device=device)
+
+            self.acc_factor = acc_factor
+            self.Ws = torch.rand(self.K, 2, self.GP, self.Df, dtype=torch.float64, requires_grad=True,
+                                 device=self.device)
 
     @property
     def params(self):

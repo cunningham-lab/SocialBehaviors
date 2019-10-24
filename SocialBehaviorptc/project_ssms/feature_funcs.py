@@ -124,7 +124,7 @@ def feature_direction_vec(s, corners):
 # feature_funcs
 #CORNERS = torch.tensor([[ARENA_XMIN, ARENA_YMIN], [ARENA_XMIN, ARENA_YMAX],
  #                       [ARENA_XMAX, ARENA_YMIN], [ARENA_XMAX, ARENA_YMAX]], dtype=torch.float64)
-CORNERS = np.array([[ARENA_XMIN, ARENA_YMIN], [ARENA_XMIN, ARENA_XMAX],
+CORNERS = np.array([[ARENA_XMIN, ARENA_YMIN], [ARENA_XMIN, ARENA_YMAX],
                     [ARENA_XMAX, ARENA_YMIN], [ARENA_XMAX, ARENA_YMAX]])
 
 

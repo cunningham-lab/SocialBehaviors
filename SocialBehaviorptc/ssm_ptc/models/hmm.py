@@ -222,6 +222,8 @@ class HMM:
                     list_of_memory_kwargs[i][key] = val[i]
         ll = 0
         for data, input, m_kwargs in zip(datas, inputs, list_of_memory_kwargs):
+            if len(data) == 0:
+                continue
             data = check_and_convert_to_tensor(data, torch.float64, device=self.device)
 
             T = data.shape[0]
@@ -286,6 +288,8 @@ class HMM:
 
     # numpy operation
     def most_likely_states(self, data, input=None, **memory_kwargs):
+        if len(data) == 0:
+            return np.array([])
         if isinstance(self.transition, InputDrivenTransition) and input is None:
             raise ValueError("Please provide input.")
 
@@ -392,6 +396,8 @@ class HMM:
             losses.append(loss)
 
             if valid_data is not None:
+                if len(valid_data) == 0:
+                    continue
                 with torch.no_grad():
                     valid_losses.append(get_np(self.loss(valid_data, **valid_data_memory_kwargs)))
 
