@@ -262,8 +262,6 @@ def main(job_name, cuda_num, downsample_n, filter_traj, use_log_prior, no_bounda
     else:
         valid_data_memory_kwargs = {}
 
-    print("log likelihood ", model.log_likelihood(training_data, **memory_kwargs))
-
     ##################### training ############################
     if train_model:
         print("start training")
