@@ -21,7 +21,7 @@ class LinearGridTransformation(BaseTransformation):
 
         self.use_log_prior = use_log_prior
         self.add_log_diagonal_prior = add_log_diagonal_prior
-        self.no_boundary_prior = False
+        self.no_boundary_prior = no_boundary_prior
         self.log_prior_sigma_sq = torch.tensor(log_prior_sigma_sq, dtype=torch.float64, device=device)
 
         self.x_grids = check_and_convert_to_tensor(x_grids, dtype=torch.float64, device=device)  # [x_0, x_1, ..., x_m]
