@@ -30,7 +30,7 @@ import json
 @click.option('--downsample_n', default=1, help='downsample factor. Data size will reduce to 1/downsample_n')
 @click.option('--filter_traj', is_flag=True, help='whether or not to filter the trajectory by SPEED')
 @click.option('--use_log_prior', is_flag=True, help='whether to use log_prior to smooth the dynamics')
-@click.option('--no_boundary_prior', is_flag=False, help='whether to drop priors on the boundary')
+@click.option('--no_boundary_prior', is_flag=True, help='whether to drop priors on the boundary')
 @click.option('--add_log_diagonal_prior', is_flag=True,
               help='whether to add log_diagonal_prior to smooth the dynamics diagonally')
 @click.option('--log_prior_sigma_sq', default=-np.log(1e3), help='the variance for the weight smoothing prior')
