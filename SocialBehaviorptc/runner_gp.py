@@ -93,8 +93,7 @@ def main(job_name, cuda_num, downsample_n, filter_traj, use_log_prior, add_log_d
         if lr > 1:
             raise ValueError("Learning rate should not be larger than 1!")
 
-    ckpts_not_to_save = ckpts_not_to_save if ckpts_not_to_save else ""
-    ckpts_not_to_save = [int(x) for x in ckpts_not_to_save.split(',')]
+    ckpts_not_to_save = [int(x) for x in ckpts_not_to_save.split(',')] if ckpts_not_to_save else []
 
     repo = git.Repo('.', search_parent_directories=True)  # SocialBehaviorectories=True)
     repo_dir = repo.working_tree_dir  # SocialBehavior
