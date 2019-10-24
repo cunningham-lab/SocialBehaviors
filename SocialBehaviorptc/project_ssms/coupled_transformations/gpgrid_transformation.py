@@ -218,12 +218,27 @@ class GPGridTransformation(BaseWeightedDirectionTransformation):
         # (T, 4, 4, 2) * (2,1) -> (T, 4, 4, 1)
         tmp = self.gpts_pairwise_xydist_sq[grid_idx_s]
         assert tmp.shape == (T, 4, 4, 2)
-        K_G = torch.exp(- 1 / 2 * torch.matmul(self.gpts_pairwise_xydist_sq[grid_idx_s], 1/real_rs_sq[:,None]))  # (T, 4, 4)
-        assert K_G.shape == (T, 4, 4, 1), K_G.shape
-        K_G = torch.squeeze(K_G, dim=-1)
+
+        # (n_grids, 4, 4, 2) * (2,1) --> (n_grids, 4, 4, 1)
+        kernels = torch.exp(- 1 / 2 * torch.matmul(self.gpts_pairwise_xydist_sq, 1/real_rs_sq[:,None]))
+        assert kernels.shape == (self.n_grids, 4, 4, 1)
+        kernels = torch.squeeze(kernels, dim=-1)
+
+        inverse_kernels = torch.inverse(kernels)
+        assert inverse_kernels.shape == (self.n_grids, 4,4)
+
+        batch_inverse_kernels = inverse_kernels[grid_idx_s]  # (T, 4, 4)
+        assert batch_inverse_kernels.shape == (T, 4, 4), batch_inverse_kernels.shape
+
+
+        #K_G = torch.exp(- 1 / 2 * torch.matmul(self.gpts_pairwise_xydist_sq[grid_idx_s], 1/real_rs_sq[:,None]))  # (T, 4, 4)
+        #assert K_G.shape == (T, 4, 4, 1), K_G.shape
+        #K_G = torch.squeeze(K_G, dim=-1)
 
         # (T, 1, 4) * (T,4,4) -> (T,1,4)
-        coeff = torch.matmul(K_xG[:,None], torch.inverse(K_G))
+        # TODO: fix computation here
+        #coeff = torch.matmul(K_xG[:,None], torch.inverse(K_G))
+        coeff = torch.matmul(K_xG[:, None], batch_inverse_kernels)
         assert coeff.shape == (T, 1, 4)
         return coeff
 
