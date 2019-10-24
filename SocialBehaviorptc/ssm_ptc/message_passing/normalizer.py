@@ -25,7 +25,7 @@ class HMMNormalizerCython(Function):
         ctx.save_for_backward(torch.tensor(alphas, dtype=torch.float64, device=device),
                               log_As)
 
-        return torch.tensor(Z, dtype=torch.float64)
+        return torch.tensor(Z, dtype=torch.float64, device=device)
 
     @staticmethod
     def backward(ctx, grad_output):
