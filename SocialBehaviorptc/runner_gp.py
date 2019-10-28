@@ -284,13 +284,13 @@ def main(job_name, cuda_num, downsample_n, filter_traj, use_log_prior, add_log_d
             plt.figure()
             plt.plot(training_losses)
             plt.title("training loss")
-            plt.savefig(rslt_dir + "/training_losses.jpg")
+            plt.savefig(checkpoint_dir + "/training_losses.jpg")
             plt.close()
 
             plt.figure()
             plt.plot(valid_losses)
             plt.title("validation loss")
-            plt.savefig(rslt_dir + "/valid_losses.jpg")
+            plt.savefig(checkpoint_dir + "/valid_losses.jpg")
             plt.close()
 
             # save rest

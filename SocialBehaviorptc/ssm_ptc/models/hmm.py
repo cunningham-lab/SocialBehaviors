@@ -5,6 +5,8 @@ the code is mainly based on https://github.com/slinderman/ssm
 import torch
 import numpy as np
 import numpy.random as npr
+import sys
+import contextlib
 
 from ssm_ptc.transitions.base_transition import BaseTransition
 from ssm_ptc.transitions.stationary_transition import StationaryTransition
@@ -17,6 +19,7 @@ from ssm_ptc.message_passing.primitives import viterbi
 from ssm_ptc.message_passing.normalizer import hmmnorm_cython
 from ssm_ptc.utils import check_and_convert_to_tensor, set_param, ensure_args_are_lists_of_tensors, get_np
 
+import tqdm
 from tqdm import trange
 
 TRANSITION_CLASSES = dict(stationary=StationaryTransition,
@@ -26,6 +29,24 @@ TRANSITION_CLASSES = dict(stationary=StationaryTransition,
 OBSERVATION_CLASSES = dict(gaussian=ARGaussianObservation,
                            logitnormal=ARLogitNormalObservation,
                            truncatednormal=ARTruncatedNormalObservation)
+
+class DummyFile(object):
+  file = None
+  def __init__(self, file):
+    self.file = file
+
+  def write(self, x):
+    # Avoid print() second call (useless \n)
+    if len(x.rstrip()) > 0:
+        tqdm.write(x, file=self.file)
+
+
+@contextlib.contextmanager
+def nostdout():
+    save_stdout = sys.stdout
+    sys.stdout = DummyFile(sys.stdout)
+    yield
+    sys.stdout = save_stdout
 
 
 class HMM:
@@ -365,7 +386,7 @@ class HMM:
         if isinstance(self.transition, InputDrivenTransition) and inputs is None:
             raise ValueError("Please provide input.")
 
-        pbar = trange(num_iters)
+        pbar = trange(num_iters, file=sys.stdout)
 
         if optimizer is None:
             if method == 'adam':
@@ -402,8 +423,9 @@ class HMM:
                     valid_losses.append(get_np(self.loss(valid_data, **valid_data_memory_kwargs)))
 
             if i % pbar_update_interval == 0:
-                pbar.set_description('iter {} loss {:.2f}'.format(i, loss))
-                pbar.update(pbar_update_interval)
+                with nostdout():
+                    pbar.set_description('iter {} loss {:.2f}'.format(i, loss))
+                    pbar.update(pbar_update_interval)
 
         pbar.close()
 
