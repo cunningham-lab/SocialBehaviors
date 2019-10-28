@@ -37,6 +37,7 @@ import json
 @click.option('--log_prior_sigma_sq', default=-np.log(1e3), help='the variance for the weight smoothing prior')
 @click.option('--load_model', is_flag=True, help='Whether to load the (trained) model')
 @click.option('--load_model_dir', default="", help='Directory of model to load')
+@click.option('--reset_prior_info', is_flag=True, help='wheter to reset prior info when loading the model')
 @click.option('--transition', default="stationary", help='type of transition (str)')
 @click.option('--sticky_alpha', default=1, help='value of alpha in sticky transition')
 @click.option('--sticky_kappa', default=100, help='value of kappa in sticky transition')
@@ -62,8 +63,9 @@ import json
 @click.option('--list_of_k_steps', default='5', help='list of number of steps prediction forward')
 @click.option('--sample_t', default=100, help='length of samples')
 @click.option('--quiver_scale', default=0.8, help='scale for the quiver plots')
-def main(job_name, cuda_num, downsample_n, filter_traj, use_log_prior, no_boundary_prior, add_log_diagonal_prior, log_prior_sigma_sq,
-         load_model, load_model_dir, load_opt_dir,
+def main(job_name, cuda_num, downsample_n, filter_traj, use_log_prior, no_boundary_prior, add_log_diagonal_prior,
+         log_prior_sigma_sq,
+         load_model, load_model_dir, load_opt_dir, reset_prior_info,
          transition, sticky_alpha, sticky_kappa, acc_factor, k, x_grids, y_grids, n_x, n_y,
          train_model, pbar_update_interval, video_clips, held_out_proportion, torch_seed, np_seed,
          list_of_num_iters, ckpts_not_to_save, list_of_lr, list_of_k_steps, sample_t, quiver_scale):
@@ -121,32 +123,48 @@ def main(job_name, cuda_num, downsample_n, filter_traj, use_log_prior, no_bounda
 
     if load_model:
         print("Loading the model from ", load_model_dir)
-        pretrained_model = joblib.load(load_model_dir)
-        pretrained_transition = pretrained_model.transition
-        pretrained_observation = pretrained_model.observation
-        pretrained_tran = pretrained_model.observation.transformation
+        if reset_prior_info:
 
-        # set prior info
-        pretrained_tran.use_log_prior = use_log_prior
-        pretrained_tran.no_boundary_prior = no_boundary_prior
-        pretrained_tran.add_log_diagonal_prior = add_log_diagonal_prior
-        pretrained_tran.log_prior_sigma_sq = torch.tensor(log_prior_sigma_sq, dtype=torch.float64, device=device)
+            pretrained_model = joblib.load(load_model_dir)
+            pretrained_transition = pretrained_model.transition
+            pretrained_observation = pretrained_model.observation
+            pretrained_tran = pretrained_model.observation.transformation
 
-        acc_factor = pretrained_tran.acc_factor
+            # set prior info
+            pretrained_tran.use_log_prior = use_log_prior
+            pretrained_tran.no_boundary_prior = no_boundary_prior
+            pretrained_tran.add_log_diagonal_prior = add_log_diagonal_prior
+            pretrained_tran.log_prior_sigma_sq = torch.tensor(log_prior_sigma_sq, dtype=torch.float64, device=device)
 
-        K = pretrained_model.K
+            acc_factor = pretrained_tran.acc_factor
 
-        obs = ARTruncatedNormalObservation(K=K, D=D, M=0, obs=pretrained_observation, device=device)
-        tran = obs.transformation
+            K = pretrained_model.K
 
-        if transition == 'sticky':
-            transition_kwargs = dict(alpha=sticky_alpha, kappa=sticky_kappa)
+            obs = ARTruncatedNormalObservation(K=K, D=D, M=0, obs=pretrained_observation, device=device)
+            tran = obs.transformation
+
+            if transition == 'sticky':
+                transition_kwargs = dict(alpha=sticky_alpha, kappa=sticky_kappa)
+            else:
+                transition_kwargs = None
+            model = HMM(K=K, D=D, M=M, pi0=get_np(pretrained_model.pi0), Pi=get_np(pretrained_transition.Pi),
+                        transition=transition, observation=obs, transition_kwargs=transition_kwargs,
+                        device=device)
+            model.observation.mus_init = training_data[0] * torch.ones(K, D, dtype=torch.float64, device=device)
         else:
-            transition_kwargs = None
-        model = HMM(K=K, D=D, M=M, pi0=get_np(pretrained_model.pi0), Pi=get_np(pretrained_transition.Pi),
-                    transition=transition, observation=obs, transition_kwargs=transition_kwargs,
-                    device=device)
-        model.observation.mus_init = training_data[0] * torch.ones(K, D, dtype=torch.float64, device=device)
+            model = joblib.load(load_model_dir)
+            tran = model.observation.transformation
+
+            K = model.K
+
+            n_x = len(tran.x_grids) - 1
+            n_y = len(tran.y_grids) - 1
+
+            acc_factor = tran.acc_factor
+            use_log_prior = tran.use_log_prior
+            no_boundary_prior = tran.no_boundary_prior
+            add_log_diagonal_prior = tran.add_log_diagonal_prior
+            log_prior_sigma_sq = get_np(tran.log_prior_sigma_sq)
 
     else:
         bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX],
@@ -196,6 +214,7 @@ def main(job_name, cuda_num, downsample_n, filter_traj, use_log_prior, no_bounda
                   "log_prior_sigma_sq": log_prior_sigma_sq,
                   "load_model": load_model,
                   "load_model_dir": load_model_dir,
+                  "reset_prior_info": reset_prior_info,
                   "load_opt_dir": load_opt_dir,
                   "transition": transition,
                   "sticky_alpha": sticky_alpha,
