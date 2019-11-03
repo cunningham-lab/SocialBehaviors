@@ -30,12 +30,9 @@ import json
 @click.option('--cuda_num', default=0, help='which cuda device to use')
 @click.option('--downsample_n', default=1, help='downsample factor. Data size will reduce to 1/downsample_n')
 @click.option('--filter_traj', is_flag=True, help='whether or not to filter the trajectory by SPEED')
-@click.option('--use_log_prior', is_flag=True, help='whether to use log_prior to smooth the dynamics')
-@click.option('--add_log_diagonal_prior', is_flag=True,
-              help='whether to add log_diagonal_prior to smooth the dynamics diagonally')
-@click.option('--log_prior_sigma_sq', default=-np.log(1e3), help='the variance for the weight smoothing prior')
 @click.option('--load_model', is_flag=True, help='Whether to load the (trained) model')
 @click.option('--load_model_dir', default="", help='Directory of model to load')
+@click.option('--gp_version', default=1, help='version of the gp transformation')
 @click.option('--transition', default="stationary", help='type of transition (str)')
 @click.option('--sticky_alpha', default=1, help='value of alpha in sticky transition')
 @click.option('--sticky_kappa', default=100, help='value of kappa in sticky transition')
@@ -44,7 +41,7 @@ import json
 @click.option('--pbar_update_interval', default=500, help='progress bar update interval')
 @click.option('--load_opt_dir', default="", help='Directory of optimizer to load.')
 @click.option('--video_clips', default="0,1", help='The starting video clip of the training data')
-@click.option('--held_out_proportion', default=0.05, help='the proportion of the held-out dataset in the whole dataset')
+@click.option('--held_out_proportion', default=0.0, help='the proportion of the held-out dataset in the whole dataset')
 @click.option('--torch_seed', default=0, help='torch random seed')
 @click.option('--np_seed', default=0, help='numpy random seed')
 @click.option('--k', default=4, help='number of hidden states. Would be overwritten if load model.')
@@ -65,8 +62,8 @@ import json
 @click.option('--list_of_k_steps', default='5', help='list of number of steps prediction forward')
 @click.option('--sample_t', default=100, help='length of samples')
 @click.option('--quiver_scale', default=0.8, help='scale for the quiver plots')
-def main(job_name, cuda_num, downsample_n, filter_traj, use_log_prior, add_log_diagonal_prior, log_prior_sigma_sq,
-         load_model, load_model_dir, load_opt_dir,
+def main(job_name, cuda_num, downsample_n, filter_traj,
+         gp_version, load_model, load_model_dir, load_opt_dir,
          transition, sticky_alpha, sticky_kappa, acc_factor, k, x_grids, y_grids, n_x, n_y, rs_factor, rs, train_rs,
          train_model, pbar_update_interval, video_clips, held_out_proportion, torch_seed, np_seed,
          list_of_num_iters, ckpts_not_to_save, list_of_lr, list_of_k_steps, sample_t, quiver_scale):
@@ -79,7 +76,6 @@ def main(job_name, cuda_num, downsample_n, filter_traj, use_log_prior, add_log_d
 
     K = k
     sample_T = sample_t
-    log_prior_sigma_sq = float(log_prior_sigma_sq)
     rs_factor = np.array([float(x) for x in rs_factor.split(",")])
     if rs_factor[0] == 0 and rs_factor[1] == 0:
         rs_factor = None
@@ -111,8 +107,8 @@ def main(job_name, cuda_num, downsample_n, filter_traj, use_log_prior, add_log_d
         traj = filter_traj_by_speed(traj, q1=0.99, q2=0.99)
 
     data = torch.tensor(traj, dtype=torch.float64, device=device)
-    assert 0 <= held_out_proportion < 0.2, \
-        "held_out-portion should be between 0 and 0.2 (inclusive), but is {}".format(held_out_proportion)
+    assert 0 <= held_out_proportion <= 0.4, \
+        "held_out-portion should be between 0 and 0.4 (inclusive), but is {}".format(held_out_proportion)
     T = data.shape[0]
     breakpoint = int(T*(1-held_out_proportion))
     training_data = data[:breakpoint]
@@ -163,7 +159,7 @@ def main(job_name, cuda_num, downsample_n, filter_traj, use_log_prior, add_log_d
         tran = GPGridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids,
                                     Df=Df, feature_vec_func=f_corner_vec_func, acc_factor=acc_factor,
                                     rs_factor=rs_factor, rs=None, train_rs=train_rs,
-                                    device=device)
+                                    device=device, version=gp_version)
         obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=1, bounds=bounds, transformation=tran, device=device)
 
         if transition == 'sticky':
@@ -178,10 +174,8 @@ def main(job_name, cuda_num, downsample_n, filter_traj, use_log_prior, add_log_d
     exp_params = {"job_name":   job_name,
                   'downsample_n': downsample_n,
                   "filter_traj": filter_traj,
-                  "use_log_prior": use_log_prior,
-                  "add_log_diagonal_prior": add_log_diagonal_prior,
-                  "log_prior_sigma_sq": log_prior_sigma_sq,
                   "load_model": load_model,
+                  "gp_version": gp_version,
                   "load_model_dir": load_model_dir,
                   "load_opt_dir": load_opt_dir,
                   "transition": transition,

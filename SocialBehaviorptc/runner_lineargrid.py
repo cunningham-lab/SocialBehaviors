@@ -31,6 +31,7 @@ import json
 @click.option('--downsample_n', default=1, help='downsample factor. Data size will reduce to 1/downsample_n')
 @click.option('--filter_traj', is_flag=True, help='whether or not to filter the trajectory by SPEED')
 @click.option('--use_log_prior', is_flag=True, help='whether to use log_prior to smooth the dynamics')
+@click.option('--lg_version', default=1, help='version of the lp grid')
 @click.option('--no_boundary_prior', is_flag=True, help='whether to drop priors on the boundary')
 @click.option('--add_log_diagonal_prior', is_flag=True,
               help='whether to add log_diagonal_prior to smooth the dynamics diagonally')
@@ -63,8 +64,8 @@ import json
 @click.option('--list_of_k_steps', default='5', help='list of number of steps prediction forward')
 @click.option('--sample_t', default=100, help='length of samples')
 @click.option('--quiver_scale', default=0.8, help='scale for the quiver plots')
-def main(job_name, cuda_num, downsample_n, filter_traj, use_log_prior, no_boundary_prior, add_log_diagonal_prior,
-         log_prior_sigma_sq,
+def main(job_name, cuda_num, downsample_n, filter_traj, lg_version, use_log_prior, no_boundary_prior,
+         add_log_diagonal_prior, log_prior_sigma_sq,
          load_model, load_model_dir, load_opt_dir, reset_prior_info,
          transition, sticky_alpha, sticky_kappa, acc_factor, k, x_grids, y_grids, n_x, n_y,
          train_model, pbar_update_interval, video_clips, held_out_proportion, torch_seed, np_seed,
@@ -193,7 +194,7 @@ def main(job_name, cuda_num, downsample_n, filter_traj, use_log_prior, no_bounda
                                         Df=Df, feature_vec_func=f_corner_vec_func, acc_factor=acc_factor,
                                         use_log_prior=use_log_prior, no_boundary_prior=no_boundary_prior,
                                         add_log_diagonal_prior=add_log_diagonal_prior,
-                                        log_prior_sigma_sq=log_prior_sigma_sq, device=device)
+                                        log_prior_sigma_sq=log_prior_sigma_sq, device=device, version=lg_version)
         obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=1, bounds=bounds, transformation=tran, device=device)
 
         if transition == 'sticky':
@@ -208,6 +209,7 @@ def main(job_name, cuda_num, downsample_n, filter_traj, use_log_prior, no_bounda
     exp_params = {"job_name":   job_name,
                   'downsample_n': downsample_n,
                   "filter_traj": filter_traj,
+                  "lg_version": lg_version,
                   "use_log_prior": use_log_prior,
                   "add_log_diagonal_prior": add_log_diagonal_prior,
                   "no_boundary_prior": no_boundary_prior,

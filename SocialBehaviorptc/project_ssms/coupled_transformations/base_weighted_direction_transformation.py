@@ -40,7 +40,7 @@ class BaseWeightedDirectionTransformation(BaseTransformation):
         T, D = inputs.shape
         assert D == self.D, "input should have last dimension = {}".format(self.D)
 
-        # get weigths
+        # get weights (apply scaling and sigmoid here)
         weights_a, weights_b = self.get_weights(inputs, **kwargs)
         assert weights_a.shape == (T, self.K, self.Df), \
             "weigths_a should have shape {}, instead of {}".format((T, self.K, self.Df), weights_a.shape)
@@ -48,7 +48,7 @@ class BaseWeightedDirectionTransformation(BaseTransformation):
             "weights_b should have shape {}, instead of {}".format((T, self.K, self.Df), weights_b.shape)
 
         # feature vecs
-        # TODO: accomodate to thhe subclasses
+        # TODO: accomodate to the subclasses
         feature_vecs_a = kwargs.get("feature_vecs_a", None)
         if feature_vecs_a is None:
             #print("not using feature_vecs_a memories")
@@ -62,12 +62,12 @@ class BaseWeightedDirectionTransformation(BaseTransformation):
 
         # make transformation
         # (T, K, Df) * (T, Df, d) --> (T, K, d)
-        out_a = torch.matmul(torch.sigmoid(weights_a), feature_vecs_a)  # (T, K, 2)
-        out_b = torch.matmul(torch.sigmoid(weights_b), feature_vecs_b)  # (T, K, 2)
+        out_a = torch.matmul(weights_a, feature_vecs_a)
+        out_b = torch.matmul(weights_b, feature_vecs_b)
         assert out_a.shape == (T, self.K, self.d)
         assert out_b.shape == (T, self.K, self.d)
 
-        out = inputs[:, None, ] + self.acc_factor * torch.cat((out_a, out_b), dim=-1)  # (T, K, 4)
+        out = inputs[:, None, ] + torch.cat((out_a, out_b), dim=-1)  # (T, K, 4)
         assert out.shape == (T, self.K, self.D)
         return out
 
@@ -82,7 +82,7 @@ class BaseWeightedDirectionTransformation(BaseTransformation):
         _, D = inputs.shape
         assert D == self.D, "input should have last dimension = {}".format(self.D)
 
-        # get weights
+        # get weights (apply scaling and sigmoid here)
         weights_a, weights_b = self.get_weights_condition_on_z(inputs, z, **kwargs)
         assert weights_a.shape == (1, self.Df)
         assert weights_b.shape == (1, self.Df)
@@ -102,15 +102,15 @@ class BaseWeightedDirectionTransformation(BaseTransformation):
 
         # make transformation
         # (1, Df), (1, Df, d) --> (1, 1, d)
-        out_a = torch.matmul(torch.sigmoid(weights_a), feature_vec_a)  # (1, 1, 2)
-        out_b = torch.matmul(torch.sigmoid(weights_b), feature_vec_b)  # (1, 1, 2)
+        out_a = torch.matmul(weights_a, feature_vec_a)
+        out_b = torch.matmul(weights_b, feature_vec_b)
         assert out_a.shape == (1, 1, self.d)
         assert out_b.shape == (1, 1, self.d)
 
         out = torch.cat((out_a, out_b), dim=-1)  # (1, 1, 4)
         out = torch.squeeze(out)  # (4,)
 
-        out = inputs[-1] + self.acc_factor * out
+        out = inputs[-1] + out
         assert out.shape == (self.D,)
         return out
 

@@ -94,6 +94,8 @@ class LSTMTransformation(BaseWeightedDirectionTransformation):
             "weights should have shape ({}, {}, {}), instead of {}".format(T, self.K, 2*self.Df,
                                                                                      weights.shape)
 
+        weights = self.acc_factor * torch.sigmoid(weights)
+
         return weights[..., 0:self.Df], weights[..., self.Df:]
 
     def get_weights_condition_on_z(self, inputs, z, **kwargs):
@@ -114,6 +116,8 @@ class LSTMTransformation(BaseWeightedDirectionTransformation):
         weights = self.weight_networks[z].forward(inputs)  # (1, 2*Df)
         assert weights.shape == (1, 2*self.Df), \
             "weights should have shape ({}, {}), instead of {}".format(1, 2*self.Df, weights.shape)
+
+        weights = self.acc_factor * torch.sigmoid(weights)
 
         return weights[..., 0:self.Df], weights[..., self.Df:]
 

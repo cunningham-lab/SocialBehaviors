@@ -6,7 +6,6 @@ from matplotlib.lines import Line2D
 import matplotlib.animation as animation
 
 import seaborn as sns
-from torch import __init__
 
 from ssm_ptc.utils import check_and_convert_to_tensor, get_np
 from project_ssms.plot_utils import get_colors_and_cmap

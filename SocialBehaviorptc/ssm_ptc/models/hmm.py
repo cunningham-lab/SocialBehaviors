@@ -417,10 +417,9 @@ class HMM:
             losses.append(loss)
 
             if valid_data is not None:
-                if len(valid_data) == 0:
-                    continue
-                with torch.no_grad():
-                    valid_losses.append(get_np(self.loss(valid_data, **valid_data_memory_kwargs)))
+                if len(valid_data) > 0:
+                    with torch.no_grad():
+                        valid_losses.append(get_np(self.loss(valid_data, **valid_data_memory_kwargs)))
 
             if i % pbar_update_interval == 0:
                 with nostdout():

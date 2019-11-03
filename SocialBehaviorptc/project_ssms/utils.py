@@ -67,6 +67,8 @@ def k_step_prediction_for_direction_model(model, model_z, data, momentum_vecs=No
 
 
 def k_step_prediction_for_grid_model(model, model_z, data, **memory_kwargs):
+    if len(data) == 0:
+        return None
     data = check_and_convert_to_tensor(data)
 
     memory_kwargs_a = memory_kwargs.get("memory_kwargs_a", None)
@@ -101,6 +103,8 @@ def k_step_prediction_for_grid_model(model, model_z, data, **memory_kwargs):
 
 
 def k_step_prediction_for_lineargrid_model(model, model_z, data, gridpoints=None, gridpoints_idx=None, feature_vecs=None):
+    if len(data) == 0:
+        return None
     data = check_and_convert_to_tensor(data)
 
     if feature_vecs is None or gridpoints_idx is None or gridpoints is None:
@@ -129,6 +133,8 @@ def k_step_prediction_for_lineargrid_model(model, model_z, data, gridpoints=None
 
 
 def k_step_prediction_for_weightedgrid_model(model, model_z, data, distances_a=None, distances_b=None, feature_vecs=None):
+    if len(data) == 0:
+        return None
     data = check_and_convert_to_tensor(data)
 
     if feature_vecs is None or distances_a is None or distances_b is None:

@@ -87,6 +87,8 @@ class WeightedGridTransformation(BaseWeightedDirectionTransformation):
                                                                            weigths_of_inputs.shape)
         weigths_of_inputs = torch.squeeze(weigths_of_inputs, dim=2)
 
+        weigths_of_inputs = self.acc_factor * torch.sigmoid(weigths_of_inputs)
+
         return weigths_of_inputs
 
     def get_weights_condition_on_z(self, inputs, z, **kwargs):
@@ -124,6 +126,8 @@ class WeightedGridTransformation(BaseWeightedDirectionTransformation):
         weight_of_input = torch.matmul(coef, self.Ws[z, animal_idx])
         assert weight_of_input.shape == (1, self.Df), \
             "weight_of_input should have shape {}, instead of {}".format((1, self.Df), weight_of_input.shape)
+
+        weight_of_input = self.acc_factor * torch.sigmoid(weight_of_input)
 
         return weight_of_input
 

@@ -60,7 +60,8 @@ def k_step_prediction(model, model_z, data, k=0, **kwargs):
     """
     Conditioned on the most likely hidden states, make the k-step prediction.
     """
-
+    if len(data) == 0:
+        return None
     data = check_and_convert_to_tensor(data)
     T, D = data.shape
 
@@ -84,7 +85,7 @@ def k_step_prediction(model, model_z, data, k=0, **kwargs):
             x_predict_arr.append(x_predict)
     x_predict_arr = np.array(x_predict_arr)
 
-    assert x_predict_arr.shape == (T-k, D)
+    assert x_predict_arr.shape == (T-k, D), "correct shape is {}, but we got {}".format((T-k, D), x_predict_arr.shape)
     return x_predict_arr
 
 

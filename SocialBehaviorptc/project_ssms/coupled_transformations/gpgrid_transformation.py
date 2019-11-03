@@ -19,9 +19,11 @@ class GPGridTransformation(BaseWeightedDirectionTransformation):
     """
     def __init__(self, K, D, x_grids, y_grids, Df, feature_vec_func, acc_factor=2,
                 rs=None, rs_factor=None, train_rs=False, lags=1,
-                 device=torch.device('cpu')):
+                 device=torch.device('cpu'), version=1):
         assert lags == 1, "lags should be 1 for weigthedgird transformation"
         super(GPGridTransformation, self).__init__(K, D, Df, feature_vec_func, acc_factor, lags=lags)
+
+        self.version = version
 
         self.device = device
         self.x_grids = check_and_convert_to_tensor(x_grids, dtype=torch.float64, device=self.device)  # [x_0, x_1, ..., x_m]
@@ -127,8 +129,16 @@ class GPGridTransformation(BaseWeightedDirectionTransformation):
         weights_of_four_grids = torch.transpose(weights_of_four_grids, 0, 1)
         assert weights_of_four_grids.shape == (T, self.K, 4, self.Df)
 
-        # (T, 1, 1, 4) * (T, K, 4, Df) -> (T, K, 1, Df)
-        weigths_of_inputs = torch.matmul(coeff[:,None], weights_of_four_grids)
+        if self.version == 1:
+            # (T, 1, 1, 4) * (T, K, 4, Df) -> (T, K, 1, Df)
+            weigths_of_inputs = torch.matmul(coeff[:,None], weights_of_four_grids)
+            weigths_of_inputs = self.acc_factor * torch.sigmoid(weigths_of_inputs)
+        elif self.version == 2:
+            weights_of_four_grids = self.acc_factor * torch.sigmoid(weights_of_four_grids)
+            # (T, 1, 1, 4) * (T, K, 4, Df) -> (T, K, 1, Df)
+            weigths_of_inputs = torch.matmul(coeff[:, None], weights_of_four_grids)
+        else:
+            raise ValueError("invalid version: {}".format(self.version))
 
         assert weigths_of_inputs.shape == (T, self.K, 1, self.Df), \
             "weights_of_inputs should have shape {}, instead of {}".format((T, self.K, 1, self.Df),
@@ -177,8 +187,16 @@ class GPGridTransformation(BaseWeightedDirectionTransformation):
         weights_of_four_grids = self.Ws[z, animal_idx, gpt_idx_s[0]]
         assert weights_of_four_grids.shape == (4, self.Df)
 
-        # (1, 4) * (4, Df) -> (1, 1, Df)
-        weigths_of_inputs = torch.matmul(coeff[0], weights_of_four_grids)
+        if self.version == 1:
+            # (1, 4) * (4, Df) -> (1, 1, Df)
+            weigths_of_inputs = torch.matmul(coeff[0], weights_of_four_grids)
+            weigths_of_inputs = self.acc_factor * torch.sigmoid(weigths_of_inputs)
+        elif self.version == 2:
+            weights_of_four_grids = self.acc_factor * torch.sigmoid(weights_of_four_grids)
+            # (1, 4) * (4, Df) -> (1, 1, Df)
+            weigths_of_inputs = torch.matmul(coeff[0], weights_of_four_grids)
+        else:
+            raise ValueError("invalid version: {}".format(self.version))
 
         assert weigths_of_inputs.shape == (1, self.Df), \
             "weights_of_inputs should have shape {}, instead of {}".format((1, self.Df),
@@ -230,14 +248,6 @@ class GPGridTransformation(BaseWeightedDirectionTransformation):
         batch_inverse_kernels = inverse_kernels[grid_idx_s]  # (T, 4, 4)
         assert batch_inverse_kernels.shape == (T, 4, 4), batch_inverse_kernels.shape
 
-
-        #K_G = torch.exp(- 1 / 2 * torch.matmul(self.gpts_pairwise_xydist_sq[grid_idx_s], 1/real_rs_sq[:,None]))  # (T, 4, 4)
-        #assert K_G.shape == (T, 4, 4, 1), K_G.shape
-        #K_G = torch.squeeze(K_G, dim=-1)
-
-        # (T, 1, 4) * (T,4,4) -> (T,1,4)
-        # TODO: fix computation here
-        #coeff = torch.matmul(K_xG[:,None], torch.inverse(K_G))
         coeff = torch.matmul(K_xG[:, None], batch_inverse_kernels)
         assert coeff.shape == (T, 1, 4)
         return coeff

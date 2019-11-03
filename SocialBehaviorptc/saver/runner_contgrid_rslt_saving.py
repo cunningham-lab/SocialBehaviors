@@ -77,7 +77,10 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     else:
         raise ValueError("Unsupported transformation!")
     x_predict_err = np.mean(np.abs(x_predict - get_np(data_to_predict)), axis=0)
-    x_predict_valid_err = np.mean(np.abs(x_predict_valid - get_np(valid_data)), axis=0)
+    if len(valid_data) == 0:
+        x_predict_valid_err = None
+    else:
+        x_predict_valid_err = np.mean(np.abs(x_predict_valid - get_np(valid_data)), axis=0)
 
     dict_of_x_predict_k = dict(x_predict_0=x_predict, x_predict_v_0=x_predict_valid)
     dict_of_x_predict_k_err = dict(x_predict_0_err=x_predict_err, x_predict_v_0_err=x_predict_valid_err)
@@ -85,13 +88,17 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     for k_step in list_of_k_steps:
         print("{} step prediction".format(k_step))
         if isinstance(tran, LSTMBasedTransformation):
+            # TODO: take care of empty valid data
             x_predict_k = k_step_prediction_for_lstm_based_model(model, z, data_to_predict, k=k_step)
             x_predict_valid_k = k_step_prediction_for_lstm_model(model, z, data_to_predict)
         else:
             x_predict_k = k_step_prediction(model, z, data_to_predict, k=k_step)
             x_predict_valid_k = k_step_prediction(model, z_valid, valid_data, k=k_step)
         x_predict_k_err = np.mean(np.abs(x_predict_k - get_np(data_to_predict[k_step:])), axis=0)
-        x_predict_valid_k_err = np.mean(np.abs(x_predict_valid_k - get_np(valid_data[k_step:])), axis=0)
+        if len(valid_data) == 0:
+            x_predict_valid_k_err = None
+        else:
+            x_predict_valid_k_err = np.mean(np.abs(x_predict_valid_k - get_np(valid_data[k_step:])), axis=0)
         dict_of_x_predict_k["x_predict_{}".format(k_step)] = x_predict_k
         dict_of_x_predict_k["x_predict_v_{}".format(k_step)] = x_predict_valid_k
         dict_of_x_predict_k_err["x_predict_{}_err".format(k_step)] = x_predict_k_err
@@ -161,7 +168,7 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
                     "avg_data_speed": avg_data_speed,
                     "avg_sample_speed": avg_sample_speed, "avg_sample_center_speed": avg_sample_center_speed}
     summary_dict = {**dict_of_x_predict_k_err, **summary_dict}
-    if valid_data is not None:
+    if len(valid_data) > 0:
         summary_dict["valid_log_likes"] = get_np(model.log_likelihood(valid_data, **valid_data_memory_kwargs))
     if isinstance(tran, GPGridTransformation):
         summary_dict["real_rs"] = get_np(tran.rs_factor * torch.sigmoid(tran.rs))

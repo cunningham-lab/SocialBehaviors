@@ -13,9 +13,11 @@ class LinearGridTransformation(BaseTransformation):
 
     def __init__(self, K, D, x_grids, y_grids, Df, feature_vec_func, tran=None, acc_factor=2, lags=1,
                  use_log_prior=False, no_boundary_prior=False, add_log_diagonal_prior=False, log_prior_sigma_sq=-np.log(1e3),
-                 device=torch.device('cpu')):
+                 device=torch.device('cpu'), version=1):
         assert lags == 1, "lags should be 1 for lineargrid transformation."
         super(LinearGridTransformation, self).__init__(K, D)
+
+        self.version = version
 
         self.d = int(self.D / 2)
         self.device = device
@@ -156,12 +158,17 @@ class LinearGridTransformation(BaseTransformation):
         assert feature_vecs_a.shape == (T, self.Df, self.d)
         assert feature_vecs_b.shape == (T, self.Df, self.d)
 
-        out_a = torch.matmul(torch.sigmoid(weights_a), feature_vecs_a)  # (T, K, 2)
-        out_b = torch.matmul(torch.sigmoid(weights_b), feature_vecs_b)  # (T, K, 2)
+        if self.version == 1:
+            weights_a = self.acc_factor * torch.sigmoid(weights_a)
+            weights_b = self.acc_factor * torch.sigmoid(weights_b)
+        else:
+            assert self.version == 2, "invalid version: {}".format(self.version)
+        out_a = torch.matmul(weights_a, feature_vecs_a)  # (T, K, 2)
+        out_b = torch.matmul(weights_b, feature_vecs_b)  # (T, K, 2)
         assert out_a.shape == (T, self.K, self.d)
         assert out_b.shape == (T, self.K, self.d)
 
-        out = inputs[:, None, ] + self.acc_factor * torch.cat((out_a, out_b), dim=-1)  # (T, K, 4)
+        out = inputs[:, None, ] + torch.cat((out_a, out_b), dim=-1)  # (T, K, 4)
         assert out.shape == (T, self.K, self.D)
         return out
 
@@ -214,15 +221,21 @@ class LinearGridTransformation(BaseTransformation):
         assert feature_vec_b.shape == (1, self.Df, self.d)
 
         # (1, Df), (1, Df, d) --> (1, 1, d)
-        out_a = torch.matmul(torch.sigmoid(weights_a), feature_vec_a)  # (1, 1, 2)
-        out_b = torch.matmul(torch.sigmoid(weights_b), feature_vec_b)  # (1, 1, 2)
+        if self.version == 1:
+            weights_a = self.acc_factor * torch.sigmoid(weights_a)
+            weights_b = self.acc_factor * torch.sigmoid(weights_b)
+        else:
+            assert self.version == 2, "invalid version: {}".format(self.version)
+
+        out_a = torch.matmul(weights_a, feature_vec_a)  # (1, 1, 2)
+        out_b = torch.matmul(weights_b, feature_vec_b)  # (1, 1, 2)
         assert out_a.shape == (1, 1, self.d)
         assert out_b.shape == (1, 1, self.d)
 
         out = torch.cat((out_a, out_b), dim=-1)  # (1, 1, 4)
         out = torch.squeeze(out)  # (4,)
 
-        out = inputs[-1] + self.acc_factor * out
+        out = inputs[-1] + out
         assert out.shape == (self.D, )
         return out
 
@@ -296,9 +309,15 @@ class LinearGridTransformation(BaseTransformation):
         # (Df,n_gps) * (n_gps, 4) -->  (Df, 4)
         grid_points_weights = torch.matmul(torch.transpose(self.Ws[z, animal_idx], 0, 1), grid_points_idx)
 
+        if self.version == 2:
+            grid_points_weights = self.acc_factor * torch.sigmoid(grid_points_weights)
+        else:
+            assert self.version == 1, "invalid version: {}".format(self.version)
+
         weight = two_d_interpolation(point, grid_points[:,0], grid_points[:,1],
                                      grid_points_weights[:,0][None,], grid_points_weights[:,1][None, ],
                                      grid_points_weights[:,2][None, ], grid_points_weights[:,3][None, ])
+
         assert weight.shape == (1, self.Df)
         return weight
 
@@ -317,7 +336,11 @@ class LinearGridTransformation(BaseTransformation):
         # (1, K, Df, n_gps)* (T, 1, n_gps, 4)  --> (T, K, Df, 4)
         grid_point_weights = torch.matmul(torch.transpose(self.Ws[:, animal_idx], 1, 2)[None, ], grid_points_idx[:, None])
 
-        # (T, K, Df)
+        if self.version == 2:
+            grid_point_weights = self.acc_factor * torch.sigmoid(grid_point_weights)
+        else:
+            assert self.version == 1, "invalid version: {}".format(self.version)
+
         weights = two_d_interpolation(points, grid_points[..., 0], grid_points[..., 1],
                                       grid_point_weights[..., 0], grid_point_weights[..., 1],
                                       grid_point_weights[..., 2], grid_point_weights[..., 3])
