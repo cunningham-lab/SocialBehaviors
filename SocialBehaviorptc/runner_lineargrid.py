@@ -107,8 +107,8 @@ def main(job_name, cuda_num, downsample_n, filter_traj, lg_version, use_log_prio
         traj = filter_traj_by_speed(traj, q1=0.99, q2=0.99)
 
     data = torch.tensor(traj, dtype=torch.float64, device=device)
-    assert 0 <= held_out_proportion < 0.2, \
-        "held_out-portion should be between 0 and 0.2 (inclusive), but is {}".format(held_out_proportion)
+    assert 0 <= held_out_proportion <= 0.4, \
+        "held_out-portion should be between 0 and 0.4 (inclusive), but is {}".format(held_out_proportion)
     T = data.shape[0]
     breakpoint = int(T*(1-held_out_proportion))
     training_data = data[:breakpoint]
