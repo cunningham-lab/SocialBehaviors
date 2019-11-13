@@ -6,6 +6,7 @@ class BaseTransition:
 
     def __init__(self, K, D, M=0, device=torch.device('cpu')):
         self.K, self.D, self.M = K, D, M
+        self.device = device
 
     @property
     def params(self):

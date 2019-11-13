@@ -164,7 +164,7 @@ class HMM:
             # sample the first state from the initial distribution
             pi0 = get_np(self.init_dist)
             z[0] = npr.choice(self.K, p=pi0)
-            data[0] = self.observation.sample_x(z[0], data[:0], expectation=transformation, return_np=False, **kwargs)
+            data[0] = self.observation.sample_x(z[0], data[:0], transformation=transformation, return_np=False, **kwargs)
 
             # We only need to sample T-1 datapoints now
             T = T - 1
@@ -361,17 +361,17 @@ class HMM:
                 print("Nothing to sample")
                 return
             else:
-                return self.observation.sample_x(zs[0], expectation=transformation)
+                return self.observation.sample_x(zs[0], transformation=transformation)
 
         if x0 is None:
-            x0 = self.observation.sample_x(zs[0], expectation=transformation, return_np=False)
+            x0 = self.observation.sample_x(zs[0], transformation=transformation, return_np=False)
         else:
             x0 = check_and_convert_to_tensor(x0, dtype=torch.float64, device=self.device)
             assert x0.shape == (self.D, )
 
         xs[0] = x0
         for t in np.arange(1, T):
-            x_t = self.observation.sample_x(zs[t], xihst=xs[:t], expectation=transformation, return_np=False, **kwargs)
+            x_t = self.observation.sample_x(zs[t], xihst=xs[:t], transformation=transformation, return_np=False, **kwargs)
             xs[t] = x_t
 
         if return_np:

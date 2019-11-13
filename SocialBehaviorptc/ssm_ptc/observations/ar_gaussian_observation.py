@@ -1,5 +1,5 @@
 import torch
-from torch.distributions import Normal, MultivariateNormal
+from torch.distributions import Normal
 
 import numpy as np
 import numpy.random as npr
@@ -113,7 +113,7 @@ class ARGaussianObservation(BaseObservation):
 
         return torch.cat((log_prob_init[None,], log_prob_ar))
 
-    def rsample_x(self, z, xhist=None, expectation=False):
+    def rsample_x(self, z, xhist=None, transformation=False, **kwargs):
         """
         generate reparameterized samples
         :param z: shape ()
@@ -131,7 +131,7 @@ class ARGaussianObservation(BaseObservation):
             mu = self.transformation.transform_condition_on_z(z, xhist[-self.lags:])  # (D, )
             sigmas_z = torch.exp(self.log_sigmas[z])  # (D,)
 
-        if expectation:
+        if transformation:
             return mu
 
         out = mu + sigmas_z * torch.randn(self.D, dtype=torch.float64)  # (self.D, )

@@ -137,7 +137,7 @@ class ARLogitNormalObservation(BaseObservation):
 
         return torch.cat((log_prob_init[None,], log_prob_ar))
 
-    def rsample_x(self, z, xhist=None, expectation=False):
+    def rsample_x(self, z, xhist=None, transformation=False):
         """
         generate reparameterized samples
         :param z: shape ()
@@ -154,7 +154,7 @@ class ARLogitNormalObservation(BaseObservation):
             mu = self.transformation.transform_condition_on_z(z, xhist[-self.lags:])  # (D, )
             assert mu.shape == (self.D, )
 
-        if expectation:
+        if transformation:
             out = mu
         else:
             p = LogitNormal(mus=mu, log_sigmas=self.log_sigmas[z], bounds=self.bounds, alpha=self.alpha)

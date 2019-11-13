@@ -3,6 +3,7 @@ import numpy as np
 import datetime
 
 from ssm_ptc.utils import k_step_prediction, check_and_convert_to_tensor, get_np
+from project_ssms.gp_observation import GPObservation
 
 
 def k_step_prediction_for_momentum_feature_model(model, model_z, data, momentum_vecs=None, features=None):
@@ -157,7 +158,6 @@ def k_step_prediction_for_weightedgrid_model(model, model_z, data, distances_a=N
         x_predict_arr = np.array(x_predict_arr)
         return x_predict_arr
 
-
 def k_step_prediction_for_gpgrid_model(model, model_z, data, **memory_kwargs):
     data = check_and_convert_to_tensor(data)
 
@@ -196,6 +196,37 @@ def k_step_prediction_for_gpgrid_model(model, model_z, data, **memory_kwargs):
                                                        gpt_idx_a=gpt_idx_a[t - 1:t], gpt_idx_b=gpt_idx_b[t - 1:t],
                                                        grid_idx_a=grid_idx_a[t - 1:t], grid_idx_b=grid_idx_b[t - 1:t],
                                                        dist_sq_a=dist_sq_a[t - 1:t], dist_sq_b=dist_sq_b[t - 1:t])
+            x_predict_arr.append(x_predict)
+
+        x_predict_arr = np.array(x_predict_arr)
+        return x_predict_arr
+
+
+def k_step_prediction_for_gpmodel(model, model_z, data, **memory_kwargs):
+    data = check_and_convert_to_tensor(data)
+    assert isinstance(model.observation, GPObservation), type(model.observation)
+
+    T, D = data.shape
+    assert D == 4, D
+
+    K = model.observation.K
+
+    if memory_kwargs == {}:
+        print("Did not provide memory information")
+        return k_step_prediction(model, model_z, data)
+    else:
+
+        # compute As
+        _, A_a = model.observation.get_gp_cache(data[:-1, 0:2], 0, A_only=True, **memory_kwargs)
+        _, A_b = model.observation.get_gp_cache(data[:-1, 2:4], 1, A_only=True, **memory_kwargs)
+        assert A_a.shape == A_b.shape == (T-1, K, 2, model.observation.n_gps*2), "{}, {}".format(A_a.shape, A_b.shape)
+
+        x_predict_arr = []
+        x_predict = model.observation.sample_x(model_z[0], data[:0], return_np=True)
+        x_predict_arr.append(x_predict)
+        for t in range(1, data.shape[0]):
+            x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True, transformation=True,
+                                                   A_a=A_a[t-1:t, model_z[t]], A_b=A_b[t-1:t, model_z[t]])
             x_predict_arr.append(x_predict)
 
         x_predict_arr = np.array(x_predict_arr)

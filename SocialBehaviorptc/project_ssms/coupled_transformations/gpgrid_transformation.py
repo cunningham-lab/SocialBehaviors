@@ -81,7 +81,7 @@ class GPGridTransformation(BaseWeightedDirectionTransformation):
     @params.setter
     def params(self, values):
         self.Ws = set_param(self.Ws, values[0])
-        self.rs = set_param(self.rs, values[2])
+        self.rs = set_param(self.rs, values[1])
 
     def permute(self, perm):
         self.Ws = self.Ws[perm]
@@ -296,7 +296,6 @@ class GPGridTransformation(BaseWeightedDirectionTransformation):
 
         return idx, grid_idx
 
-
 def pairwise_xydist_sq(points_a, points_b):
     """
 
@@ -319,7 +318,3 @@ def pairwise_xydist_sq(points_a, points_b):
 
     assert xy_dist_sq.shape == (n1, n2, 2)
     return xy_dist_sq
-
-
-
-

@@ -49,7 +49,7 @@ class TruncatedNormalObservation(BaseObservation):
         out = torch.sum(out, dim=-1)  # (T, K)
         return out
 
-    def sample_x(self, z, xhist=None, expectation=False, return_np=True, **memory_kwargs):
+    def sample_x(self, z, xhist=None, transformation=False, return_np=True, **memory_kwargs):
         """
 
         :param z: an integer
@@ -58,7 +58,7 @@ class TruncatedNormalObservation(BaseObservation):
         :return: one sample (D, )
         """
 
-        if expectation:
+        if transformation:
             samples = self.mus[z]
             # some ad-hoc way to address bound issue
             for d in range(self.D):
@@ -77,7 +77,7 @@ class TruncatedNormalObservation(BaseObservation):
             return samples.numpy()
         return samples
 
-    def rsample_x(self, z, xhist, expectation=False):
+    def rsample_x(self, z, xhist, transformation=False):
         raise NotImplementedError
 
 

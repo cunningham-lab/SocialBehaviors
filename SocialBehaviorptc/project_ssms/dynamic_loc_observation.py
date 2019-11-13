@@ -51,7 +51,7 @@ class DynamicLocationObservation(BaseObservation):
         out = torch.sum(out, dim=-1)  # (T, K)
         return out
 
-    def sample_x(self, z, xhist=None, expectation=False, return_np=True, **memory_kwargs):
+    def sample_x(self, z, xhist=None, transformation=False, return_np=True, **memory_kwargs):
         """
 
         :param z: an integer
@@ -67,7 +67,7 @@ class DynamicLocationObservation(BaseObservation):
             mu = self.transformation.transform_condition_on_z(z, xhist[-1:])  # (D, )
             assert mu.shape == (self.D,)
 
-        if expectation:
+        if transformation:
             samples = mu
             # some ad-hoc way to address bound issue
             for d in range(self.D):
@@ -107,7 +107,7 @@ class DynamicLocationObservation(BaseObservation):
         assert mus.shape == (T, self.K, self.D)
         return mus
 
-    def rsample_x(self, z, xhist, expectation=False):
+    def rsample_x(self, z, xhist, transformation=False):
         raise NotImplementedError
 
 

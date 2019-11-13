@@ -168,7 +168,7 @@ class ARTruncatedNormalObservation(BaseObservation):
         assert mus.shape == (T, self.K, self.D)
         return mus
 
-    def rsample_x(self, z, xhist, expectation=False, **kwargs):
+    def rsample_x(self, z, xhist, transformation=False, **kwargs):
         raise NotImplementedError
 
 
