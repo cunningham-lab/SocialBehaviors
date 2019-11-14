@@ -22,16 +22,16 @@ class GPObservation(BaseObservation):
 
         # specify distribution parameters
         if mus_init is None:
-            self.mus_init = torch.zeros(self.K, self.D, dtype=torch.float64)
+            self.mus_init = torch.zeros(self.K, self.D, dtype=torch.float64, device=self.device)
         else:
             self.mus_init = check_and_convert_to_tensor(mus_init, dtype=torch.float64, device=self.device)
         # consider diagonal covariance
-        self.log_sigmas_init = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64)
+        self.log_sigmas_init = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, device=self.device)
         # shape (K, D, D)
         self.log_sigmas_a = torch.tensor(np.log(np.tile(5*np.eye(2)+0.5*np.ones((2,2)), (self.K, 1, 1))),
-                                       dtype=torch.float64, requires_grad=True)
+                                       dtype=torch.float64, device=self.device, requires_grad=True)
         self.log_sigmas_b = torch.tensor(np.log(np.tile(5*np.eye(2)+0.5*np.ones((2,2)), (self.K, 1, 1))),
-                                         dtype=torch.float64, requires_grad=True)
+                                         dtype=torch.float64, device=self.device, requires_grad=True)
 
         # specify gp dynamics parameters
         self.x_grids = check_and_convert_to_tensor(x_grids, dtype=torch.float64, device=self.device)  # [x_0, x_1, ..., x_m]
@@ -59,7 +59,7 @@ class GPObservation(BaseObservation):
 
         vs = [[[[1,0],[0,1]],[[1,0], [0,1]]] for _ in range(self.K)]
         # (K, 2, 2,2)
-        self.vs = torch.tensor(vs, dtype=torch.float64, requires_grad=train_vs)
+        self.vs = torch.tensor(vs, dtype=torch.float64, device=self.device, requires_grad=train_vs)
         # real_vs = vs**2
 
         self.kernel_distsq_gg = kernel_distsq(self.inducing_points, self.inducing_points)  # (n_gps*2, n_gps*2)

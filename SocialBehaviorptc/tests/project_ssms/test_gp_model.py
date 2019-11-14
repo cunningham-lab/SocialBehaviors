@@ -25,7 +25,7 @@ def test_model():
     D = 4
     M = 0
 
-    obs = GPObservation(K=K, D=D, x_grids=x_grids, y_grids=y_grids, Df=4, train_rs=True)
+    obs = GPObservation(K=K, D=D, x_grids=x_grids, y_grids=y_grids, train_rs=True)
 
     correct_kerneldist_gg = torch.tensor([[  0.,   0.,  64.,  64., 100., 100., 164., 164.],
         [  0.,   0.,  64.,  64., 100., 100., 164., 164.],
@@ -42,8 +42,8 @@ def test_model():
 
     kernel_distsq_xx_a = batch_kernle_dist_sq(data[:-1, 0:2])
     kernel_distsq_xx_b = batch_kernle_dist_sq(data[:-1, 2:4])
-    kernel_distsq_xg_a = kernel_distsq(data[:-1, 0:2], obs.gridpoints)
-    kernel_distsq_xg_b = kernel_distsq(data[:-1, 2:4], obs.gridpoints)
+    kernel_distsq_xg_a = kernel_distsq(data[:-1, 0:2], obs.inducing_points)
+    kernel_distsq_xg_b = kernel_distsq(data[:-1, 2:4], obs.inducing_points)
 
     correct_kernel_distsq_xg_a = torch.tensor([[  2.,   2.,  50.,  50.,  82.,  82., 130., 130.],
         [  2.,   2.,  50.,  50.,  82.,  82., 130., 130.],
@@ -55,7 +55,6 @@ def test_model():
         [ 85.,  85.,  37.,  37.,  65.,  65.,  17.,  17.]], dtype=torch.float64)
     assert torch.all(torch.eq(correct_kernel_distsq_xg_a, kernel_distsq_xg_a)), kernel_distsq_xg_a
 
-
     memory_kwargs = dict(kernel_distsq_xx_a=kernel_distsq_xx_a, kernel_distsq_xx_b=kernel_distsq_xx_b,
                          kernel_distsq_xg_a=kernel_distsq_xg_a, kernel_distsq_xg_b=kernel_distsq_xg_b)
 
@@ -64,7 +63,13 @@ def test_model():
 
     assert torch.all(torch.eq(log_prob_nocache, log_prob))
 
+    Sigma_a, A_a = obs.get_gp_cache(data[:-1, 0:2], 0, **memory_kwargs)
+    Sigma_b, A_b = obs.get_gp_cache(data[:-1, 2:4], 1, **memory_kwargs)
+    memory_kwargs_2 = dict(Sigma_a=Sigma_a, A_a=A_a, Sigma_b=Sigma_b, A_b=A_b)
 
+    print("calculating log prob 2...")
+    log_prob2 = obs.log_prob(data, **memory_kwargs_2)
+    assert torch.all(torch.eq(log_prob, log_prob2))
 
     model = HMM(K=K, D=D, M=M, transition="stationary", observation=obs)
     model.observation.mus_init = data[0] * torch.ones(K, D, dtype=torch.float64)
