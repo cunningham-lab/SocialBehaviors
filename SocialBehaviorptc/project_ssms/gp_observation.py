@@ -13,13 +13,10 @@ class GPObservation(BaseObservation):
     weights of any random point = a weighted combination of weights of all the grid vertices
     where the weights = softmax
     """
-    def __init__(self, K, D, x_grids, y_grids, Df, mus_init=None,
-                rs=None, train_rs=False, train_vs=False, lags=1,
-                 device=torch.device('cpu'), version=1):
-        assert lags == 1, "lags should be 1 for weigthedgird transformation"
+    def __init__(self, K, D, x_grids, y_grids, mus_init=None,
+                rs=None, train_rs=False, train_vs=False,
+                 device=torch.device('cpu')):
         super(GPObservation, self).__init__(K, D)
-
-        self.version = version
 
         self.device = device
 
@@ -27,7 +24,7 @@ class GPObservation(BaseObservation):
         if mus_init is None:
             self.mus_init = torch.zeros(self.K, self.D, dtype=torch.float64)
         else:
-            self.mus_init = check_and_convert_to_tensor(mus_init)
+            self.mus_init = check_and_convert_to_tensor(mus_init, dtype=torch.float64, device=self.device)
         # consider diagonal covariance
         self.log_sigmas_init = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64)
         # shape (K, D, D)
@@ -39,11 +36,10 @@ class GPObservation(BaseObservation):
         # specify gp dynamics parameters
         self.x_grids = check_and_convert_to_tensor(x_grids, dtype=torch.float64, device=self.device)  # [x_0, x_1, ..., x_m]
         self.y_grids = check_and_convert_to_tensor(y_grids, dtype=torch.float64, device=self.device)  # a list [y_0, y_1, ..., y_n]
-        self.Df = Df
 
-        self.gridpoints = torch.tensor([(x_grid, y_grid) for x_grid in self.x_grids for y_grid in self.y_grids],
-                                       device=self.device)  # (n_gps, 2)
-        self.n_gps = self.gridpoints.shape[0]
+        self.inducing_points = torch.tensor([(x_grid, y_grid) for x_grid in self.x_grids for y_grid in self.y_grids],
+                                            device=self.device)  # (n_gps, 2)
+        self.n_gps = self.inducing_points.shape[0]
 
         self.us = torch.rand(self.K, self.n_gps, 4, dtype=torch.float64, device=self.device, requires_grad=True)
 
@@ -56,6 +52,8 @@ class GPObservation(BaseObservation):
             xy_gap = np.sqrt(x_gap**2 + y_gap**2)
             rs = np.array([[[x_gap, xy_gap], [xy_gap, y_gap]], [[x_gap, xy_gap], [xy_gap, y_gap]]])
             rs = np.repeat(rs[None], self.K, axis=0)
+        elif isinstance(rs, float):
+            rs = rs * np.ones(self.K, 2, 2, 2)
         assert rs.shape == (self.K, 2, 2, 2), rs.shape
         self.rs = torch.tensor(rs, dtype=torch.float64, device=self.device, requires_grad=train_rs)
 
@@ -64,7 +62,7 @@ class GPObservation(BaseObservation):
         self.vs = torch.tensor(vs, dtype=torch.float64, requires_grad=train_vs)
         # real_vs = vs**2
 
-        self.kernel_distsq_gg = kernel_distsq(self.gridpoints, self.gridpoints)  # (n_gps*2, n_gps*2)
+        self.kernel_distsq_gg = kernel_distsq(self.inducing_points, self.inducing_points)  # (n_gps*2, n_gps*2)
         """
         Kgg_inv_a = self.get_Kgg_inv(animal_idx=0)
         Kgg_inv_b = self.get_Kgg_inv(animal_idx=1)
@@ -122,20 +120,38 @@ class GPObservation(BaseObservation):
         :param kwargs:
         :return: (T-1, K)
         """
+
+        T, d = inputs.shape
+        assert d == 2, d
+        # get the mu and cov based on the observations except the last one
+        mu, cov = self.get_mu_and_cov_for_single_animal(inputs[:-1], animal_idx, **kwargs)
+        # mean: (T-1, K, 2), covariance (T-1, K, 2, 2)
+
+        m = MultivariateNormal(mu, cov)
+
+        # evaluated the observations except the first one. (T-1, 1, 2)
+        log_prob = m.log_prob(inputs[1:, None])
+        assert log_prob.shape == (T-1, self.K)
+
+        return log_prob
+
+    def get_mu_and_cov_for_single_animal(self, inputs, animal_idx, mu_only=False, **kwargs):
         assert animal_idx == 0 or animal_idx == 1, animal_idx
+
+        inputs = check_and_convert_to_tensor(inputs, dtype=torch.float64, device=self.device)
 
         T, _ = inputs.shape
 
         # this is useful when train_rs =False and train_vs=False
         Sigma = kwargs.get("Sigma_a", None) if animal_idx == 0 else kwargs.get("Sigma_b", None)
         A = kwargs.get("A_a", None) if animal_idx == 0 else kwargs.get("A_b", None)
-        if Sigma is None or A is None:
-            Sigma, A = self.get_gp_cache(inputs[:-1], animal_idx, **kwargs)
-        assert Sigma.shape == (T-1, self.K, 2, 2), Sigma.shape
-        assert A.shape == (T-1, self.K, 2, 2*self.n_gps), A.shape
+        if A is None:
+            #print("Not using cache. Calculating Sigma, A...")
+            Sigma, A = self.get_gp_cache(inputs, animal_idx, A_only=mu_only, **kwargs)
+        assert A.shape == (T, self.K, 2, 2 * self.n_gps), A.shape
 
         # calculate the dynamics at the grids
-        us = self.us[...,0:2] if animal_idx == 0 else self.us[..., 2:4]
+        us = self.us[..., 0:2] if animal_idx == 0 else self.us[..., 2:4]
         assert us.shape == (self.K, self.n_gps, 2), \
             "the correct shape is {}, instead we got {}".format((self.K, self.n_gps, 2), us.shape)
         us = torch.reshape(us, (self.K, -1))  # (K, n_gps*2)
@@ -143,19 +159,26 @@ class GPObservation(BaseObservation):
         # (T-1, K, 2, 2*n_gps) * (K, 2*n_gps, 1) ->  (T-1, K, 2, 1)
         mu = torch.matmul(A, us[..., None])
         mu = torch.squeeze(mu, dim=-1)
-        mu = mu + inputs[:-1, None]
-        assert mu.shape == (T-1, self.K, 2)
+        mu = mu + inputs[:, None]
+        assert mu.shape == (T, self.K, 2)
 
-        cov = Sigma + torch.exp(self.log_sigmas_a)[None, ] if animal_idx == 0 \
-            else Sigma + torch.exp(self.log_sigmas_b)[None, ]
+        if mu_only:
+            return mu, 0
 
-        # mean: (T-1, K, 2), covariance (T-1, K, 2, 2)
-        m = MultivariateNormal(mu, cov)
-        # evaluated data: (T-1, 1, 2)
-        log_prob = m.log_prob(inputs[1:, None])
-        assert log_prob.shape == (T-1, self.K)
+        assert Sigma.shape == (T, self.K, 2, 2), Sigma.shape
+        cov = Sigma + torch.exp(self.log_sigmas_a)[None,] if animal_idx == 0 \
+            else Sigma + torch.exp(self.log_sigmas_b)[None,]
+        return mu, cov
 
-        return log_prob
+    def get_mu(self, inputs, **kwargs):
+        T, D = inputs.shape
+        assert D == 4, D
+        _, mu_a = self.get_mu_and_cov_for_single_animal(inputs[:, 0:2], 0, mu_only=True, **kwargs)
+        _, mu_b = self.get_mu_and_cov_for_single_animal(inputs[:, 2:4], 1, mu_only=True, **kwargs)
+        assert mu_a.shape == mu_b.shape == (T, self.K, 2)
+        mu = torch.cat((mu_a, mu_b), dim=-1)
+        assert mu.shape == (T, self.K, self.D)
+        return mu
 
     def sample_x(self, z, xhist=None, transformation=False, return_np=True, **kwargs):
         """
@@ -200,6 +223,7 @@ class GPObservation(BaseObservation):
         Sigma = kwargs.get("Sigma_a", None) if animal_idx == 0 else kwargs.get("Sigma_b", None)
 
         if A is None:
+            #print("Not using cache. Calculating Sigma, A...")
             Sigma, A = self.get_gp_cache_condition_on_z(x_pre, z, animal_idx, A_only=expectation, **kwargs)
 
         assert A.shape == (1, 2, self.n_gps*2)
@@ -245,7 +269,8 @@ class GPObservation(BaseObservation):
         kernel_distsq_xg = kwargs.get("kernel_distsq_xg_a", None) if animal_idx == 0 \
             else kwargs.get("kernel_distsq_xg_b", None)
         if kernel_distsq_xg is None:
-            kernel_distsq_xg = kernel_distsq(inputs, self.gridpoints)
+            #print("Nog using cache. Calculating kernel_distsq_xg...")
+            kernel_distsq_xg = kernel_distsq(inputs, self.inducing_points)
         assert kernel_distsq_xg.shape == (T*2, self.n_gps*2)
 
         Kgg_inv = self.get_Kgg_inv(animal_idx)
@@ -268,6 +293,7 @@ class GPObservation(BaseObservation):
         kernel_distsq_xx = kwargs.get("kernel_distsq_xx_a", None) if animal_idx == 0 \
             else kwargs.get("kernel_distsq_xx_b", None)
         if kernel_distsq_xx is None:
+            #print("Not using cache. Calculating kernel_distsq_xx...")
             kernel_distsq_xx = batch_kernle_dist_sq(inputs)
         assert kernel_distsq_xx.shape == (T, 2, 2)
 
@@ -293,7 +319,8 @@ class GPObservation(BaseObservation):
         kernel_distsq_xg = kwargs.get("kernel_distsq_xg_a", None) if animal_idx == 0 \
             else kwargs.get("kernel_distsq_xg_b", None)
         if kernel_distsq_xg is None:
-            kernel_distsq_xg = kernel_distsq(inputs, self.gridpoints)
+            #print("Nog using cache. Calculating kernel_distsq_xg...")
+            kernel_distsq_xg = kernel_distsq(inputs, self.inducing_points)
         assert kernel_distsq_xg.shape == (T*2, self.n_gps*2)
 
         # (K, n_gps*2, n_gps*2)

@@ -277,7 +277,7 @@ class LinearGridTransformation(BaseTransformation):
         """
 
         :param idx: (n_gps, 4)
-        :return: gridpoints: (d, 2)
+        :return: inducing_points: (d, 2)
         """
         # (d, n_gps) * (n_gps, 2) --> (d, 2)
         out = torch.matmul(self.gridpoints, idx[:, [0, -1]])
@@ -287,7 +287,7 @@ class LinearGridTransformation(BaseTransformation):
         """
 
         :param idx: (T, n_gps, 4)
-        :return: gridpoints: (T, d, 2)
+        :return: inducing_points: (T, d, 2)
         """
         # (d, n_gps) * (T, n_gps, 4) --> (T, d, 2)
         out = torch.matmul(self.gridpoints, idx[:, :, [0, -1]])

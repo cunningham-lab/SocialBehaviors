@@ -21,6 +21,7 @@ from ssm_ptc.utils import check_and_convert_to_tensor, set_param, ensure_args_ar
 
 import tqdm
 from tqdm import trange
+import time
 
 TRANSITION_CLASSES = dict(stationary=StationaryTransition,
                           sticky=StickyTransition,
@@ -407,9 +408,11 @@ class HMM:
             valid_losses = []
             valid_data_memory_kwargs = valid_data_memory_kwargs if valid_data_memory_kwargs else {}
         for i in np.arange(num_iters):
+
             optimizer.zero_grad()
 
             loss = self.loss(datas, inputs, **memory_kwargs)
+
             loss.backward()
             optimizer.step()
 

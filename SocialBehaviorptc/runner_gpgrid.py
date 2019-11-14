@@ -1,13 +1,15 @@
 from ssm_ptc.models.hmm import HMM
 from ssm_ptc.utils import get_np
 
-from project_ssms.gp_observation import GPObservation, batch_kernle_dist_sq, kernel_distsq
+from project_ssms.ar_truncated_normal_observation import ARTruncatedNormalObservation
+from project_ssms.coupled_transformations.gpgrid_transformation import GPGridTransformation, pairwise_xydist_sq
+from project_ssms.feature_funcs import f_corner_vec_func
 from project_ssms.momentum_utils import filter_traj_by_speed
 from project_ssms.utils import downsample
 from project_ssms.constants import ARENA_XMIN, ARENA_XMAX, ARENA_YMIN, ARENA_YMAX
 
 from saver.rslts_saving import addDateTime, NumpyEncoder
-from saver.runner_gp_rslt_saving import rslt_saving
+from saver.runner_contgrid_rslt_saving import rslt_saving
 
 import matplotlib.pyplot as plt
 
@@ -30,9 +32,11 @@ import json
 @click.option('--filter_traj', is_flag=True, help='whether or not to filter the trajectory by SPEED')
 @click.option('--load_model', is_flag=True, help='Whether to load the (trained) model')
 @click.option('--load_model_dir', default="", help='Directory of model to load')
+@click.option('--gp_version', default=1, help='version of the gp transformation')
 @click.option('--transition', default="stationary", help='type of transition (str)')
 @click.option('--sticky_alpha', default=1, help='value of alpha in sticky transition')
 @click.option('--sticky_kappa', default=100, help='value of kappa in sticky transition')
+@click.option('--acc_factor', default=None, help="acc factor in direction model")
 @click.option('--train_model', is_flag=True, help='Whether to train the model')
 @click.option('--pbar_update_interval', default=500, help='progress bar update interval')
 @click.option('--load_opt_dir', default="", help='Directory of optimizer to load.')
@@ -47,19 +51,20 @@ import json
                                        ' Would be overwritten if x_grids is provided, or load model.')
 @click.option('--n_y', default=3, help='number of grids in y_axis.'
                                        ' Would be overwritten if y_grids is provided, or load model.')
-@click.option('--rs', default=None, help='length scale')
+@click.option('--rs_factor', default='30,30', help='rs factor. please input two numbers. '
+                                                   'If want to use default, input 0,0')
+@click.option('--rs', default=10, help='length scale')
 @click.option('--train_rs', is_flag=True, help='whether to train length scale (r)')
-@click.option('--train_vs', is_flag=True, help='whether to train the signal variance')
 @click.option('--list_of_num_iters', default='5000,5000',
               help='a list of checkpoint numbers of iterations for training')
 @click.option('--list_of_lr', default='0.005, 0.005', help='learning rate for training')
 @click.option('--ckpts_not_to_save', default=None, help='where to skip saving rslts')
-@click.option('--list_of_k_steps', default=None, help='list of number of steps prediction forward')
+@click.option('--list_of_k_steps', default='5', help='list of number of steps prediction forward')
 @click.option('--sample_t', default=100, help='length of samples')
 @click.option('--quiver_scale', default=0.8, help='scale for the quiver plots')
 def main(job_name, cuda_num, downsample_n, filter_traj,
-         load_model, load_model_dir, load_opt_dir,
-         transition, sticky_alpha, sticky_kappa, k, x_grids, y_grids, n_x, n_y, rs, train_rs, train_vs,
+         gp_version, load_model, load_model_dir, load_opt_dir,
+         transition, sticky_alpha, sticky_kappa, acc_factor, k, x_grids, y_grids, n_x, n_y, rs_factor, rs, train_rs,
          train_model, pbar_update_interval, video_clips, held_out_proportion, torch_seed, np_seed,
          list_of_num_iters, ckpts_not_to_save, list_of_lr, list_of_k_steps, sample_t, quiver_scale):
     if job_name is None:
@@ -71,12 +76,14 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
 
     K = k
     sample_T = sample_t
-    rs = float(rs) if rs else None
+    rs_factor = np.array([float(x) for x in rs_factor.split(",")])
+    if rs_factor[0] == 0 and rs_factor[1] == 0:
+        rs_factor = None
+    rs = float(rs)
     video_clip_start, video_clip_end = [float(x) for x in video_clips.split(",")]
     list_of_num_iters = [int(x) for x in list_of_num_iters.split(",")]
     list_of_lr = [float(x) for x in list_of_lr.split(",")]
-    # TODO: fix for no k_steps, k > 0
-    list_of_k_steps = [int(x) for x in list_of_k_steps.split(",")] if list_of_k_steps else []
+    list_of_k_steps = [int(x) for x in list_of_k_steps.split(",")]
     assert len(list_of_num_iters) == len(list_of_lr), "Length of list_of_num_iters must match length of list_of_lr."
     for lr in list_of_lr:
         if lr > 1:
@@ -112,6 +119,7 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
     # model
     D = 4
     M = 0
+    Df = 4
 
     if load_model:
         print("Loading the model from ", load_model_dir)
@@ -123,8 +131,12 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
         n_x = len(tran.x_grids) - 1
         n_y = len(tran.y_grids) - 1
 
+        acc_factor = tran.acc_factor
+
     else:
         print("Creating the model...")
+        bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX],
+                           [ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX]])
 
         # grids
         if x_grids is None:
@@ -141,9 +153,14 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
             y_grids = np.array([float(x) for x in y_grids.split(",")])
             n_y = len(y_grids) - 1
 
-        mus_init = training_data[0] * torch.ones(K, D, dtype=torch.float64, device=device)
-        obs = GPObservation(K=K, D=D, mus_init=mus_init, x_grids=x_grids, y_grids=y_grids,
-                            rs=rs, train_rs=train_rs, train_vs=train_vs, device=device)
+        if acc_factor is None:
+            acc_factor = downsample_n * 10
+
+        tran = GPGridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids,
+                                    Df=Df, feature_vec_func=f_corner_vec_func, acc_factor=acc_factor,
+                                    rs_factor=rs_factor, rs=None, train_rs=train_rs,
+                                    device=device, version=gp_version)
+        obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=1, bounds=bounds, transformation=tran, device=device)
 
         if transition == 'sticky':
             transition_kwargs = dict(alpha=sticky_alpha, kappa=sticky_kappa)
@@ -151,25 +168,28 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
             transition_kwargs = None
         model = HMM(K=K, D=D, M=M, transition=transition, observation=obs, transition_kwargs=transition_kwargs,
                     device=device)
+        model.observation.mus_init = training_data[0] * torch.ones(K, D, dtype=torch.float64, device=device)
 
     # save experiment params
     exp_params = {"job_name":   job_name,
                   'downsample_n': downsample_n,
                   "filter_traj": filter_traj,
                   "load_model": load_model,
+                  "gp_version": gp_version,
                   "load_model_dir": load_model_dir,
                   "load_opt_dir": load_opt_dir,
                   "transition": transition,
                   "sticky_alpha": sticky_alpha,
                   "sticky_kappa": sticky_kappa,
+                  "acc_factor": acc_factor,
                   "K": K,
                   "x_grids": x_grids,
                   "y_grids": y_grids,
                   "n_x": n_x,
                   "n_y": n_y,
+                  "rs_factor": get_np(tran.rs_factor),
                   "rs": rs,
                   "train_rs": train_rs,
-                  "train_vs": train_vs,
                   "train_model": train_model,
                   "pbar_update_interval": pbar_update_interval,
                   "video_clip_start": video_clip_start,
@@ -186,37 +206,42 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
     print("Experiment params:")
     print(exp_params)
 
-    rslt_dir = addDateTime("rslts/gp/" + job_name)
+    rslt_dir = addDateTime("rslts/gpgrid/" + job_name)
     rslt_dir = os.path.join(repo_dir, rslt_dir)
     if not os.path.exists(rslt_dir):
         os.makedirs(rslt_dir)
         print("Making result directory...")
-    print("Saving exp_params to rlst_dir: ", rslt_dir)
+    print("Saving to rlst_dir: ", rslt_dir)
     with open(rslt_dir+"/exp_params.json", "w") as f:
         json.dump(exp_params, f, indent=4, cls=NumpyEncoder)
 
     # compute memory
     print("Computing memory...")
     def get_memory_kwargs(data, train_rs):
-        if  data is None or data.shape[0] == 0:
-            return {}
+        feature_vecs_a = f_corner_vec_func(data[:-1, 0:2])
+        feature_vecs_b = f_corner_vec_func(data[:-1, 2:4])
 
-        kernel_distsq_xx_a = batch_kernle_dist_sq(data[:-1, 0:2])
-        kernel_distsq_xx_b = batch_kernle_dist_sq(data[:-1, 2:4])
-        kernel_distsq_xg_a = kernel_distsq(data[:-1, 0:2], obs.inducing_points)
-        kernel_distsq_xg_b = kernel_distsq(data[:-1, 2:4], obs.inducing_points)
-
-        kernel_distsq_dict = dict(kernel_distsq_xx_a=kernel_distsq_xx_a, kernel_distsq_xx_b=kernel_distsq_xx_b,
-                        kernel_distsq_xg_a=kernel_distsq_xg_a, kernel_distsq_xg_b=kernel_distsq_xg_b)
-
+        gpt_idx_a, grid_idx_a = tran.get_gpt_idx_and_grid_idx_for_batch(data[:-1, 0:2])
+        gpt_idx_b, grid_idx_b = tran.get_gpt_idx_and_grid_idx_for_batch(data[:-1, 2:4])
 
         if train_rs:
-            return kernel_distsq_dict
+            nearby_gpts_a = tran.gridpoints[gpt_idx_a]
+            dist_sq_a = (data[:-1, None, 0:2] - nearby_gpts_a) ** 2
+
+            nearby_gpts_b = tran.gridpoints[gpt_idx_b]
+            dist_sq_b = (data[:-1, None, 2:4] - nearby_gpts_b) ** 2
+
+            return dict(feature_vecs_a=feature_vecs_a, feature_vecs_b=feature_vecs_b,
+                                 gpt_idx_a=gpt_idx_a, gpt_idx_b=gpt_idx_b, grid_idx_a=grid_idx_a,
+                                 grid_idx_b=grid_idx_b, dist_sq_a=dist_sq_a, dist_sq_b=dist_sq_b)
 
         else:
-            Sigma_a, A_a = obs.get_gp_cache(data[:-1, 0:2], 0, **kernel_distsq_dict)
-            Sigma_b, A_b = obs.get_gp_cache(data[:-1, 2:4], 1, **kernel_distsq_dict)
-            return dict(Sigma_a=Sigma_a, A_a=A_a, Sigma_b=Sigma_b, A_b=A_b)
+            coeff_a = tran.get_gp_coefficients(data[:-1, 0:2], 0, gpt_idx_a, grid_idx_a)
+            coeff_b = tran.get_gp_coefficients(data[:-1, 2:4], 0, gpt_idx_b, grid_idx_b)
+
+            return dict(feature_vecs_a=feature_vecs_a, feature_vecs_b=feature_vecs_b,
+                                 gpt_idx_a=gpt_idx_a, gpt_idx_b=gpt_idx_b, grid_idx_a=grid_idx_a,
+                                 grid_idx_b=grid_idx_b, coeff_a=coeff_a, coeff_b=coeff_b)
 
     memory_kwargs = get_memory_kwargs(training_data, train_rs)
     valid_data_memory_kwargs = get_memory_kwargs(valid_data, train_rs)
