@@ -408,11 +408,9 @@ class HMM:
             valid_losses = []
             valid_data_memory_kwargs = valid_data_memory_kwargs if valid_data_memory_kwargs else {}
         for i in np.arange(num_iters):
-
             optimizer.zero_grad()
 
             loss = self.loss(datas, inputs, **memory_kwargs)
-
             loss.backward()
             optimizer.step()
 
