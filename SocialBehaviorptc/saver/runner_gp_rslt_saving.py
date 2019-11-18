@@ -112,8 +112,7 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
         transition_matrix = get_np(transition_matrix)
     summary_dict = {"init_dist": get_np(model.init_dist),
                     "transition_matrix": transition_matrix,
-                    "variance_a": get_np(torch.exp(model.observation.log_sigmas_a)),
-                    "variance_b": get_np(torch.exp(model.observation.log_sigmas_b)),
+                    "variance": get_np(torch.exp(model.observation.log_sigmas)),
                     "log_likes": get_np(model.log_likelihood(data, **memory_kwargs)),
                     "avg_data_speed": avg_data_speed,
                     "avg_sample_speed": avg_sample_speed, "avg_sample_center_speed": avg_sample_center_speed}
@@ -233,6 +232,7 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     plt.savefig(rslt_dir + "/distributions/4traces_sample_x.jpg", dpi=100)
     plot_2d_time_plot_condition_on_all_zs(sample_x_center, sample_z_center, K, title='sample_x_center')
     plt.savefig(rslt_dir + "/distributions/4traces_sample_x_center.jpg", dpi=100)
+
 
     data_angles_a, data_angles_b = get_all_angles(data, x_grids, y_grids, device=device)
     sample_angles_a, sample_angles_b = get_all_angles(sample_x, x_grids, y_grids, device=device)

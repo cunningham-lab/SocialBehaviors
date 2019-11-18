@@ -416,7 +416,8 @@ def get_masks_for_single_animal(data_a, x_grids, y_grids):
             masks_a.append(mask)
 
     masks_a = torch.stack(masks_a, dim=0)
-    assert torch.all(masks_a.sum(dim=0) == 1)
+    # TODO: some model may generate out of box samples
+    #assert torch.all(masks_a.sum(dim=0) == 1)
 
     return masks_a
 

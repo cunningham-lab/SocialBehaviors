@@ -7,6 +7,7 @@ import numpy as np
 import numpy.random as npr
 import sys
 import contextlib
+import joblib
 
 from ssm_ptc.transitions.base_transition import BaseTransition
 from ssm_ptc.transitions.stationary_transition import StationaryTransition
@@ -410,6 +411,9 @@ class HMM:
         for i in np.arange(num_iters):
             optimizer.zero_grad()
 
+            if i >= 220:
+                print("spotted")
+                joblib.dump(self, "model_{}".format(i))
             loss = self.loss(datas, inputs, **memory_kwargs)
             loss.backward()
             optimizer.step()

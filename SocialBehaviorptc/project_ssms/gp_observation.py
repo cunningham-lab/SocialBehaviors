@@ -27,11 +27,9 @@ class GPObservation(BaseObservation):
             self.mus_init = check_and_convert_to_tensor(mus_init, dtype=torch.float64, device=self.device)
         # consider diagonal covariance
         self.log_sigmas_init = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, device=self.device)
-        # shape (K, D, D) TODO: change it to (K, D)
-        self.log_sigmas_a = torch.tensor(np.log(np.tile(5*np.eye(2)+0.5*np.ones((2,2)), (self.K, 1, 1))),
-                                       dtype=torch.float64, device=self.device, requires_grad=True)
-        self.log_sigmas_b = torch.tensor(np.log(np.tile(5*np.eye(2)+0.5*np.ones((2,2)), (self.K, 1, 1))),
-                                         dtype=torch.float64, device=self.device, requires_grad=True)
+        # shape (K,D)
+        self.log_sigmas = torch.tensor(np.log(5*np.ones((K, D))), dtype=torch.float64, device=self.device,
+                                         requires_grad=True)
 
         # specify gp dynamics parameters
         self.x_grids = check_and_convert_to_tensor(x_grids, dtype=torch.float64, device=self.device)  # [x_0, x_1, ..., x_m]
@@ -165,8 +163,13 @@ class GPObservation(BaseObservation):
             return mu, 0
 
         assert Sigma.shape == (T, self.K, 2, 2), Sigma.shape
-        cov = Sigma + torch.exp(self.log_sigmas_a)[None,] if animal_idx == 0 \
-            else Sigma + torch.exp(self.log_sigmas_b)[None,]
+
+        # (K, 2)
+        sigma = torch.exp(self.log_sigmas[:,0:2]) if animal_idx == 0 else torch.exp(self.log_sigmas[:,2:4])
+        # (K, 2, 2)
+        sigma = torch.diag_embed(sigma)
+
+        cov = Sigma + sigma
         return mu, cov
 
     def get_mu(self, inputs, **kwargs):
@@ -246,8 +249,13 @@ class GPObservation(BaseObservation):
         assert Sigma.shape == (1, 2, 2)
         Sigma = torch.squeeze(Sigma, dim=0)
 
-        cov = Sigma + torch.exp(self.log_sigmas_a[z]) if animal_idx == 0 \
-            else Sigma + torch.exp(self.log_sigmas_b[z])
+        # (2,)
+        sigma = torch.exp(self.log_sigmas[z, 0:2]) if animal_idx == 0 else torch.exp(self.log_sigmas[z, 2:4])
+        assert sigma.shape == (2, ), sigma.shape
+        sigma =  torch.diag(sigma)
+        assert sigma.shape == (2,2), sigma.shape
+
+        cov = Sigma + sigma
 
         m = MultivariateNormal(mu, cov)
         sample = m.sample()
