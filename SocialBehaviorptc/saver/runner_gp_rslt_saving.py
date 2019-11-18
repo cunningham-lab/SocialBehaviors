@@ -42,11 +42,8 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
 
     # TODO: address valida_data = None
     print("0 step prediction")
-    # TODO: add valid data for other model
-    if data.shape[0] <= 10000:
-        data_to_predict = data
-    else:
-        data_to_predict = data[-10000:]
+    # TODO: fix kwargs not matching error
+    data_to_predict = data
 
     x_predict = k_step_prediction_for_gpmodel(model, z, data_to_predict, **memory_kwargs)
     x_predict_valid = k_step_prediction_for_gpmodel(model, z_valid, valid_data, **valid_data_memory_kwargs)
@@ -230,7 +227,6 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     plot_data_condition_on_all_zs(sample_x_center, sample_z_center, K, size=2, alpha=0.3)
     plt.savefig(rslt_dir + "/distributions/spatial_occup_sample_x_center.jpg", dpi=100)
 
-    """
     plot_2d_time_plot_condition_on_all_zs(data, z, K, title='ground truth')
     plt.savefig(rslt_dir + "/distributions/4traces_groundtruth.jpg", dpi=100)
     plot_2d_time_plot_condition_on_all_zs(sample_x, sample_z, K, title='sample_x')
@@ -264,7 +260,6 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
                        ['data', 'sample', 'sample_c'], "speed distribution (mother)", n_x, n_y)
     plt.savefig(rslt_dir + "/distributions/speed_b.jpg")
     plt.close()
-    """
 
     try:
         if 100 < data.shape[0] <= 36000:

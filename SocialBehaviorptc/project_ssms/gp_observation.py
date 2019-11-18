@@ -27,7 +27,7 @@ class GPObservation(BaseObservation):
             self.mus_init = check_and_convert_to_tensor(mus_init, dtype=torch.float64, device=self.device)
         # consider diagonal covariance
         self.log_sigmas_init = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, device=self.device)
-        # shape (K, D, D)
+        # shape (K, D, D) TODO: change it to (K, D)
         self.log_sigmas_a = torch.tensor(np.log(np.tile(5*np.eye(2)+0.5*np.ones((2,2)), (self.K, 1, 1))),
                                        dtype=torch.float64, device=self.device, requires_grad=True)
         self.log_sigmas_b = torch.tensor(np.log(np.tile(5*np.eye(2)+0.5*np.ones((2,2)), (self.K, 1, 1))),
@@ -126,7 +126,6 @@ class GPObservation(BaseObservation):
         # get the mu and cov based on the observations except the last one
         mu, cov = self.get_mu_and_cov_for_single_animal(inputs[:-1], animal_idx, **kwargs)
         # mean: (T-1, K, 2), covariance (T-1, K, 2, 2)
-
         m = MultivariateNormal(mu, cov)
 
         # evaluated the observations except the first one. (T-1, 1, 2)
@@ -321,7 +320,8 @@ class GPObservation(BaseObservation):
         if kernel_distsq_xg is None:
             #print("Nog using cache. Calculating kernel_distsq_xg...")
             kernel_distsq_xg = kernel_distsq(inputs, self.inducing_points)
-        assert kernel_distsq_xg.shape == (T*2, self.n_gps*2)
+        assert kernel_distsq_xg.shape == (T*2, self.n_gps*2), \
+            "the correct size is {}, but got {}".format((T*2, self.n_gps*2), kernel_distsq_xg.shape)
 
         # (K, n_gps*2, n_gps*2)
         Kgg_inv = self.get_Kgg_inv(animal_idx)
@@ -366,7 +366,7 @@ class GPObservation(BaseObservation):
 
         repeated_vs = self.vs[:, animal_idx].repeat(1, self.n_gps, self.n_gps)
 
-        K_gg = repeated_vs * torch.exp(-(self.kernel_distsq_gg / repeated_rs) ** 2)
+        K_gg = repeated_vs * torch.exp(-self.kernel_distsq_gg / (repeated_rs ** 2))
         assert K_gg.shape == (self.K, self.n_gps*2, self.n_gps*2)
 
         K_gg_inv = torch.inverse(K_gg)

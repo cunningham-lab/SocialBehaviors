@@ -116,12 +116,12 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
     if load_model:
         print("Loading the model from ", load_model_dir)
         model = joblib.load(load_model_dir)
-        tran = model.observation.transformation
+        obs = model.observation
 
         K = model.K
 
-        n_x = len(tran.x_grids) - 1
-        n_y = len(tran.y_grids) - 1
+        n_x = len(obs.x_grids) - 1
+        n_y = len(obs.y_grids) - 1
 
     else:
         print("Creating the model...")
