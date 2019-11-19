@@ -9,6 +9,7 @@ from ssm_ptc.utils import check_and_convert_to_tensor, set_param, get_np
 from project_ssms.coupled_transformations.grid_transformation import GridTransformation
 from project_ssms.coupled_transformations.lineargrid_transformation import LinearGridTransformation
 from project_ssms.coupled_transformations.weightedgrid_transformation import WeightedGridTransformation
+from project_ssms.utils import clip
 
 
 TRANSFORMATION_CLASSES = dict(
@@ -131,11 +132,7 @@ class ARTruncatedNormalObservation(BaseObservation):
             samples = mu
             # some ad-hoc way to address bound issue
             for d in range(self.D):
-                if samples[d] <= self.bounds[d,0]:
-                    samples[d] = self.bounds[d,0] + 0.1 * torch.rand(1, dtype=torch.float64, device=self.device)
-                elif samples[d] >= self.bounds[d,1]:
-                    samples[d] = self.bounds[d,1] - 0.1 * torch.rand(1, dtype=torch.float64, device=self.device)
-
+                samples[d] = clip(samples[d], self.bounds[d])
             samples = samples.detach()
 
         else:

@@ -10,7 +10,7 @@ class GridTransition(BaseTransition):
     """
     each grid has its own transition matrices
     """
-    def __init__(self, K, D, M, x_grids, y_grids, Pis=None, device=torch.device('cpu')):
+    def __init__(self, K, D, M, x_grids, y_grids, Pi=None, device=torch.device('cpu')):
         super(GridTransition, self).__init__(K=K, D=D, M=M, device=device)
         assert D == 2 or D == 4, D
 
@@ -18,7 +18,7 @@ class GridTransition(BaseTransition):
         self.y_grids = y_grids  # [y0, ..., ym]
 
         self.n_grids = (len(self.x_grids) - 1) * (len(self.y_grids) - 1)
-
+        Pis = Pi
         if self.D == 4:
             if Pis is None:
                 Pis = [2 * np.eye(self.K) + .05 * npr.rand(self.K, self.K)
@@ -42,6 +42,10 @@ class GridTransition(BaseTransition):
     def params(self, values):
         self.Pis = set_param(self.Pis, values[0])
 
+    @property
+    def grid_transition_matrix(self):
+        return torch.nn.Softmax(dim=-1)(self.Pis)
+
     def permute(self, perm):
         Pis = self.Pis.detach().numpy()  # (n_grids, n_grids, K, K)
         if self.D == 4:
@@ -60,19 +64,27 @@ class GridTransition(BaseTransition):
         :param log:
         :return: (T, K, K)
         """
-        T, _ = data.shape
+        T, D = data.shape
+        assert D == 4 or D == 2, D
         # for each data point, find out which transition to use
         joint_grid_idx = kwargs.get("joint_grid_idx", None)
         if joint_grid_idx is None:
+            print("not using transition memory!")
             if self.D == 4:
                 joint_grid_idx = self.get_joint_grid_idx(data)
             else:
-                joint_grid_idx = self.get_grid_idx_for_single(data)
+                joint_grid_idx = self.get_grid_idx(data)
 
-        Pis = self.Pis[joint_grid_idx]
-        Pis = torch.nn.LogSoftmax(dim=-1)(Pis)
-        assert Pis.shape == (T, self.K, self.K)
-        return Pis
+        Pi = self.Pis[joint_grid_idx]
+        if log:
+            Pi = torch.nn.LogSoftmax(dim=-1)(Pi)
+        else:
+            Pi = torch.nn.Softmax(dim=-1)(Pi)
+        assert Pi.shape == (T, self.K, self.K)
+        return Pi
+
+    def log_transition_matrix(self, data, input, **kwargs):
+        return self.transition_matrix(data, input, log=True, **kwargs)
 
     def get_joint_grid_idx(self, data, **kwargs):
         """
@@ -96,7 +108,7 @@ class GridTransition(BaseTransition):
         """
 
         :param data: (T, 2)
-        :return:
+        :return: a list
         """
         idx = list(map(self.get_grid_idx_for_single, data))
         return idx
@@ -107,7 +119,7 @@ class GridTransition(BaseTransition):
         :param point: (2,)
         :return: grid idx: a scalar
         """
-        assert point.shape == (2,)
+        assert point.shape == (2,), point.shape
         find = False
 
         grid_idx = 0

@@ -3,8 +3,6 @@ import numpy as np
 import datetime
 
 from ssm_ptc.utils import k_step_prediction, check_and_convert_to_tensor, get_np
-from project_ssms.gp_observation import GPObservation
-from project_ssms.gp_observation_single import GPObservationSingle
 
 
 def k_step_prediction_for_momentum_feature_model(model, model_z, data, momentum_vecs=None, features=None):
@@ -205,7 +203,6 @@ def k_step_prediction_for_gpgrid_model(model, model_z, data, **memory_kwargs):
 
 def k_step_prediction_for_gpmodel(model, model_z, data, **memory_kwargs):
     data = check_and_convert_to_tensor(data)
-    assert isinstance(model.observation, (GPObservation, GPObservationSingle)), type(model.observation)
 
     T, D = data.shape
     assert D == 4 or D == 2, D
@@ -326,3 +323,10 @@ def downsample(traj, n):
     idx = n * np.arange(T_over_n)
     return traj[idx]
 
+
+def clip(val, boundary, eps=0.1, device=torch.device('cpu')):
+    if val <= boundary[0]:
+        val = boundary[0] + eps * torch.rand(1, dtype=torch.float64, device=device)
+    elif val >= boundary[1]:
+        val = boundary[1] - eps * torch.rand(1, dtype=torch.float64, device=device)
+    return val

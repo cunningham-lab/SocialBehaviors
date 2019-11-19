@@ -120,7 +120,14 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
 
     # model
     D = data.shape[1]
+    assert D == 4 or D == 2, D
     M = 0
+
+    if D == 4:
+        bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX],
+                           [ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX]])
+    else:
+        bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX]])
 
     if load_model:
         print("Loading the model from ", load_model_dir)
@@ -153,10 +160,10 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
 
         mus_init = training_data[0] * torch.ones(K, D, dtype=torch.float64, device=device)
         if animal == 'both':
-            obs = GPObservation(K=K, D=D, mus_init=mus_init, x_grids=x_grids, y_grids=y_grids,
+            obs = GPObservation(K=K, D=D, mus_init=mus_init, x_grids=x_grids, y_grids=y_grids, bounds=bounds,
                                 rs=rs, train_rs=train_rs, train_vs=train_vs, device=device)
         else:
-            obs = GPObservationSingle(K=K, D=D, mus_init=mus_init, x_grids=x_grids, y_grids=y_grids,
+            obs = GPObservationSingle(K=K, D=D, mus_init=mus_init, x_grids=x_grids, y_grids=y_grids, bounds=bounds,
                                       rs=rs, train_rs=train_rs, device=device)
 
         if transition == 'sticky':
@@ -165,6 +172,7 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
             transition_kwargs = dict(x_grids=x_grids, y_grids=y_grids)
         else:
             transition_kwargs = None
+        print("transition", transition)
         model = HMM(K=K, D=D, M=M, transition=transition, observation=obs, transition_kwargs=transition_kwargs,
                     device=device)
 
@@ -213,7 +221,17 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
         json.dump(exp_params, f, indent=4, cls=NumpyEncoder)
 
     # compute memory
-    print("Computing memory...")
+    if transition == "grid":
+        print("Computing transition memory...")
+        joint_grid_idx = model.transition.get_grid_idx(training_data[:-1])
+        transition_memory_kwargs = dict(joint_grid_idx=joint_grid_idx)
+        valid_joint_grid_idx = model.transition.get_grid_idx(valid_data[:-1])
+        valid_data_transition_memory_kwargs = dict(joint_grid_idx=valid_joint_grid_idx)
+    else:
+        transition_memory_kwargs = None
+        valid_data_transition_memory_kwargs = None
+
+    print("Computing observation memory...")
     def get_memory_kwargs(data, train_rs):
         if  data is None or data.shape[0] == 0:
             return {}
@@ -246,7 +264,8 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
     memory_kwargs = get_memory_kwargs(training_data, train_rs)
     valid_data_memory_kwargs = get_memory_kwargs(valid_data, train_rs)
 
-    log_prob = model.log_likelihood(training_data, **memory_kwargs)
+    log_prob = model.log_likelihood(training_data, transition_memory_kwargs=transition_memory_kwargs, **memory_kwargs)
+    print("log_prob = {}".format(log_prob))
 
     ##################### training ############################
     if train_model:
@@ -259,6 +278,8 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
         for i, (num_iters, lr) in enumerate(zip(list_of_num_iters, list_of_lr)):
             training_losses, opt, valid_losses = model.fit(training_data, optimizer=opt, method='adam', num_iters=num_iters, lr=lr,
                                     pbar_update_interval=pbar_update_interval, valid_data=valid_data,
+                                    transition_memory_kwargs=transition_memory_kwargs,
+                                    valid_data_transition_memory_kwargs=valid_data_transition_memory_kwargs,
                                     valid_data_memory_kwargs=valid_data_memory_kwargs, **memory_kwargs)
             list_of_losses.append(training_losses)
 

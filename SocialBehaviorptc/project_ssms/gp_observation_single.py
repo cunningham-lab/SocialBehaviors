@@ -3,6 +3,7 @@ from torch.distributions import Normal, MultivariateNormal
 import numpy as np
 
 from project_ssms.gp_observation import kernel_distsq, batch_kernle_dist_sq
+from project_ssms.utils import clip
 from ssm_ptc.utils import check_and_convert_to_tensor, set_param, get_np
 from ssm_ptc.observations.base_observation import BaseObservation
 
@@ -14,13 +15,16 @@ class GPObservationSingle(BaseObservation):
     weights of any random point = a weighted combination of weights of all the grid vertices
     where the weights = softmax
     """
-    def __init__(self, K, D, x_grids, y_grids, mus_init=None,
+    def __init__(self, K, D, x_grids, y_grids, bounds, mus_init=None,
                 rs=None, train_rs=False, train_vs=False,
                  device=torch.device('cpu')):
         assert D == 2
         super(GPObservationSingle, self).__init__(K, D)
 
         self.device = device
+
+        self.bounds = check_and_convert_to_tensor(bounds, dtype=torch.float64, device=self.device)
+        assert self.bounds.shape == (self.D, 2), self.bounds.shape
 
         # specify distribution parameters
         if mus_init is None:
@@ -190,6 +194,9 @@ class GPObservationSingle(BaseObservation):
                 sample = self.sample_single_animal_x(z, xhist[-1:, 0:2], transformation, **kwargs)
             assert sample.shape == (self.D, ), sample.shape
 
+        for i in range(self.D):
+            sample[i] = clip(sample[i], self.bounds[i])
+
         if return_np:
             sample = sample.detach().numpy()
         return sample
@@ -356,3 +363,5 @@ class GPObservationSingle(BaseObservation):
         K_gg_inv = torch.inverse(K_gg)
 
         return K_gg_inv
+
+

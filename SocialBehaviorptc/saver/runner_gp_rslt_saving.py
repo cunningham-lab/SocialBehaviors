@@ -13,6 +13,8 @@ from project_ssms.grid_utils import plot_quiver, plot_realdata_quiver, \
     get_all_angles, get_speed, plot_list_of_angles, plot_list_of_speed, plot_space_dist
 from project_ssms.constants import *
 from ssm_ptc.utils import k_step_prediction, get_np
+from ssm_ptc.transitions.stationary_transition import StationaryTransition
+from ssm_ptc.transitions.grid_transition import GridTransition
 from saver.rslts_saving import NumpyEncoder
 
 
@@ -117,11 +119,15 @@ def rslt_saving(rslt_dir, model, data, animal, memory_kwargs, list_of_k_steps, s
     avg_sample_center_speed = np.average(np.abs(np.diff(sample_x_center, axis=0)), axis=0)
     avg_data_speed = np.average(np.abs(np.diff(get_np(data), axis=0)), axis=0)
 
-    transition_matrix = model.transition.stationary_transition_matrix
-    if transition_matrix.requires_grad:
-        transition_matrix = get_np(transition_matrix)
+    if isinstance(model.transition, StationaryTransition):
+        transition_matrix = model.transition.stationary_transition_matrix
+    elif isinstance(model.transition, GridTransition):
+        transition_matrix = model.transition.grid_transition_matrix
     else:
-        transition_matrix = get_np(transition_matrix)
+        raise ValueError("unsupported transition matrix type: {}".format(type(model.transition)))
+
+    transition_matrix = get_np(transition_matrix)
+
     summary_dict = {"init_dist": get_np(model.init_dist),
                     "transition_matrix": transition_matrix,
                     "variance": get_np(torch.exp(model.observation.log_sigmas)),

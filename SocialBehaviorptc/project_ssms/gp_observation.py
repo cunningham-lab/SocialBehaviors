@@ -5,6 +5,7 @@ import numpy as np
 from ssm_ptc.utils import check_and_convert_to_tensor, set_param, get_np
 from ssm_ptc.observations.base_observation import BaseObservation
 
+from project_ssms.utils import clip
 
 
 class GPObservation(BaseObservation):
@@ -13,13 +14,16 @@ class GPObservation(BaseObservation):
     weights of any random point = a weighted combination of weights of all the grid vertices
     where the weights = softmax
     """
-    def __init__(self, K, D, x_grids, y_grids, mus_init=None,
+    def __init__(self, K, D, x_grids, y_grids, bounds, mus_init=None,
                 rs=None, train_rs=False, train_vs=False,
                  device=torch.device('cpu')):
         assert D == 4
         super(GPObservation, self).__init__(K, D)
 
         self.device = device
+
+        self.bounds = check_and_convert_to_tensor(bounds, dtype=torch.float64, device=self.device)
+        assert self.bounds.shape == (self.D, 2), self.bounds.shape
 
         # specify distribution parameters
         if mus_init is None:
@@ -53,7 +57,7 @@ class GPObservation(BaseObservation):
             rs = np.repeat(rs[None], self.K, axis=0)
         elif isinstance(rs, float):
             rs = rs * np.ones(self.K, 2, 2, 2)
-            assert rs.shape == (self.K, 2, 2, 2), rs.shape
+        assert rs.shape == (self.K, 2, 2, 2), rs.shape
         self.rs = torch.tensor(rs, dtype=torch.float64, device=self.device, requires_grad=train_rs)
 
         # (K, 2, 2,2)
@@ -200,6 +204,9 @@ class GPObservation(BaseObservation):
                 sample_b = self.sample_single_animal_x(z, xhist[-1:, 2:4], 1, transformation, **kwargs)
                 sample = torch.cat((sample_a,sample_b))
             assert sample.shape == (self.D, ), sample.shape
+
+            for i in range(self.D):
+                sample[i] = clip(sample[i], self.bounds[i])
 
         if return_np:
             sample = sample.detach().numpy()
@@ -418,8 +425,3 @@ def batch_kernle_dist_sq(batch_points):
     out = out[:, None, None] * torch.ones(2,2, dtype=torch.float64, device=out.device)
     assert out.shape == (T, 2, 2)
     return out
-
-
-
-
-
