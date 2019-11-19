@@ -2,12 +2,13 @@ import torch
 from torch.distributions import Normal, MultivariateNormal
 import numpy as np
 
+from project_ssms.gp_observation import kernel_distsq, batch_kernle_dist_sq
 from ssm_ptc.utils import check_and_convert_to_tensor, set_param, get_np
 from ssm_ptc.observations.base_observation import BaseObservation
 
 
 
-class GPObservation(BaseObservation):
+class GPObservationSingle(BaseObservation):
     """
     Learnable parameters: weights of each grid vertex
     weights of any random point = a weighted combination of weights of all the grid vertices
@@ -16,8 +17,8 @@ class GPObservation(BaseObservation):
     def __init__(self, K, D, x_grids, y_grids, mus_init=None,
                 rs=None, train_rs=False, train_vs=False,
                  device=torch.device('cpu')):
-        assert D == 4
-        super(GPObservation, self).__init__(K, D)
+        assert D == 2
+        super(GPObservationSingle, self).__init__(K, D)
 
         self.device = device
 
@@ -49,15 +50,15 @@ class GPObservation(BaseObservation):
             x_gap = (x_grids[-1] - x_grids[0])/(len(x_grids)-1)
             y_gap = (y_grids[-1] - y_grids[0])/(len(y_grids)-1)
             xy_gap = np.sqrt(x_gap**2 + y_gap**2)
-            rs = np.array([[[x_gap, xy_gap], [xy_gap, y_gap]], [[x_gap, xy_gap], [xy_gap, y_gap]]])
+            rs = np.array([[x_gap, xy_gap], [xy_gap, y_gap]])
             rs = np.repeat(rs[None], self.K, axis=0)
         elif isinstance(rs, float):
-            rs = rs * np.ones(self.K, 2, 2, 2)
-            assert rs.shape == (self.K, 2, 2, 2), rs.shape
+            rs = rs * np.ones(self.K, 2, 2)
+            assert rs.shape == (self.K, 2, 2), rs.shape
         self.rs = torch.tensor(rs, dtype=torch.float64, device=self.device, requires_grad=train_rs)
 
-        # (K, 2, 2,2)
-        vs = [[[[1,0],[0,1]],[[1,0], [0,1]]] for _ in range(self.K)]
+        # (K, 2,2)
+        vs = [[[1,0],[0,1]] for _ in range(self.K)]
         self.vs = torch.tensor(vs, dtype=torch.float64, device=self.device, requires_grad=train_vs)
         # real_vs = vs**2
 
@@ -93,10 +94,8 @@ class GPObservation(BaseObservation):
         assert log_prob_init.shape == (self.K, self.D), log_prob_init.shape
         log_prob_init = torch.sum(log_prob_init, dim=-1)  # (K, )
 
-        log_prob_ar_a = self.log_prob_for_single_animal(inputs[:,0:2], 0, **kwargs)
-        log_prob_ar_b = self.log_prob_for_single_animal(inputs[:,2:4], 1, **kwargs)
+        log_prob_ar = self.log_prob_for_single_animal(inputs, **kwargs)
 
-        log_prob_ar = log_prob_ar_a + log_prob_ar_b
         assert log_prob_ar.shape == (T-1, self.K)
 
         log_prob = torch.cat((log_prob_init[None, ], log_prob_ar), dim=0)
@@ -104,11 +103,10 @@ class GPObservation(BaseObservation):
 
         return log_prob
 
-    def log_prob_for_single_animal(self, inputs, animal_idx, **kwargs):
+    def log_prob_for_single_animal(self, inputs, **kwargs):
         """
         calculate the log prob for inputs[1:] based on inputs[:-1]
         :param inputs: (T, 2)
-        :param animal_idx: 0 or 1
         :param kwargs:
         :return: (T-1, K)
         """
@@ -116,7 +114,7 @@ class GPObservation(BaseObservation):
         T, d = inputs.shape
         assert d == 2, d
         # get the mu and cov based on the observations except the last one
-        mu, cov = self.get_mu_and_cov_for_single_animal(inputs[:-1], animal_idx, **kwargs)
+        mu, cov = self.get_mu_and_cov_for_single_animal(inputs[:-1], **kwargs)
         # mean: (T-1, K, 2), covariance (T-1, K, 2, 2)
         m = MultivariateNormal(mu, cov)
 
@@ -127,26 +125,22 @@ class GPObservation(BaseObservation):
         return log_prob
 
 
-    def get_mu_and_cov_for_single_animal(self, inputs, animal_idx, mu_only=False, **kwargs):
-        assert animal_idx == 0 or animal_idx == 1, animal_idx
+    def get_mu_and_cov_for_single_animal(self, inputs, mu_only=False, **kwargs):
 
         inputs = check_and_convert_to_tensor(inputs, dtype=torch.float64, device=self.device)
 
         T, _ = inputs.shape
 
         # this is useful when train_rs =False and train_vs=False:
-        Sigma = kwargs.get("Sigma_a", None) if animal_idx == 0 else kwargs.get("Sigma_b", None)
-        A = kwargs.get("A_a", None) if animal_idx == 0 else kwargs.get("A_b", None)
+        Sigma = kwargs.get("Sigma", None)
+        A = kwargs.get("A", None)
         if A is None:
             #print("Not using cache. Calculating Sigma, A...")
-            Sigma, A = self.get_gp_cache(inputs, animal_idx, A_only=mu_only, **kwargs)
+            Sigma, A = self.get_gp_cache(inputs, A_only=mu_only, **kwargs)
         assert A.shape == (T, self.K, 2, 2 * self.n_gps), A.shape
 
         # calculate the dynamics at the grids
-        us = self.us[..., 0:2] if animal_idx == 0 else self.us[..., 2:4]
-        assert us.shape == (self.K, self.n_gps, 2), \
-            "the correct shape is {}, instead we got {}".format((self.K, self.n_gps, 2), us.shape)
-        us = torch.reshape(us, (self.K, -1))  # (K, n_gps*2)
+        us = torch.reshape(self.us, (self.K, -1))  # (K, n_gps*2)
 
         # (T-1, K, 2, 2*n_gps) * (K, 2*n_gps, 1) ->  (T-1, K, 2, 1)
         mu = torch.matmul(A, us[..., None])
@@ -160,7 +154,7 @@ class GPObservation(BaseObservation):
         assert Sigma.shape == (T, self.K, 2, 2), Sigma.shape
 
         # (K, 2)
-        sigma = torch.exp(self.log_sigmas[:,0:2]) if animal_idx == 0 else torch.exp(self.log_sigmas[:,2:4])
+        sigma = torch.exp(self.log_sigmas)
         # (K, 2, 2)
         sigma = torch.diag_embed(sigma)
 
@@ -169,11 +163,8 @@ class GPObservation(BaseObservation):
 
     def get_mu(self, inputs, **kwargs):
         T, D = inputs.shape
-        assert D == 4, D
-        _, mu_a = self.get_mu_and_cov_for_single_animal(inputs[:, 0:2], 0, mu_only=True, **kwargs)
-        _, mu_b = self.get_mu_and_cov_for_single_animal(inputs[:, 2:4], 1, mu_only=True, **kwargs)
-        assert mu_a.shape == mu_b.shape == (T, self.K, 2)
-        mu = torch.cat((mu_a, mu_b), dim=-1)
+        assert D == 2, D
+        _, mu = self.get_mu_and_cov_for_single_animal(inputs[:, 0:2], mu_only=True, **kwargs)
         assert mu.shape == (T, self.K, self.D)
         return mu
 
@@ -196,37 +187,34 @@ class GPObservation(BaseObservation):
                     sigmas_z = torch.exp(self.log_sigmas_init[z])  # (D,)
                     sample = mu + sigmas_z * torch.randn(self.D, dtype=torch.float64)  # (self.D, )
             else:
-                sample_a = self.sample_single_animal_x(z, xhist[-1:, 0:2], 0, transformation, **kwargs)
-                sample_b = self.sample_single_animal_x(z, xhist[-1:, 2:4], 1, transformation, **kwargs)
-                sample = torch.cat((sample_a,sample_b))
+                sample = self.sample_single_animal_x(z, xhist[-1:, 0:2], transformation, **kwargs)
             assert sample.shape == (self.D, ), sample.shape
 
         if return_np:
             sample = sample.detach().numpy()
         return sample
 
-    def sample_single_animal_x(self, z, x_pre, animal_idx, expectation, **kwargs):
+    def sample_single_animal_x(self, z, x_pre,expectation, **kwargs):
         """
 
         :param z: a scalar
         :param x_pre: (1, 2)
-        :param animal_idx
         :param expectation:
         :return: (2, )
         """
         assert x_pre.shape == (1, 2), x_pre.shape
 
-        A = kwargs.get("A_a", None) if animal_idx == 0 else kwargs.get("A_b", None)
-        Sigma = kwargs.get("Sigma_a", None) if animal_idx == 0 else kwargs.get("Sigma_b", None)
+        A = kwargs.get("A", None)
+        Sigma = kwargs.get("Sigma", None)
 
         if A is None:
             #print("Not using cache. Calculating Sigma, A...")
-            Sigma, A = self.get_gp_cache_condition_on_z(x_pre, z, animal_idx, A_only=expectation, **kwargs)
+            Sigma, A = self.get_gp_cache_condition_on_z(x_pre, z, A_only=expectation, **kwargs)
 
         assert A.shape == (1, 2, self.n_gps*2)
         A = torch.squeeze(A, dim=0)
 
-        u = self.us[z, :, 0:2] if animal_idx == 0 else self.us[z, :, 2:4]
+        u = self.us[z]
         assert u.shape == (self.n_gps, 2), \
             "the correct shape is {}, instead we got {}".format((self.n_gps, 2), u.shape)
         u = torch.reshape(u, (-1,))  # (n_gps*2, )
@@ -245,7 +233,7 @@ class GPObservation(BaseObservation):
         Sigma = torch.squeeze(Sigma, dim=0)
 
         # (2,)
-        sigma = torch.exp(self.log_sigmas[z, 0:2]) if animal_idx == 0 else torch.exp(self.log_sigmas[z, 2:4])
+        sigma = torch.exp(self.log_sigmas[z])
         assert sigma.shape == (2, ), sigma.shape
         sigma =  torch.diag(sigma)
         assert sigma.shape == (2,2), sigma.shape
@@ -258,27 +246,25 @@ class GPObservation(BaseObservation):
 
         return sample
 
-    def get_gp_cache_condition_on_z(self, inputs, z, animal_idx, A_only=False, **kwargs):
+    def get_gp_cache_condition_on_z(self, inputs, z, A_only=False, **kwargs):
         """
 
         :param inputs: (T, 2)
-        :param animal_idx: 0 or 1
         :param z:
         :return: Sigma (T, 2, 2,) A (T, 2, n_gps*2)
         """
         T, _ = inputs.shape
 
-        kernel_distsq_xg = kwargs.get("kernel_distsq_xg_a", None) if animal_idx == 0 \
-            else kwargs.get("kernel_distsq_xg_b", None)
+        kernel_distsq_xg = kwargs.get("kernel_distsq_xg", None)
 
         if kernel_distsq_xg is None:
             #print("Nog using cache. Calculating kernel_distsq_xg...")
             kernel_distsq_xg = kernel_distsq(inputs, self.inducing_points)
         assert kernel_distsq_xg.shape == (T*2, self.n_gps*2)
 
-        Kgg_inv = self.get_Kgg_inv(animal_idx)
-        rs = self.rs[z, animal_idx]  # (2,2)
-        vs = self.vs[z, animal_idx]  # (2, 2)
+        Kgg_inv = self.get_Kgg_inv()
+        rs = self.rs[z]  # (2,2)
+        vs = self.vs[z]  # (2, 2)
 
         repeated_rs = rs.repeat(T, self.n_gps)
         repeated_vs = vs.repeat(T, self.n_gps)
@@ -293,8 +279,7 @@ class GPObservation(BaseObservation):
         if A_only:
             return 0, A
 
-        kernel_distsq_xx = kwargs.get("kernel_distsq_xx_a", None) if animal_idx == 0 \
-            else kwargs.get("kernel_distsq_xx_b", None)
+        kernel_distsq_xx = kwargs.get("kernel_distsq_xx", None)
         if kernel_distsq_xx is None:
             #print("Not using cache. Calculating kernel_distsq_xx...")
             kernel_distsq_xx = batch_kernle_dist_sq(inputs)
@@ -307,20 +292,19 @@ class GPObservation(BaseObservation):
         assert Sigma.shape == (T, 2, 2), Sigma.shape
 
         # vs shape (K, 2,2,2)
-        Sigma = self.vs[z, animal_idx]**2 * Sigma
+        Sigma = self.vs[z]**2 * Sigma
         return Sigma, A
 
-    def get_gp_cache(self, inputs, animal_idx, A_only=False, **kwargs):
+    def get_gp_cache(self, inputs, A_only=False, **kwargs):
         """
 
         :param inputs: (T, 2)
-        :param animal_idx: 0 or 1
+        :param A_only: return A only
         :return: Sigma (T, K, 2, 2), A (T, K, 2, 2*n_gps)
         """
         T, _ = inputs.shape
 
-        kernel_distsq_xg = kwargs.get("kernel_distsq_xg_a", None) if animal_idx == 0 \
-            else kwargs.get("kernel_distsq_xg_b", None)
+        kernel_distsq_xg = kwargs.get("kernel_distsq_xg", None)
         if kernel_distsq_xg is None:
             #print("Nog using cache. Calculating kernel_distsq_xg...")
             kernel_distsq_xg = kernel_distsq(inputs, self.inducing_points)
@@ -328,12 +312,10 @@ class GPObservation(BaseObservation):
             "the correct size is {}, but got {}".format((T*2, self.n_gps*2), kernel_distsq_xg.shape)
 
         # (K, n_gps*2, n_gps*2)
-        Kgg_inv = self.get_Kgg_inv(animal_idx)
-        rs = self.rs[:, animal_idx]  # (K, 2, 2)
-        vs = self.vs[:, animal_idx]  # (K, 2, 2)
+        Kgg_inv = self.get_Kgg_inv()
 
-        repeated_rs = rs.repeat(1, T, self.n_gps)
-        repeated_vs = vs.repeat(1, T, self.n_gps)
+        repeated_rs = self.rs.repeat(1, T, self.n_gps)
+        repeated_vs = self.vs.repeat(1, T, self.n_gps)
         K_xg = repeated_vs * torch.exp(-(kernel_distsq_xg / repeated_rs**2))
         assert K_xg.shape == (self.K, T*2, self.n_gps*2)
         K_xg = torch.reshape(K_xg, (self.K, T, 2, self.n_gps*2))
@@ -346,29 +328,27 @@ class GPObservation(BaseObservation):
         if A_only:
             return 0, A
 
-        kernel_distsq_xx = kwargs.get("kernel_distsq_xx_a", None) if animal_idx == 0 \
-            else kwargs.get("kernel_distsq_xx_b", None)
+        kernel_distsq_xx = kwargs.get("kernel_distsq_xx", None)
         if kernel_distsq_xx is None:
             kernel_distsq_xx = batch_kernle_dist_sq(inputs)
         assert kernel_distsq_xx.shape == (T, 2, 2)
 
-        K_xx = vs * torch.exp(-(kernel_distsq_xx[:, None] / rs ** 2))
+        K_xx = self.vs * torch.exp(-(kernel_distsq_xx[:, None] / self.rs ** 2))
         assert K_xx.shape == (T, self.K, 2, 2)
 
         Sigma = K_xx - torch.matmul(A, torch.transpose(K_xg, -2,-1))
         assert Sigma.shape == (T, self.K, 2, 2), Sigma.shape
 
-        # vs shape (K, 2, 2, 2)
-        Sigma = self.vs[:,animal_idx]**2 * Sigma
+        Sigma = self.vs**2 * Sigma
         return Sigma, A
 
-    def get_Kgg_inv(self, animal_idx):
+    def get_Kgg_inv(self):
 
-        repeated_rs = self.rs[:, animal_idx].repeat(1, self.n_gps, self.n_gps)
+        repeated_rs = self.rs.repeat(1, self.n_gps, self.n_gps)
         assert repeated_rs.shape == (self.K, self.n_gps*2, self.n_gps*2), \
             "the correct shape is {}, but got {}".format((self.K, self.n_gps*2, self.n_gps*2), repeated_rs.shape)
 
-        repeated_vs = self.vs[:, animal_idx].repeat(1, self.n_gps, self.n_gps)
+        repeated_vs = self.vs.repeat(1, self.n_gps, self.n_gps)
 
         K_gg = repeated_vs * torch.exp(-self.kernel_distsq_gg / (repeated_rs ** 2))
         assert K_gg.shape == (self.K, self.n_gps*2, self.n_gps*2)
@@ -376,50 +356,3 @@ class GPObservation(BaseObservation):
         K_gg_inv = torch.inverse(K_gg)
 
         return K_gg_inv
-
-# TODO: only calculate the triangular part
-def kernel_distsq(points_a, points_b):
-    """
-
-    :param points_a: (n1, 2)
-    :param points_b: (n2, 2)
-    :return: (n1 * 2, n2 * 2)
-    """
-    n1, d = points_a.shape
-    assert d == 2, "points_a should have shape {}, instead of {}".format((n1, 2), (n1, d))
-
-    n2, d = points_b.shape
-    assert d == 2, "points_b should have shape {}, instead of {}".format((n2, 2), (n2, d))
-
-    x_dist = points_a[:, None, 0] - points_b[None, :, 0]
-    assert x_dist.shape == (n1, n2)
-
-    y_dist = points_a[:, None, 1] - points_b[None, :, 1]
-
-    xy_dist_sq = x_dist**2 + y_dist**2
-
-    assert xy_dist_sq.shape == (n1, n2), xy_dist_sq.shape
-
-    xy_dist_sq = torch.repeat_interleave(xy_dist_sq, 2, dim=0)
-    xy_dist_sq = torch.repeat_interleave(xy_dist_sq, 2, dim=1)
-    assert xy_dist_sq.shape == (n1*2, n2*2)
-    return xy_dist_sq
-
-
-def batch_kernle_dist_sq(batch_points):
-    """
-
-    :param batch_points: (T, 2)
-    :return: (T, 2, 2)
-    """
-    T, _ = batch_points.shape
-    out = (batch_points[:, 0] - batch_points[:,1])**2 # (T, )
-    assert out.shape == (T, )
-    out = out[:, None, None] * torch.ones(2,2, dtype=torch.float64, device=out.device)
-    assert out.shape == (T, 2, 2)
-    return out
-
-
-
-
-

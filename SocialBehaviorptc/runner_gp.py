@@ -2,6 +2,7 @@ from ssm_ptc.models.hmm import HMM
 from ssm_ptc.utils import get_np
 
 from project_ssms.gp_observation import GPObservation, batch_kernle_dist_sq, kernel_distsq
+from project_ssms.gp_observation_single import GPObservationSingle
 from project_ssms.momentum_utils import filter_traj_by_speed
 from project_ssms.utils import downsample
 from project_ssms.constants import ARENA_XMIN, ARENA_XMAX, ARENA_YMIN, ARENA_YMAX
@@ -30,12 +31,13 @@ import json
 @click.option('--filter_traj', is_flag=True, help='whether or not to filter the trajectory by SPEED')
 @click.option('--load_model', is_flag=True, help='Whether to load the (trained) model')
 @click.option('--load_model_dir', default="", help='Directory of model to load')
+@click.option('--load_opt_dir', default="", help='Directory of optimizer to load.')
+@click.option('--animal', default='both', help='choose between both, virgin and mother')
 @click.option('--transition', default="stationary", help='type of transition (str)')
 @click.option('--sticky_alpha', default=1, help='value of alpha in sticky transition')
 @click.option('--sticky_kappa', default=100, help='value of kappa in sticky transition')
 @click.option('--train_model', is_flag=True, help='Whether to train the model')
 @click.option('--pbar_update_interval', default=500, help='progress bar update interval')
-@click.option('--load_opt_dir', default="", help='Directory of optimizer to load.')
 @click.option('--video_clips', default="0,1", help='The starting video clip of the training data')
 @click.option('--held_out_proportion', default=0.0, help='the proportion of the held-out dataset in the whole dataset')
 @click.option('--torch_seed', default=0, help='torch random seed')
@@ -58,7 +60,7 @@ import json
 @click.option('--sample_t', default=100, help='length of samples')
 @click.option('--quiver_scale', default=0.8, help='scale for the quiver plots')
 def main(job_name, cuda_num, downsample_n, filter_traj,
-         load_model, load_model_dir, load_opt_dir,
+         load_model, load_model_dir, load_opt_dir, animal,
          transition, sticky_alpha, sticky_kappa, k, x_grids, y_grids, n_x, n_y, rs, train_rs, train_vs,
          train_model, pbar_update_interval, video_clips, held_out_proportion, torch_seed, np_seed,
          list_of_num_iters, ckpts_not_to_save, list_of_lr, list_of_k_steps, sample_t, quiver_scale):
@@ -68,6 +70,8 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
     cuda_num = int(cuda_num)
     device = torch.device("cuda:{}".format(cuda_num) if torch.cuda.is_available() else "cpu")
     print("Using device {} \n\n".format(device))
+
+    assert animal in ['both', 'virgin', 'mother'], animal
 
     K = k
     sample_T = sample_t
@@ -94,6 +98,11 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
     data_dir = repo_dir + '/SocialBehaviorptc/data/trajs_all'
     trajs = joblib.load(data_dir)
 
+    if animal == 'virgin':
+        trajs = trajs[:,0:2]
+    elif animal == 'mother':
+        trajs = trajs[:,2:4]
+
     traj = trajs[int(36000*video_clip_start):int(36000*video_clip_end)]
     traj = downsample(traj, downsample_n)
     if filter_traj:
@@ -110,7 +119,7 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
     ######################### model ####################
 
     # model
-    D = 4
+    D = data.shape[1]
     M = 0
 
     if load_model:
@@ -119,6 +128,7 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
         obs = model.observation
 
         K = model.K
+        assert D == model.D, "D = {}, model.D = {}".format(D, model.D)
 
         n_x = len(obs.x_grids) - 1
         n_y = len(obs.y_grids) - 1
@@ -142,11 +152,17 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
             n_y = len(y_grids) - 1
 
         mus_init = training_data[0] * torch.ones(K, D, dtype=torch.float64, device=device)
-        obs = GPObservation(K=K, D=D, mus_init=mus_init, x_grids=x_grids, y_grids=y_grids,
-                            rs=rs, train_rs=train_rs, train_vs=train_vs, device=device)
+        if animal == 'both':
+            obs = GPObservation(K=K, D=D, mus_init=mus_init, x_grids=x_grids, y_grids=y_grids,
+                                rs=rs, train_rs=train_rs, train_vs=train_vs, device=device)
+        else:
+            obs = GPObservationSingle(K=K, D=D, mus_init=mus_init, x_grids=x_grids, y_grids=y_grids,
+                                      rs=rs, train_rs=train_rs, device=device)
 
         if transition == 'sticky':
             transition_kwargs = dict(alpha=sticky_alpha, kappa=sticky_kappa)
+        elif transition == 'grid':
+            transition_kwargs = dict(x_grids=x_grids, y_grids=y_grids)
         else:
             transition_kwargs = None
         model = HMM(K=K, D=D, M=M, transition=transition, observation=obs, transition_kwargs=transition_kwargs,
@@ -159,6 +175,7 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
                   "load_model": load_model,
                   "load_model_dir": load_model_dir,
                   "load_opt_dir": load_opt_dir,
+                  "animal": animal,
                   "transition": transition,
                   "sticky_alpha": sticky_alpha,
                   "sticky_kappa": sticky_kappa,
@@ -200,23 +217,31 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
     def get_memory_kwargs(data, train_rs):
         if  data is None or data.shape[0] == 0:
             return {}
+        if animal == 'both':
+            kernel_distsq_xx_a = batch_kernle_dist_sq(data[:-1, 0:2])
+            kernel_distsq_xx_b = batch_kernle_dist_sq(data[:-1, 2:4])
+            kernel_distsq_xg_a = kernel_distsq(data[:-1, 0:2], obs.inducing_points)
+            kernel_distsq_xg_b = kernel_distsq(data[:-1, 2:4], obs.inducing_points)
 
-        kernel_distsq_xx_a = batch_kernle_dist_sq(data[:-1, 0:2])
-        kernel_distsq_xx_b = batch_kernle_dist_sq(data[:-1, 2:4])
-        kernel_distsq_xg_a = kernel_distsq(data[:-1, 0:2], obs.inducing_points)
-        kernel_distsq_xg_b = kernel_distsq(data[:-1, 2:4], obs.inducing_points)
+            kernel_distsq_dict = dict(kernel_distsq_xx_a=kernel_distsq_xx_a, kernel_distsq_xx_b=kernel_distsq_xx_b,
+                            kernel_distsq_xg_a=kernel_distsq_xg_a, kernel_distsq_xg_b=kernel_distsq_xg_b)
+        else:
+            kernel_distsq_xx = batch_kernle_dist_sq(data[:-1])
+            kernel_distsq_xg = kernel_distsq(data[:-1], obs.inducing_points)
 
-        kernel_distsq_dict = dict(kernel_distsq_xx_a=kernel_distsq_xx_a, kernel_distsq_xx_b=kernel_distsq_xx_b,
-                        kernel_distsq_xg_a=kernel_distsq_xg_a, kernel_distsq_xg_b=kernel_distsq_xg_b)
-
+            kernel_distsq_dict = dict(kernel_distsq_xx=kernel_distsq_xx, kernel_distsq_xg=kernel_distsq_xg)
 
         if train_rs:
             return kernel_distsq_dict
 
         else:
-            Sigma_a, A_a = obs.get_gp_cache(data[:-1, 0:2], 0, **kernel_distsq_dict)
-            Sigma_b, A_b = obs.get_gp_cache(data[:-1, 2:4], 1, **kernel_distsq_dict)
-            return dict(Sigma_a=Sigma_a, A_a=A_a, Sigma_b=Sigma_b, A_b=A_b)
+            if animal == 'both':
+                Sigma_a, A_a = obs.get_gp_cache(data[:-1, 0:2], 0, **kernel_distsq_dict)
+                Sigma_b, A_b = obs.get_gp_cache(data[:-1, 2:4], 1, **kernel_distsq_dict)
+                return dict(Sigma_a=Sigma_a, A_a=A_a, Sigma_b=Sigma_b, A_b=A_b)
+            else:
+                Sigma, A = obs.get_gp_cache(data[:-1], **kernel_distsq_dict)
+                return dict(Sigma=Sigma, A=A)
 
     memory_kwargs = get_memory_kwargs(training_data, train_rs)
     valid_data_memory_kwargs = get_memory_kwargs(valid_data, train_rs)
@@ -267,13 +292,14 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
                 print("ckpt {}: skip!\n".format(i))
                 continue
             with torch.no_grad():
-                rslt_saving(rslt_dir=checkpoint_dir, model=model, data=training_data, memory_kwargs=memory_kwargs,
+                rslt_saving(rslt_dir=checkpoint_dir, model=model, data=training_data, animal=animal,
+                            memory_kwargs=memory_kwargs,
                             list_of_k_steps=list_of_k_steps, sample_T=sample_T,quiver_scale=quiver_scale,
                             valid_data=valid_data,  valid_data_memory_kwargs=valid_data_memory_kwargs, device=device)
 
     else:
         # only save the results
-        rslt_saving(rslt_dir=rslt_dir, model=model, data=training_data, memory_kwargs=memory_kwargs,
+        rslt_saving(rslt_dir=rslt_dir, model=model, data=training_data, animal=animal, memory_kwargs=memory_kwargs,
                     list_of_k_steps=list_of_k_steps, sample_T=sample_T, quiver_scale=quiver_scale,
                     valid_data=valid_data, valid_data_memory_kwargs=valid_data_memory_kwargs, device=device)
 

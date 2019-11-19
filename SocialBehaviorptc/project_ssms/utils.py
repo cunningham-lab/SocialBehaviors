@@ -4,6 +4,7 @@ import datetime
 
 from ssm_ptc.utils import k_step_prediction, check_and_convert_to_tensor, get_np
 from project_ssms.gp_observation import GPObservation
+from project_ssms.gp_observation_single import GPObservationSingle
 
 
 def k_step_prediction_for_momentum_feature_model(model, model_z, data, momentum_vecs=None, features=None):
@@ -204,10 +205,10 @@ def k_step_prediction_for_gpgrid_model(model, model_z, data, **memory_kwargs):
 
 def k_step_prediction_for_gpmodel(model, model_z, data, **memory_kwargs):
     data = check_and_convert_to_tensor(data)
-    assert isinstance(model.observation, GPObservation), type(model.observation)
+    assert isinstance(model.observation, (GPObservation, GPObservationSingle)), type(model.observation)
 
     T, D = data.shape
-    assert D == 4, D
+    assert D == 4 or D == 2, D
 
     K = model.observation.K
 
@@ -217,17 +218,29 @@ def k_step_prediction_for_gpmodel(model, model_z, data, **memory_kwargs):
     else:
 
         # compute As
-        _, A_a = model.observation.get_gp_cache(data[:-1, 0:2], 0, A_only=True, **memory_kwargs)
-        _, A_b = model.observation.get_gp_cache(data[:-1, 2:4], 1, A_only=True, **memory_kwargs)
-        assert A_a.shape == A_b.shape == (T-1, K, 2, model.observation.n_gps*2), "{}, {}".format(A_a.shape, A_b.shape)
+        if D == 4:
+            _, A_a = model.observation.get_gp_cache(data[:-1, 0:2], 0, A_only=True, **memory_kwargs)
+            _, A_b = model.observation.get_gp_cache(data[:-1, 2:4], 1, A_only=True, **memory_kwargs)
+            assert A_a.shape == A_b.shape == (T-1, K, 2, model.observation.n_gps*2), "{}, {}".format(A_a.shape, A_b.shape)
 
-        x_predict_arr = []
-        x_predict = model.observation.sample_x(model_z[0], data[:0], return_np=True)
-        x_predict_arr.append(x_predict)
-        for t in range(1, data.shape[0]):
-            x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True, transformation=True,
-                                                   A_a=A_a[t-1:t, model_z[t]], A_b=A_b[t-1:t, model_z[t]])
+            x_predict_arr = []
+            x_predict = model.observation.sample_x(model_z[0], data[:0], return_np=True)
             x_predict_arr.append(x_predict)
+            for t in range(1, data.shape[0]):
+                x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True, transformation=True,
+                                                       A_a=A_a[t-1:t, model_z[t]], A_b=A_b[t-1:t, model_z[t]])
+                x_predict_arr.append(x_predict)
+        else:
+            _, A = model.observation.get_gp_cache(data[:-1], A_only=True, **memory_kwargs)
+            assert A.shape == (T - 1, K, 2, model.observation.n_gps * 2), A.shape
+
+            x_predict_arr = []
+            x_predict = model.observation.sample_x(model_z[0], data[:0], return_np=True)
+            x_predict_arr.append(x_predict)
+            for t in range(1, data.shape[0]):
+                x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True, transformation=True,
+                                                       A=A[t - 1:t, model_z[t]])
+                x_predict_arr.append(x_predict)
 
         x_predict_arr = np.array(x_predict_arr)
         return x_predict_arr

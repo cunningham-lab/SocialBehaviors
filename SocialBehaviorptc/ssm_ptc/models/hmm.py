@@ -12,6 +12,7 @@ import joblib
 from ssm_ptc.transitions.base_transition import BaseTransition
 from ssm_ptc.transitions.stationary_transition import StationaryTransition
 from ssm_ptc.transitions.sticky_transition import StickyTransition, InputDrivenTransition
+from ssm_ptc.transitions.grid_transition import GridTransition
 from ssm_ptc.observations.base_observation import BaseObservation
 from ssm_ptc.observations.ar_gaussian_observation import ARGaussianObservation
 from ssm_ptc.observations.ar_logit_normal_observation import ARLogitNormalObservation
@@ -26,7 +27,8 @@ import time
 
 TRANSITION_CLASSES = dict(stationary=StationaryTransition,
                           sticky=StickyTransition,
-                          inputdriven=InputDrivenTransition)
+                          inputdriven=InputDrivenTransition,
+                          grid=GridTransition)
 
 OBSERVATION_CLASSES = dict(gaussian=ARGaussianObservation,
                            logitnormal=ARLogitNormalObservation,

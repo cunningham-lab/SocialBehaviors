@@ -112,7 +112,7 @@ def get_np(input):
            return input.detach().cpu().numpy()
         else:
             return input.cpu().numpy()
-    raise ValueError("Inputs must be an ndarray or tensor.")
+    raise ValueError("Inputs must be an ndarray or tensor. {}".format(type(input)))
 
 def set_param(param, value):
     return torch.tensor(get_np(value), dtype=param.dtype, device=param.device, requires_grad=param.requires_grad)

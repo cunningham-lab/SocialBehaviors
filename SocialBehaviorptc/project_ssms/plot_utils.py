@@ -282,14 +282,17 @@ def plot_animation(save_video_dir, sample_name, x, z, K, fps, xlim, ylim, grid_a
 
 
 def plot_data_condition_on_zk(data, z, k, size=2, alpha=0.3):
-
+    _, D = data.shape
+    assert  D == 4 or D == 2
     data_zk = data[z == k]
-    plt.scatter(data_zk[:, 0], data_zk[:, 1], label='virgin', s=size, alpha=alpha)
-    plt.scatter(data_zk[:, 2], data_zk[:, 3], label='mother', s=size, alpha=alpha)
-
-    lgnd = plt.legend(loc='upper right', scatterpoints=1)
-    for i in range(2):
-        lgnd.legendHandles[i]._sizes = [30]
+    if D == 4:
+        plt.scatter(data_zk[:, 0], data_zk[:, 1], label='virgin', s=size, alpha=alpha)
+        plt.scatter(data_zk[:, 2], data_zk[:, 3], label='mother', s=size, alpha=alpha)
+        lgnd = plt.legend(loc='upper right', scatterpoints=1)
+        for i in range(2):
+            lgnd.legendHandles[i]._sizes = [30]
+    else:
+        plt.scatter(data_zk[:, 0], data_zk[:, 1], s=size, alpha=alpha)
 
 
 def plot_data_condition_on_all_zs(data, z, K, size=2, alpha=0.3):
@@ -318,22 +321,29 @@ def plot_2d_time_plot_condition_on_z(data, z, k, time_start, time_end, size=0.5)
     """
     assume data is np.ndarray, and time_start and time_end is not None
     """
+    _, D = data.shape
+    assert D == 4 or D == 2, D
     data = data[time_start:time_end]
     z = z[time_start:time_end]
     time_zk = np.where(z == k)[0]
     data_zk = data[z == k]
 
-    plt.scatter(time_zk, data_zk[:, 0], label='virgin x', s=size)
-    plt.scatter(time_zk, data_zk[:, 1], label='virgin y', s=size)
-
-    plt.scatter(time_zk, data_zk[:, 2], label='mother x', s=size)
-    plt.scatter(time_zk, data_zk[:, 3], label='mother y', s=size)
+    if D == 4:
+        plt.scatter(time_zk, data_zk[:, 0], label='virgin x', s=size)
+        plt.scatter(time_zk, data_zk[:, 1], label='virgin y', s=size)
+        plt.scatter(time_zk, data_zk[:, 2], label='mother x', s=size)
+        plt.scatter(time_zk, data_zk[:, 3], label='mother y', s=size)
+        lgnd = plt.legend(loc='upper right', scatterpoints=1)
+        for i in range(4):
+            lgnd.legendHandles[i]._sizes = [30]
+    else:
+        plt.scatter(time_zk, data_zk[:, 0], label='x', s=size)
+        plt.scatter(time_zk, data_zk[:, 1], label='y', s=size)
+        lgnd = plt.legend(loc='upper right', scatterpoints=1)
+        for i in range(2):
+            lgnd.legendHandles[i]._sizes = [30]
 
     plt.title('k={}'.format(k), x=-0.03, y=0.3, fontsize=20)
-
-    lgnd = plt.legend(loc='upper right', scatterpoints=1)
-    for i in range(4):
-        lgnd.legendHandles[i]._sizes = [30]
 
 
 def plot_2d_time_plot_condition_on_all_zs(data, z, K, title, time_start=None, time_end=None, size=0.5):
