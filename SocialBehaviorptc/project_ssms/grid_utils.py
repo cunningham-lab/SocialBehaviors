@@ -680,10 +680,11 @@ def ij_to_plot_idx(i, j, n_x, n_y):
 
 def plot_grid_transition(n_x, n_y, grid_transition):
     """
+    Note: this is for single animal case
     plot the grid transition matrices. return a Figure object
     """
     fig, axn = plt.subplots(n_y, n_x, sharex=True, sharey=True, figsize=(10, 10))
-    cbar_ax = fig.add_axes([.95, .3, .03, .4])
+    cbar_ax = fig.add_axes([.93, .3, .03, .4])
 
     # n_x corresponds to the number of columns, and n_y corresponds to the number of rows.
     grid_idx = 0
@@ -698,6 +699,7 @@ def plot_grid_transition(n_x, n_y, grid_transition):
             else:
                 sns.heatmap(get_np(grid_transition[grid_idx]), ax=ax, vmin=0, vmax=1, cmap="BuGn", square=True,
                             cbar=False)
+            ax.tick_params(axis='both', which='both', length=0)
             grid_idx += 1
 
     plt.tight_layout(rect=[0, 0, .9, 1])

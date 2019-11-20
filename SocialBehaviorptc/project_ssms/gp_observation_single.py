@@ -2,7 +2,7 @@ import torch
 from torch.distributions import Normal, MultivariateNormal
 import numpy as np
 
-from project_ssms.gp_observation import kernel_distsq, batch_kernle_dist_sq
+from project_ssms.gp_observation import kernel_distsq
 from project_ssms.utils import clip
 from ssm_ptc.utils import check_and_convert_to_tensor, set_param, get_np
 from ssm_ptc.observations.base_observation import BaseObservation
@@ -290,12 +290,7 @@ class GPObservationSingle(BaseObservation):
         if A_only:
             return 0, A
 
-        kernel_distsq_xx = kwargs.get("kernel_distsq_xx", None)
-        if kernel_distsq_xx is None:
-            #print("Not using cache. Calculating kernel_distsq_xx...")
-            kernel_distsq_xx = batch_kernle_dist_sq(inputs)
-        assert kernel_distsq_xx.shape == (T, 2, 2)
-
+        kernel_distsq_xx = torch.zeros((T, 2, 2), dtype=torch.float64, device=self.device)
         K_xx = vs * torch.exp(-(kernel_distsq_xx / rs ** 2))
         assert K_xx.shape == (T, 2, 2)
 
@@ -339,11 +334,7 @@ class GPObservationSingle(BaseObservation):
         if A_only:
             return 0, A
 
-        kernel_distsq_xx = kwargs.get("kernel_distsq_xx", None)
-        if kernel_distsq_xx is None:
-            kernel_distsq_xx = batch_kernle_dist_sq(inputs)
-        assert kernel_distsq_xx.shape == (T, 2, 2)
-
+        kernel_distsq_xx = torch.zeros((T, 2, 2), dtype=torch.float64, device=self.device)
         K_xx = self.vs * torch.exp(-(kernel_distsq_xx[:, None] / self.rs ** 2))
         assert K_xx.shape == (T, self.K, 2, 2)
 

@@ -10,7 +10,7 @@ from project_ssms.gp_observation_single import GPObservationSingle
 from project_ssms.utils import k_step_prediction_for_gpmodel
 from project_ssms.plot_utils import plot_z, plot_mouse, plot_data_condition_on_all_zs, plot_2d_time_plot_condition_on_all_zs
 from project_ssms.grid_utils import plot_quiver, plot_realdata_quiver, \
-    get_all_angles, get_speed, plot_list_of_angles, plot_list_of_speed, plot_space_dist
+    get_all_angles, get_speed, plot_list_of_angles, plot_list_of_speed, plot_space_dist, plot_grid_transition
 from project_ssms.constants import *
 from ssm_ptc.utils import k_step_prediction, get_np
 from ssm_ptc.transitions.stationary_transition import StationaryTransition
@@ -158,11 +158,16 @@ def rslt_saving(rslt_dir, model, data, animal, memory_kwargs, list_of_k_steps, s
     joblib.dump(saving_dict, rslt_dir + "/numbers")
 
     # save figures
+    if model.D == 2 and isinstance(model.transition, GridTransition):
+        plot_grid_transition(n_x, n_y, model.transition.grid_transition_matrix)
+        plt.savefig(rslt_dir + "/grid_transition.jpg")
+        plt.close()
+
     plot_z(z, K, title="most likely z for the ground truth")
     plt.savefig(rslt_dir + "/z.jpg")
     plt.close()
 
-    if len(valid_data) >0:
+    if len(valid_data) > 0:
         plot_z(z_valid, K, title="most likely z for valid data")
         plt.savefig(rslt_dir + "/z_valid.jpg")
         plt.close()

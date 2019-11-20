@@ -3,7 +3,7 @@ import numpy as np
 
 from ssm_ptc.models.hmm import HMM
 from ssm_ptc.utils import k_step_prediction
-from project_ssms.gp_observation import GPObservation, batch_kernle_dist_sq, kernel_distsq
+from project_ssms.gp_observation import GPObservation, kernel_distsq
 from project_ssms.utils import k_step_prediction_for_gpmodel
 
 
@@ -17,6 +17,7 @@ def test_model():
     x_grids = np.array([0.0,  10.0])
     y_grids = np.array([0.0,  8.0])
 
+    bounds = np.array([[0.0, 10.0], [0.0,8.0], [0.0, 10.0], [0.0, 8.0]])
     data = np.array([[1.0, 1.0, 1.0, 6.0], [3.0, 6.0, 8.0, 6.0],
                      [4.0, 7.0, 8.0, 5.0], [6.0, 7.0, 5.0, 6.0], [8.0, 2.0, 6.0, 1.0]])
     data = torch.tensor(data, dtype=torch.float64)
@@ -25,7 +26,7 @@ def test_model():
     D = 4
     M = 0
 
-    obs = GPObservation(K=K, D=D, x_grids=x_grids, y_grids=y_grids, train_rs=True)
+    obs = GPObservation(K=K, D=D, x_grids=x_grids, y_grids=y_grids, bounds=bounds, train_rs=True)
 
     correct_kerneldist_gg = torch.tensor([[  0.,   0.,  64.,  64., 100., 100., 164., 164.],
         [  0.,   0.,  64.,  64., 100., 100., 164., 164.],
@@ -40,8 +41,6 @@ def test_model():
     log_prob_nocache = obs.log_prob(data)
     print("log_prob_nocache = {}".format(log_prob_nocache))
 
-    kernel_distsq_xx_a = batch_kernle_dist_sq(data[:-1, 0:2])
-    kernel_distsq_xx_b = batch_kernle_dist_sq(data[:-1, 2:4])
     kernel_distsq_xg_a = kernel_distsq(data[:-1, 0:2], obs.inducing_points)
     kernel_distsq_xg_b = kernel_distsq(data[:-1, 2:4], obs.inducing_points)
 
@@ -55,8 +54,7 @@ def test_model():
         [ 85.,  85.,  37.,  37.,  65.,  65.,  17.,  17.]], dtype=torch.float64)
     assert torch.all(torch.eq(correct_kernel_distsq_xg_a, kernel_distsq_xg_a)), kernel_distsq_xg_a
 
-    memory_kwargs = dict(kernel_distsq_xx_a=kernel_distsq_xx_a, kernel_distsq_xx_b=kernel_distsq_xx_b,
-                         kernel_distsq_xg_a=kernel_distsq_xg_a, kernel_distsq_xg_b=kernel_distsq_xg_b)
+    memory_kwargs = dict(kernel_distsq_xg_a=kernel_distsq_xg_a, kernel_distsq_xg_b=kernel_distsq_xg_b)
 
     log_prob = obs.log_prob(data, **memory_kwargs)
     print("log_prob = {}".format(log_prob))

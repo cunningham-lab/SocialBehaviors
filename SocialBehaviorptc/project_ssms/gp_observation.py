@@ -300,11 +300,7 @@ class GPObservation(BaseObservation):
         if A_only:
             return 0, A
 
-        kernel_distsq_xx = kwargs.get("kernel_distsq_xx_a", None) if animal_idx == 0 \
-            else kwargs.get("kernel_distsq_xx_b", None)
-        if kernel_distsq_xx is None:
-            #print("Not using cache. Calculating kernel_distsq_xx...")
-            kernel_distsq_xx = batch_kernle_dist_sq(inputs)
+        kernel_distsq_xx = torch.zeros((T, 2, 2), dtype=torch.float64, device=self.device)
         assert kernel_distsq_xx.shape == (T, 2, 2)
 
         K_xx = vs * torch.exp(-(kernel_distsq_xx / rs ** 2))
@@ -353,10 +349,7 @@ class GPObservation(BaseObservation):
         if A_only:
             return 0, A
 
-        kernel_distsq_xx = kwargs.get("kernel_distsq_xx_a", None) if animal_idx == 0 \
-            else kwargs.get("kernel_distsq_xx_b", None)
-        if kernel_distsq_xx is None:
-            kernel_distsq_xx = batch_kernle_dist_sq(inputs)
+        kernel_distsq_xx = torch.zeros((T, 2, 2), dtype=torch.float64, device=self.device)
         assert kernel_distsq_xx.shape == (T, 2, 2)
 
         K_xx = vs * torch.exp(-(kernel_distsq_xx[:, None] / rs ** 2))
@@ -412,16 +405,3 @@ def kernel_distsq(points_a, points_b):
     assert xy_dist_sq.shape == (n1*2, n2*2)
     return xy_dist_sq
 
-
-def batch_kernle_dist_sq(batch_points):
-    """
-
-    :param batch_points: (T, 2)
-    :return: (T, 2, 2)
-    """
-    T, _ = batch_points.shape
-    out = (batch_points[:, 0] - batch_points[:,1])**2 # (T, )
-    assert out.shape == (T, )
-    out = out[:, None, None] * torch.ones(2,2, dtype=torch.float64, device=out.device)
-    assert out.shape == (T, 2, 2)
-    return out

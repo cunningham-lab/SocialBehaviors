@@ -1,7 +1,7 @@
 from ssm_ptc.models.hmm import HMM
 from ssm_ptc.utils import get_np
 
-from project_ssms.gp_observation import GPObservation, batch_kernle_dist_sq, kernel_distsq
+from project_ssms.gp_observation import GPObservation, kernel_distsq
 from project_ssms.gp_observation_single import GPObservationSingle
 from project_ssms.momentum_utils import filter_traj_by_speed
 from project_ssms.utils import downsample
@@ -235,18 +235,14 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
         if  data is None or data.shape[0] == 0:
             return {}
         if animal == 'both':
-            kernel_distsq_xx_a = batch_kernle_dist_sq(data[:-1, 0:2])
-            kernel_distsq_xx_b = batch_kernle_dist_sq(data[:-1, 2:4])
             kernel_distsq_xg_a = kernel_distsq(data[:-1, 0:2], obs.inducing_points)
             kernel_distsq_xg_b = kernel_distsq(data[:-1, 2:4], obs.inducing_points)
 
-            kernel_distsq_dict = dict(kernel_distsq_xx_a=kernel_distsq_xx_a, kernel_distsq_xx_b=kernel_distsq_xx_b,
-                            kernel_distsq_xg_a=kernel_distsq_xg_a, kernel_distsq_xg_b=kernel_distsq_xg_b)
+            kernel_distsq_dict = dict(kernel_distsq_xg_a=kernel_distsq_xg_a, kernel_distsq_xg_b=kernel_distsq_xg_b)
         else:
-            kernel_distsq_xx = batch_kernle_dist_sq(data[:-1])
             kernel_distsq_xg = kernel_distsq(data[:-1], obs.inducing_points)
 
-            kernel_distsq_dict = dict(kernel_distsq_xx=kernel_distsq_xx, kernel_distsq_xg=kernel_distsq_xg)
+            kernel_distsq_dict = dict(kernel_distsq_xg=kernel_distsq_xg)
 
         if train_rs:
             return kernel_distsq_dict
