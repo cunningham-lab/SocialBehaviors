@@ -63,22 +63,26 @@ class GPObservationSingle(BaseObservation):
 
         # (K, 2,2)
         vs = [[[1,0],[0,1]] for _ in range(self.K)]
+        # TODO: if train_vs, need to make vs positive
         self.vs = torch.tensor(vs, dtype=torch.float64, device=self.device, requires_grad=train_vs)
-        # real_vs = vs**2
 
         self.kernel_distsq_gg = kernel_distsq(self.inducing_points, self.inducing_points)  # (n_gps*2, n_gps*2)
 
     @property
     def params(self):
-        return self.us, self.rs, self.vs
+        return self.log_sigmas, self.us, self.rs, self.vs
 
     @params.setter
     def params(self, values):
-        self.us = set_param(self.us, values[0])
-        self.rs = set_param(self.rs, values[1])
-        self.vs = set_param(self.vs, values[2])
+        self.log_sigmas = set_param(self.log_sigmas, values[0])
+        self.us = set_param(self.us, values[1])
+        self.rs = set_param(self.rs, values[2])
+        self.vs = set_param(self.vs, values[3])
 
     def permute(self, perm):
+        self.mus_init = self.mus_init[perm]
+        self.log_sigmas_init = self.log_sigmas_init[perm]
+        self.log_sigmas = self.log_sigmas[perm]
         self.us = self.us[perm]
         self.rs = self.rs[perm]
         self.vs = self.vs[perm]
@@ -346,7 +350,6 @@ class GPObservationSingle(BaseObservation):
         Sigma = K_xx - torch.matmul(A, torch.transpose(K_xg, -2,-1))
         assert Sigma.shape == (T, self.K, 2, 2), Sigma.shape
 
-        Sigma = self.vs**2 * Sigma
         return Sigma, A
 
     def get_Kgg_inv(self):

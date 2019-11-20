@@ -46,6 +46,10 @@ class GridTransition(BaseTransition):
     def grid_transition_matrix(self):
         return torch.nn.Softmax(dim=-1)(self.Pis)
 
+    @property
+    def grid_log_transition_matrix(self):
+        return torch.nn.LogSoftmax(dim=-1)(self.Pis)
+
     def permute(self, perm):
         Pis = self.Pis.detach().numpy()  # (n_grids, n_grids, K, K)
         if self.D == 4:
@@ -69,7 +73,6 @@ class GridTransition(BaseTransition):
         # for each data point, find out which transition to use
         joint_grid_idx = kwargs.get("joint_grid_idx", None)
         if joint_grid_idx is None:
-            print("not using transition memory!")
             if self.D == 4:
                 joint_grid_idx = self.get_joint_grid_idx(data)
             else:

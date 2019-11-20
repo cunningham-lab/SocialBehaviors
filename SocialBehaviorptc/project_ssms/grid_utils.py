@@ -668,3 +668,36 @@ def plot_space_dist(data, x_grids, y_grids, grid_alpha=1):
         sns.kdeplot(data[:,0], data[:,1], n_levels=n_levels)
         add_grid(x_grids, y_grids)
 
+# TODO: test n_x != n_y case
+def ij_to_plot_idx(i, j, n_x, n_y):
+    """
+    Convert grid (i,j) to plot_idx, as in plt.subplot(n_x, n_y, plot_idx)
+    """
+    assert 0 <= i and i < n_x, "should have 0 <= i < n_x, but we got i = {}, n_x = {}".format(i, n_x)
+    assert 0 <= j and j < n_y, "should have 0 <= j < n_y, but we got j = {}, n_y = {}".format(j, n_y)
+    return (n_y - j - 1) * n_x + i + 1
+
+
+def plot_grid_transition(n_x, n_y, grid_transition):
+    """
+    plot the grid transition matrices. return a Figure object
+    """
+    fig, axn = plt.subplots(n_y, n_x, sharex=True, sharey=True, figsize=(10, 10))
+    cbar_ax = fig.add_axes([.95, .3, .03, .4])
+
+    # n_x corresponds to the number of columns, and n_y corresponds to the number of rows.
+    grid_idx = 0
+    for i in range(n_x):
+        for j in range(n_y):
+            # plot_idx = ij_to_plot_idx(i, j, n_x, n_y)
+            # plt.subplot(n_x, n_y, plot_idx)
+            ax = axn[n_y - j - 1][i]
+            if i == 0 and j == 0:
+                sns.heatmap(get_np(grid_transition[grid_idx]), ax=ax, vmin=0, vmax=1, cmap="BuGn", square=True,
+                            cbar_ax=cbar_ax)
+            else:
+                sns.heatmap(get_np(grid_transition[grid_idx]), ax=ax, vmin=0, vmax=1, cmap="BuGn", square=True,
+                            cbar=False)
+            grid_idx += 1
+
+    plt.tight_layout(rect=[0, 0, .9, 1])

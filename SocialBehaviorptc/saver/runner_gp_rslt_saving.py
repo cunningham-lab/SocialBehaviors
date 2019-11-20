@@ -20,8 +20,14 @@ from saver.rslts_saving import NumpyEncoder
 
 def rslt_saving(rslt_dir, model, data, animal, memory_kwargs, list_of_k_steps, sample_T,
                 quiver_scale, x_grids=None, y_grids=None,
-                valid_data=None, valid_data_memory_kwargs=None, device=torch.device('cpu')):
+                valid_data=None,
+                transition_memory_kwargs=None,
+                valid_data_transition_memory_kwargs = None,
+                valid_data_memory_kwargs=None, device=torch.device('cpu')):
 
+    transition_memory_kwargs = transition_memory_kwargs if transition_memory_kwargs else {}
+    valid_data_transition_memory_kwargs = \
+        valid_data_transition_memory_kwargs if valid_data_transition_memory_kwargs else {}
     valid_data_memory_kwargs = valid_data_memory_kwargs if valid_data_memory_kwargs else {}
 
     obs = model.observation
@@ -43,8 +49,9 @@ def rslt_saving(rslt_dir, model, data, animal, memory_kwargs, list_of_k_steps, s
     #################### inference ###########################
 
     print("\ninferring most likely states...")
-    z = model.most_likely_states(data, **memory_kwargs)
-    z_valid = model.most_likely_states(valid_data, **valid_data_memory_kwargs)
+    z = model.most_likely_states(data, transition_mkwargs=transition_memory_kwargs, **memory_kwargs)
+    z_valid = model.most_likely_states(valid_data, transition_mkwargs=valid_data_transition_memory_kwargs,
+                                       **valid_data_memory_kwargs)
 
     # TODO: address valida_data = None
     print("0 step prediction")
@@ -233,7 +240,7 @@ def rslt_saving(rslt_dir, model, data, animal, memory_kwargs, list_of_k_steps, s
         plt.savefig(rslt_dir + "/dynamics/quiver_b.jpg", dpi=200)
         plt.close()
     else:
-        plot_quiver(XY_grids, dXY, 'virgin', K=K, scale=quiver_scale, alpha=0.9,
+        plot_quiver(XY_grids, dXY, animal, K=K, scale=quiver_scale, alpha=0.9,
                     title="quiver ({})".format(animal), x_grids=x_grids, y_grids=y_grids, grid_alpha=0.2)
         plt.savefig(rslt_dir + "/dynamics/quiver_{}.jpg".format(animal), dpi=200)
         plt.close()

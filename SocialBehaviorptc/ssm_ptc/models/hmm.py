@@ -275,6 +275,7 @@ class HMM:
                 else:
                     log_Ps = log_P[None,].repeat(T-1, 1, 1)  # (T-1, K, K)
             else:
+                assert isinstance(self.transition, GridTransition)
                 input = input[:-1] if input else input
                 log_Ps = self.transition.log_transition_matrix(data[:-1], input, **transition_mkwargs)
                 assert log_Ps.shape == (T-1, self.K, self.K), \
@@ -323,7 +324,7 @@ class HMM:
         return out
 
     # numpy operation
-    def most_likely_states(self, data, input=None, **memory_kwargs):
+    def most_likely_states(self, data, input=None, transition_mkwargs=None, **memory_kwargs):
         if len(data) == 0:
             return np.array([])
         if isinstance(self.transition, InputDrivenTransition) and input is None:
@@ -342,8 +343,10 @@ class HMM:
             log_Ps = get_np(log_Ps)  # (K, K)
             log_Ps = log_Ps[None,]
         else:
+            assert isinstance(self.transition, GridTransition), type(self.transition)
+            transition_mkwargs = transition_mkwargs if transition_mkwargs else {}
             input = input[:-1] if input else input
-            log_Ps = self.transition.transition_matrix(data[:-1], input, log=True)
+            log_Ps = self.transition.log_transition_matrix(data[:-1], input, **transition_mkwargs)
             log_Ps = get_np(log_Ps)
             assert log_Ps.shape == (T - 1, self.K, self.K), log_Ps.shape
 
@@ -425,7 +428,6 @@ class HMM:
             valid_data_memory_kwargs = valid_data_memory_kwargs if valid_data_memory_kwargs else {}
         for i in np.arange(num_iters):
             optimizer.zero_grad()
-
             loss = self.loss(datas, inputs, transition_memory_kwargs=transition_memory_kwargs, **memory_kwargs)
             loss.backward()
             optimizer.step()

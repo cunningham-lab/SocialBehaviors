@@ -172,7 +172,6 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
             transition_kwargs = dict(x_grids=x_grids, y_grids=y_grids)
         else:
             transition_kwargs = None
-        print("transition", transition)
         model = HMM(K=K, D=D, M=M, transition=transition, observation=obs, transition_kwargs=transition_kwargs,
                     device=device)
 
@@ -276,11 +275,12 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
         else:
             opt = None
         for i, (num_iters, lr) in enumerate(zip(list_of_num_iters, list_of_lr)):
-            training_losses, opt, valid_losses = model.fit(training_data, optimizer=opt, method='adam', num_iters=num_iters, lr=lr,
-                                    pbar_update_interval=pbar_update_interval, valid_data=valid_data,
-                                    transition_memory_kwargs=transition_memory_kwargs,
-                                    valid_data_transition_memory_kwargs=valid_data_transition_memory_kwargs,
-                                    valid_data_memory_kwargs=valid_data_memory_kwargs, **memory_kwargs)
+            training_losses, opt, valid_losses = \
+                model.fit(training_data, optimizer=opt, method='adam', num_iters=num_iters, lr=lr,
+                          pbar_update_interval=pbar_update_interval, valid_data=valid_data,
+                          transition_memory_kwargs=transition_memory_kwargs,
+                          valid_data_transition_memory_kwargs=valid_data_transition_memory_kwargs,
+                          valid_data_memory_kwargs=valid_data_memory_kwargs, **memory_kwargs)
             list_of_losses.append(training_losses)
 
             checkpoint_dir = rslt_dir + "/checkpoint_{}".format(i)
@@ -316,13 +316,19 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
                 rslt_saving(rslt_dir=checkpoint_dir, model=model, data=training_data, animal=animal,
                             memory_kwargs=memory_kwargs,
                             list_of_k_steps=list_of_k_steps, sample_T=sample_T,quiver_scale=quiver_scale,
-                            valid_data=valid_data,  valid_data_memory_kwargs=valid_data_memory_kwargs, device=device)
+                            valid_data=valid_data,
+                            transition_memory_kwargs=transition_memory_kwargs,
+                            valid_data_transition_memory_kwargs=valid_data_transition_memory_kwargs,
+                            valid_data_memory_kwargs=valid_data_memory_kwargs, device=device)
 
     else:
         # only save the results
         rslt_saving(rslt_dir=rslt_dir, model=model, data=training_data, animal=animal, memory_kwargs=memory_kwargs,
                     list_of_k_steps=list_of_k_steps, sample_T=sample_T, quiver_scale=quiver_scale,
-                    valid_data=valid_data, valid_data_memory_kwargs=valid_data_memory_kwargs, device=device)
+                    valid_data=valid_data,
+                    transition_memory_kwargs=transition_memory_kwargs,
+                    valid_data_transition_memory_kwargs=valid_data_transition_memory_kwargs,
+                    valid_data_memory_kwargs=valid_data_memory_kwargs, device=device)
 
     print("Finish running!")
 
