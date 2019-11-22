@@ -683,7 +683,10 @@ def plot_grid_transition(n_x, n_y, grid_transition):
     Note: this is for single animal case
     plot the grid transition matrices. return a Figure object
     """
+    # TODO: fit for n_x = 1 or n_y = 1
+    assert n_x > 1 and n_y > 1
     fig, axn = plt.subplots(n_y, n_x, sharex=True, sharey=True, figsize=(10, 10))
+
     cbar_ax = fig.add_axes([.93, .3, .03, .4])
 
     # n_x corresponds to the number of columns, and n_y corresponds to the number of rows.

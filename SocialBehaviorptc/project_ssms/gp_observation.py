@@ -65,7 +65,7 @@ class GPObservation(BaseObservation):
         self.vs = torch.tensor(vs, dtype=torch.float64, device=self.device, requires_grad=train_vs)
         # real_vs = vs**2
 
-        self.kernel_distsq_gg = kernel_distsq(self.inducing_points, self.inducing_points)  # (n_gps*2, n_gps*2)
+        self.kernel_distsq_gg = kernel_distsq_doubled(self.inducing_points, self.inducing_points)  # (n_gps*2, n_gps*2)
 
     @property
     def params(self):
@@ -280,7 +280,7 @@ class GPObservation(BaseObservation):
 
         if kernel_distsq_xg is None:
             #print("Nog using cache. Calculating kernel_distsq_xg...")
-            kernel_distsq_xg = kernel_distsq(inputs, self.inducing_points)
+            kernel_distsq_xg = kernel_distsq_doubled(inputs, self.inducing_points)
         assert kernel_distsq_xg.shape == (T*2, self.n_gps*2)
 
         Kgg_inv = self.get_Kgg_inv(animal_idx)
@@ -326,7 +326,7 @@ class GPObservation(BaseObservation):
             else kwargs.get("kernel_distsq_xg_b", None)
         if kernel_distsq_xg is None:
             #print("Nog using cache. Calculating kernel_distsq_xg...")
-            kernel_distsq_xg = kernel_distsq(inputs, self.inducing_points)
+            kernel_distsq_xg = kernel_distsq_doubled(inputs, self.inducing_points)
         assert kernel_distsq_xg.shape == (T*2, self.n_gps*2), \
             "the correct size is {}, but got {}".format((T*2, self.n_gps*2), kernel_distsq_xg.shape)
 
@@ -378,13 +378,27 @@ class GPObservation(BaseObservation):
         return K_gg_inv
 
 # TODO: only calculate the triangular part
-def kernel_distsq(points_a, points_b):
+def kernel_distsq_doubled(points_a, points_b):
     """
 
     :param points_a: (n1, 2)
     :param points_b: (n2, 2)
     :return: (n1 * 2, n2 * 2)
     """
+    xy_dist_sq = kernel_distsq(points_a, points_b)
+
+    xy_dist_sq = torch.repeat_interleave(xy_dist_sq, 2, dim=0)
+    xy_dist_sq = torch.repeat_interleave(xy_dist_sq, 2, dim=1)
+    return xy_dist_sq
+
+
+def kernel_distsq(points_a, points_b):
+    """
+
+        :param points_a: (n1, 2)
+        :param points_b: (n2, 2)
+        :return: (n1, n2)
+        """
     n1, d = points_a.shape
     assert d == 2, "points_a should have shape {}, instead of {}".format((n1, 2), (n1, d))
 
@@ -396,12 +410,8 @@ def kernel_distsq(points_a, points_b):
 
     y_dist = points_a[:, None, 1] - points_b[None, :, 1]
 
-    xy_dist_sq = x_dist**2 + y_dist**2
+    xy_dist_sq = x_dist ** 2 + y_dist ** 2
 
     assert xy_dist_sq.shape == (n1, n2), xy_dist_sq.shape
 
-    xy_dist_sq = torch.repeat_interleave(xy_dist_sq, 2, dim=0)
-    xy_dist_sq = torch.repeat_interleave(xy_dist_sq, 2, dim=1)
-    assert xy_dist_sq.shape == (n1*2, n2*2)
     return xy_dist_sq
-

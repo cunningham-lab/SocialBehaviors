@@ -229,14 +229,13 @@ def k_step_prediction_for_gpmodel(model, model_z, data, **memory_kwargs):
                 x_predict_arr.append(x_predict)
         else:
             _, A = model.observation.get_gp_cache(data[:-1], A_only=True, **memory_kwargs)
-            assert A.shape == (T - 1, K, 2, model.observation.n_gps * 2), A.shape
 
             x_predict_arr = []
             x_predict = model.observation.sample_x(model_z[0], data[:0], return_np=True)
             x_predict_arr.append(x_predict)
             for t in range(1, data.shape[0]):
                 x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True, transformation=True,
-                                                       A=A[t - 1:t, model_z[t]])
+                                                       A=(A[0][model_z[t], t-1:t], A[1][model_z[t], t-1:t]))
                 x_predict_arr.append(x_predict)
 
         x_predict_arr = np.array(x_predict_arr)
