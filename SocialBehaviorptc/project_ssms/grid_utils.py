@@ -49,9 +49,12 @@ def plot_realdata_quiver(realdata, z, K, x_grids=None, y_grids=None,
     if isinstance(realdata, torch.Tensor):
         realdata = get_np(realdata)
 
-    _, D = realdata.shape
+    T, D = realdata.shape
     assert D == 4 or D == 2
+    assert T >=2, T
 
+    z = z[1:] # (T-1, )
+    assert z.shape == (T-1, )
     start = realdata[:-1]
     end = realdata[1:]
     dXY = end - start
@@ -120,6 +123,26 @@ def plot_realdata_quiver(realdata, z, K, x_grids=None, y_grids=None,
             plt.scatter(cluster_centers[:,2], cluster_centers[:,3], color='k', marker='*')
 
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+
+def plot_realdata_quiver_condition_on_k(data, z, k, x_grids, y_grids, grid_alpha=0.8, **kwargs):
+    T, D = data.shape
+    assert D == 2, D
+    if isinstance(data, torch.Tensor):
+        data = data.detach().numpy()
+    assert T >=2, T
+    assert z.shape == (T, ), "should be {}, but got {}".format((T, ), z.shape)
+
+    dXY = data[1:] - data[:-1]
+    idx = z[1:] == k
+    dXY = dXY[idx]
+    XY = data[:-1][idx]
+
+    plt.figure(figsize=(8, 8))
+    plt.quiver(XY[:, 0], XY[:, 1], dXY[:, 0], dXY[:, 1],
+               angles='xy', scale_units='xy', scale=1, **kwargs)
+
+    add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
 
 
 def plot_animation(x, z, K, mouse='both', x_grids=None, y_grids=None, grid_alpha=0.8, xlim=None, ylim=None,
@@ -706,3 +729,12 @@ def plot_grid_transition(n_x, n_y, grid_transition):
             grid_idx += 1
 
     plt.tight_layout(rect=[0, 0, .9, 1])
+
+
+def plot_transition(transition):
+    """
+    plot the heatmap for one transition matrix
+    :param transition: (K, K)
+    :return:
+    """
+    sns.heatmap(get_np(transition), vmin=0, vmax=1, cmap="BuGn", square=True)

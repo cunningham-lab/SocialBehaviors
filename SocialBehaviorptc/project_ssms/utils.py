@@ -102,34 +102,50 @@ def k_step_prediction_for_grid_model(model, model_z, data, **memory_kwargs):
         return x_predict_arr
 
 
-def k_step_prediction_for_lineargrid_model(model, model_z, data, gridpoints=None, gridpoints_idx=None, feature_vecs=None):
+def k_step_prediction_for_lineargrid_model(model, model_z, data, **kwargs):
     if len(data) == 0:
         return None
     data = check_and_convert_to_tensor(data)
+    _, D = data.shape
+    assert D == 2 or D == 4
+    if D == 4:
+        feature_vecs = kwargs.get("feature_vecs", None)
+        gridpoints = kwargs.get("gridpoints", None)
+        gridpoints_idx = kwargs.get("gridpoints_idx", None)
+        if feature_vecs is None or gridpoints_idx is None or gridpoints is None:
+            print("Did not provide memory information")
+            return k_step_prediction(model, model_z, data)
+        else:
+            grid_points_idx_a, grid_points_idx_b = gridpoints_idx
+            gridpoints_a, gridpoints_b = gridpoints
+            feature_vecs_a, feature_vecs_b = feature_vecs
 
-    if feature_vecs is None or gridpoints_idx is None or gridpoints is None:
-        print("Did not provide memory information")
-        return k_step_prediction(model, model_z, data)
-    else:
-        grid_points_idx_a, grid_points_idx_b = gridpoints_idx
-        gridpoints_a, gridpoints_b = gridpoints
-        feature_vecs_a, feature_vecs_b = feature_vecs
-
-        x_predict_arr = []
-        x_predict = model.observation.sample_x(model_z[0], data[:0], return_np=True, transformation=True)
-        x_predict_arr.append(x_predict)
-        for t in range(1, data.shape[0]):
-            grid_points_idx_t = (grid_points_idx_a[t - 1], grid_points_idx_b[t - 1])
-            gridpoints_t = (gridpoints_a[t - 1], gridpoints_b[t - 1])
-            feature_vec_t = (feature_vecs_a[t - 1:t], feature_vecs_b[t - 1:t])
-
-            x_predict = model.observation.sample_x(model_z[t], data[:t], return_np=True, transformation=True,
-                                                   gridpoints=gridpoints_t,
-                                                 gridpoints_idx=grid_points_idx_t, feature_vec=feature_vec_t)
+            x_predict_arr = []
+            x_predict = model.observation.sample_x(model_z[0], data[:0], return_np=True, transformation=True)
             x_predict_arr.append(x_predict)
+            for t in range(1, data.shape[0]):
+                x_predict = model.observation.sample_x(model_z[t], data[t-1:t], return_np=True, transformation=True,
+                                                       gridpoints=(gridpoints_a[t - 1], gridpoints_b[t - 1]),
+                                                       gridpoints_idx=(grid_points_idx_a[t - 1],
+                                                                       grid_points_idx_b[t - 1]),
+                                                       feature_vec=(feature_vecs_a[t - 1:t], feature_vecs_b[t - 1:t]))
+                x_predict_arr.append(x_predict)
 
-        x_predict_arr = np.array(x_predict_arr)
-        return x_predict_arr
+            x_predict_arr = np.array(x_predict_arr)
+    else:
+        coeffs = kwargs.get("coeffs", None)
+        gridpoints_idx = kwargs.get("gridpoints_idx", None)
+        if coeffs is None or gridpoints_idx is None:
+            print("Did not provide memory ")
+            return k_step_prediction(model, model_z, data)
+        else:
+            x_predict_arr = []
+            x_predict = model.observation.sample_x(model_z[0], data[:0], return_np=True, transformation=True)
+            x_predict_arr.append(x_predict)
+            for t in range(1, data.shape[0]):
+                x_predict = model.observation.sample_x(model_z[t], data[t-1:t], return_np=True, transformation=True,
+                                                       coeffs=coeffs[t-1:t], gridpoints_idx=gridpoints_idx[t-1])
+    return x_predict_arr
 
 
 def k_step_prediction_for_weightedgrid_model(model, model_z, data, distances_a=None, distances_b=None, feature_vecs=None):

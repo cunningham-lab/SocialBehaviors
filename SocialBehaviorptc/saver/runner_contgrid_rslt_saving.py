@@ -11,20 +11,23 @@ from project_ssms.coupled_transformations.weightedgrid_transformation import Wei
 from project_ssms.coupled_transformations.lstm_transformation import LSTMTransformation
 from project_ssms.coupled_transformations.uni_lstm_transformation import UniLSTMTransformation
 from project_ssms.coupled_transformations.lstm_based_transformation import LSTMBasedTransformation
+from project_ssms.single_transformations.single_lineargird_transformation import SingleLinearGridTransformation
 from project_ssms.utils import k_step_prediction_for_lineargrid_model, k_step_prediction_for_gpgrid_model, \
     k_step_prediction_for_weightedgrid_model, \
     k_step_prediction_for_lstm_model, k_step_prediction_for_lstm_based_model
 from project_ssms.plot_utils import plot_z, plot_mouse, plot_data_condition_on_all_zs, plot_2d_time_plot_condition_on_all_zs
 from project_ssms.grid_utils import plot_quiver, plot_realdata_quiver, \
-    get_all_angles, get_speed, plot_list_of_angles, plot_list_of_speed, plot_space_dist
+    get_all_angles, get_speed, plot_list_of_angles, plot_list_of_speed, plot_space_dist, plot_grid_transition
 from project_ssms.constants import *
 
+from ssm_ptc.transitions.stationary_transition import StationaryTransition
+from ssm_ptc.transitions.grid_transition import GridTransition
 from ssm_ptc.utils import k_step_prediction, get_np
 
 from saver.rslts_saving import NumpyEncoder
 
 
-def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
+def rslt_saving(rslt_dir, model, data, animal, memory_kwargs, list_of_k_steps, sample_T,
                 quiver_scale, x_grids=None, y_grids=None, dynamics_T=None,
                 valid_data=None, valid_data_memory_kwargs=None, device=torch.device('cpu')):
 
@@ -55,7 +58,7 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
         data_to_predict = data
     else:
         data_to_predict = data[-10000:]
-    if isinstance(tran, LinearGridTransformation):
+    if isinstance(tran, (LinearGridTransformation, SingleLinearGridTransformation)):
         x_predict = k_step_prediction_for_lineargrid_model(model, z, data_to_predict, **memory_kwargs)
         x_predict_valid = k_step_prediction_for_lineargrid_model(model, z_valid, valid_data, **valid_data_memory_kwargs)
     elif isinstance(tran, GPGridTransformation):
@@ -108,7 +111,10 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     ################### samples #########################
     print("sampling")
     center_z = torch.tensor([0], dtype=torch.int, device=device)
-    center_x = torch.tensor([[150, 190, 200, 200]], dtype=torch.float64, device=device)
+    if animal == "both":
+        center_x = torch.tensor([[150, 190, 200, 200]], dtype=torch.float64, device=device)
+    else:
+        center_x = torch.tensor([[150, 190]], dtype=torch.float64, device=device)
 
     if isinstance(tran, LSTMBasedTransformation):
         lstm_states = {}
@@ -124,12 +130,18 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
 
     ################## dynamics #####################
 
-    if isinstance(tran, (LinearGridTransformation, GPGridTransformation, WeightedGridTransformation)):
+    if isinstance(tran, (LinearGridTransformation, SingleLinearGridTransformation,
+                         GPGridTransformation, WeightedGridTransformation)):
         # quiver
-        XX, YY = np.meshgrid(np.linspace(20, 310, 30),
-                             np.linspace(0, 380, 30))
-        XY = np.column_stack((np.ravel(XX), np.ravel(YY)))  # shape (900,2) grid values
-        XY_grids = np.concatenate((XY, XY), axis=1)  # (900, 4)
+        if animal == 'both':
+            XX, YY = np.meshgrid(np.linspace(20, 310, 30),
+                                 np.linspace(0, 380, 30))
+            XY = np.column_stack((np.ravel(XX), np.ravel(YY)))  # shape (900,2) grid values
+            XY_grids = np.concatenate((XY, XY), axis=1)  # (900, 4)
+        else:
+            XX, YY = np.meshgrid(np.linspace(20, 310, 30),
+                                 np.linspace(0, 380, 30))
+            XY_grids = np.column_stack((np.ravel(XX), np.ravel(YY)))  # shape (900,2) grid values
 
         XY_next = tran.transform(torch.tensor(XY_grids, dtype=torch.float64, device=device))
         dXY = get_np(XY_next) - XY_grids[:, None]
@@ -150,17 +162,22 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     print("begin saving...")
 
     # save summary
-    if isinstance(tran, (LinearGridTransformation, GPGridTransformation, WeightedGridTransformation)):
+    if isinstance(tran, (LinearGridTransformation, SingleLinearGridTransformation,
+                         GPGridTransformation, WeightedGridTransformation)):
         avg_transform_speed = np.average(np.abs(dXY), axis=0)
     avg_sample_speed = np.average(np.abs(np.diff(sample_x, axis=0)), axis=0)
     avg_sample_center_speed = np.average(np.abs(np.diff(sample_x_center, axis=0)), axis=0)
     avg_data_speed = np.average(np.abs(np.diff(get_np(data), axis=0)), axis=0)
 
-    transition_matrix = model.transition.stationary_transition_matrix
-    if transition_matrix.requires_grad:
-        transition_matrix = get_np(transition_matrix)
+    if isinstance(model.transition, StationaryTransition):
+        transition_matrix = model.transition.stationary_transition_matrix
+    elif isinstance(model.transition, GridTransition):
+        transition_matrix = model.transition.grid_transition_matrix
     else:
-        transition_matrix = get_np(transition_matrix)
+        raise ValueError("unsupported transition matrix type: {}".format(type(model.transition)))
+
+    transition_matrix = get_np(transition_matrix)
+
     summary_dict = {"init_dist": get_np(model.init_dist),
                     "transition_matrix": transition_matrix,
                     "variance": get_np(torch.exp(model.observation.log_sigmas)),
@@ -189,6 +206,12 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     joblib.dump(saving_dict, rslt_dir + "/numbers")
 
     # save figures
+    if model.D == 2 and isinstance(model.transition, GridTransition):
+        plot_grid_transition(n_x, n_y, model.transition.grid_transition_matrix)
+        plt.savefig(rslt_dir + "/grid_transition.jpg")
+        plt.close()
+
+
     plot_z(z, K, title="most likely z for the ground truth")
     plt.savefig(rslt_dir + "/z.jpg")
     plt.close()
@@ -256,20 +279,28 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     plt.savefig(rslt_dir + "/samples/quiver_sample_x_center_{}.jpg".format(sample_T), dpi=200)
     plt.close()
 
-    if isinstance(tran, (LinearGridTransformation, GPGridTransformation, WeightedGridTransformation)):
+    if isinstance(tran, (LinearGridTransformation, SingleLinearGridTransformation,
+                         GPGridTransformation, WeightedGridTransformation)):
         if not os.path.exists(rslt_dir + "/dynamics"):
             os.makedirs(rslt_dir + "/dynamics")
             print("Making dynamics directory...")
 
-        plot_quiver(XY_grids[:, 0:2], dXY[..., 0:2], 'virgin', K=K, scale=quiver_scale, alpha=0.9,
-                    title="quiver (virgin)", x_grids=x_grids, y_grids=y_grids, grid_alpha=0.2)
-        plt.savefig(rslt_dir + "/dynamics/quiver_a.jpg", dpi=200)
-        plt.close()
+        if animal == 'both':
+            plot_quiver(XY_grids[:, 0:2], dXY[..., 0:2], 'virgin', K=K, scale=quiver_scale, alpha=0.9,
+                        title="quiver (virgin)", x_grids=x_grids, y_grids=y_grids, grid_alpha=0.2)
+            plt.savefig(rslt_dir + "/dynamics/quiver_a.jpg", dpi=200)
+            plt.close()
 
-        plot_quiver(XY_grids[:, 2:4], dXY[..., 2:4], 'mother', K=K, scale=quiver_scale, alpha=0.9,
-                    title="quiver (mother)", x_grids=x_grids, y_grids=y_grids, grid_alpha=0.2)
-        plt.savefig(rslt_dir + "/dynamics/quiver_b.jpg", dpi=200)
-        plt.close()
+            plot_quiver(XY_grids[:, 2:4], dXY[..., 2:4], 'mother', K=K, scale=quiver_scale, alpha=0.9,
+                        title="quiver (mother)", x_grids=x_grids, y_grids=y_grids, grid_alpha=0.2)
+            plt.savefig(rslt_dir + "/dynamics/quiver_b.jpg", dpi=200)
+            plt.close()
+        else:
+            plot_quiver(XY_grids, dXY, animal, K=K, scale=quiver_scale, alpha=0.9,
+                        title="quiver ({})".format(animal), x_grids=x_grids, y_grids=y_grids, grid_alpha=0.2)
+            plt.savefig(rslt_dir + "/dynamics/quiver_{}.jpg".format(animal), dpi=200)
+            plt.close()
+
     elif isinstance(tran, LSTMBasedTransformation):
         if not os.path.exists(rslt_dir + "/dynamics"):
             os.makedirs(rslt_dir + "/dynamics")
@@ -300,32 +331,44 @@ def rslt_saving(rslt_dir, model, data, memory_kwargs, list_of_k_steps, sample_T,
     plot_2d_time_plot_condition_on_all_zs(sample_x_center, sample_z_center, K, title='sample_x_center')
     plt.savefig(rslt_dir + "/distributions/4traces_sample_x_center.jpg", dpi=100)
 
-    data_angles_a, data_angles_b = get_all_angles(data, x_grids, y_grids, device=device)
-    sample_angles_a, sample_angles_b = get_all_angles(sample_x, x_grids, y_grids, device=device)
-    sample_x_center_angles_a, sample_x_center_angles_b = get_all_angles(sample_x_center, x_grids, y_grids,
-                                                                        device=device)
+    data_angles = get_all_angles(data, x_grids, y_grids, device=device)
+    sample_angles = get_all_angles(sample_x, x_grids, y_grids, device=device)
+    sample_x_center_angles = get_all_angles(sample_x_center, x_grids, y_grids,
+                                            device=device)
 
-    plot_list_of_angles([data_angles_a, sample_angles_a, sample_x_center_angles_a],
-                        ['data', 'sample', 'sample_c'], "direction distribution (virgin)", n_x, n_y)
-    plt.savefig(rslt_dir + "/distributions/angles_a.jpg")
-    plt.close()
-    plot_list_of_angles([data_angles_b, sample_angles_b, sample_x_center_angles_b],
-                        ['data', 'sample', 'sample_c'], "direction distribution (mother)", n_x, n_y)
-    plt.savefig(rslt_dir + "/distributions/angles_b.jpg")
-    plt.close()
+    if animal == 'both':
+        plot_list_of_angles([data_angles[0], sample_angles[0], sample_x_center_angles],
+                            ['data', 'sample', 'sample_c'], "direction distribution (virgin)", n_x, n_y)
+        plt.savefig(rslt_dir + "/distributions/angles_a.jpg")
+        plt.close()
+        plot_list_of_angles([data_angles[1], sample_angles[1], sample_x_center_angles],
+                            ['data', 'sample', 'sample_c'], "direction distribution (mother)", n_x, n_y)
+        plt.savefig(rslt_dir + "/distributions/angles_b.jpg")
+        plt.close()
+    else:
+        plot_list_of_angles([data_angles, sample_angles, sample_x_center_angles],
+                            ['data', 'sample', 'sample_c'], "direction distribution ({})".format(animal), n_x, n_y)
+        plt.savefig(rslt_dir + "/distributions/angles_{}.jpg".format(animal))
+        plt.close()
 
-    data_speed_a, data_speed_b = get_speed(data, x_grids, y_grids, device=device)
-    sample_speed_a, sample_speed_b = get_speed(sample_x, x_grids, y_grids, device=device)
-    sample_x_center_speed_a, sample_x_center_speed_b = get_speed(sample_x_center, x_grids, y_grids, device=device)
+    data_speed = get_speed(data, x_grids, y_grids, device=device)
+    sample_speed = get_speed(sample_x, x_grids, y_grids, device=device)
+    sample_x_center_speed = get_speed(sample_x_center, x_grids, y_grids, device=device)
 
-    plot_list_of_speed([data_speed_a, sample_speed_a, sample_x_center_speed_a],
-                       ['data', 'sample', 'sample_c'], "speed distribution (virgin)", n_x, n_y)
-    plt.savefig(rslt_dir + "/distributions/speed_a.jpg")
-    plt.close()
-    plot_list_of_speed([data_speed_b, sample_speed_b, sample_x_center_speed_b],
-                       ['data', 'sample', 'sample_c'], "speed distribution (mother)", n_x, n_y)
-    plt.savefig(rslt_dir + "/distributions/speed_b.jpg")
-    plt.close()
+    if animal == 'both':
+        plot_list_of_speed([data_speed[0], sample_speed[0], sample_x_center_speed[0]],
+                           ['data', 'sample', 'sample_c'], "speed distribution (virgin)", n_x, n_y)
+        plt.savefig(rslt_dir + "/distributions/speed_a.jpg")
+        plt.close()
+        plot_list_of_speed([data_speed[1], sample_speed[1], sample_x_center_speed[1]],
+                           ['data', 'sample', 'sample_c'], "speed distribution (mother)", n_x, n_y)
+        plt.savefig(rslt_dir + "/distributions/speed_b.jpg")
+        plt.close()
+    else:
+        plot_list_of_speed([data_speed, sample_speed, sample_x_center_speed],
+                           ['data', 'sample', 'sample_c'], "speed distribution ({})".format(animal), n_x, n_y)
+        plt.savefig(rslt_dir + "/distributions/speed_{}.jpg".format(animal))
+        plt.close()
 
     try:
         if 100 < data.shape[0] <= 36000:

@@ -3,6 +3,7 @@ from ssm_ptc.utils import get_np
 
 from project_ssms.ar_truncated_normal_observation import ARTruncatedNormalObservation
 from project_ssms.coupled_transformations.lineargrid_transformation import LinearGridTransformation
+from project_ssms.single_transformations.single_lineargird_transformation import SingleLinearGridTransformation
 from project_ssms.feature_funcs import f_corner_vec_func
 from project_ssms.momentum_utils import filter_traj_by_speed
 from project_ssms.utils import downsample
@@ -28,6 +29,7 @@ import json
 @click.command()
 @click.option('--job_name', default=None, help='name of the job')
 @click.option('--cuda_num', default=0, help='which cuda device to use')
+@click.option('--data_type', default='full', help='choose from full, selected_010_virgin')
 @click.option('--downsample_n', default=1, help='downsample factor. Data size will reduce to 1/downsample_n')
 @click.option('--filter_traj', is_flag=True, help='whether or not to filter the trajectory by SPEED')
 @click.option('--use_log_prior', is_flag=True, help='whether to use log_prior to smooth the dynamics')
@@ -46,7 +48,11 @@ import json
 @click.option('--train_model', is_flag=True, help='Whether to train the model')
 @click.option('--pbar_update_interval', default=500, help='progress bar update interval')
 @click.option('--load_opt_dir', default="", help='Directory of optimizer to load.')
-@click.option('--video_clips', default="0,1", help='The starting video clip of the training data')
+@click.option('--animal', default="both", help='choose among both, virgin and mother')
+@click.option('--prop_start_end', default='0,1.0', help='starting and ending proportion. '
+                                                        'useful when data_type is selected')
+@click.option('--video_clips', default="0,1", help='The starting video clip of the training data. '
+                                                   'useful when data_tye is full')
 @click.option('--held_out_proportion', default=0.05, help='the proportion of the held-out dataset in the whole dataset')
 @click.option('--torch_seed', default=0, help='torch random seed')
 @click.option('--np_seed', default=0, help='numpy random seed')
@@ -61,17 +67,18 @@ import json
               help='a list of checkpoint numbers of iterations for training')
 @click.option('--ckpts_not_to_save', default=None, help='where to skip saving rslts')
 @click.option('--list_of_lr', default='0.005, 0.005', help='learning rate for training')
-@click.option('--list_of_k_steps', default='5', help='list of number of steps prediction forward')
+@click.option('--list_of_k_steps', default=None, help='list of number of steps prediction forward')
 @click.option('--sample_t', default=100, help='length of samples')
 @click.option('--quiver_scale', default=0.8, help='scale for the quiver plots')
-def main(job_name, cuda_num, downsample_n, filter_traj, lg_version, use_log_prior, no_boundary_prior,
+def main(job_name, cuda_num, data_type, downsample_n, filter_traj, lg_version, use_log_prior, no_boundary_prior,
          add_log_diagonal_prior, log_prior_sigma_sq,
-         load_model, load_model_dir, load_opt_dir, reset_prior_info,
+         load_model, load_model_dir, load_opt_dir, animal, reset_prior_info,
          transition, sticky_alpha, sticky_kappa, acc_factor, k, x_grids, y_grids, n_x, n_y,
-         train_model, pbar_update_interval, video_clips, held_out_proportion, torch_seed, np_seed,
+         train_model, pbar_update_interval, prop_start_end, video_clips, held_out_proportion, torch_seed, np_seed,
          list_of_num_iters, ckpts_not_to_save, list_of_lr, list_of_k_steps, sample_t, quiver_scale):
     if job_name is None:
         raise ValueError("Please provide the job name.")
+    assert animal in ['both', 'virgin', 'mother'], animal
 
     cuda_num = int(cuda_num)
     device = torch.device("cuda:{}".format(cuda_num) if torch.cuda.is_available() else "cpu")
@@ -79,11 +86,13 @@ def main(job_name, cuda_num, downsample_n, filter_traj, lg_version, use_log_prio
 
     K = k
     sample_T = sample_t
-    log_prior_sigma_sq = float(log_prior_sigma_sq)
     video_clip_start, video_clip_end = [float(x) for x in video_clips.split(",")]
+    start, end = [float(x) for x in prop_start_end.split(",")]
+    log_prior_sigma_sq = float(log_prior_sigma_sq)
     list_of_num_iters = [int(x) for x in list_of_num_iters.split(",")]
     list_of_lr = [float(x) for x in list_of_lr.split(",")]
-    list_of_k_steps = [int(x) for x in list_of_k_steps.split(",")]
+    # TODO: test if that works
+    list_of_k_steps = [int(x) for x in list_of_k_steps.split(",")] if list_of_k_steps else []
     assert len(list_of_num_iters) == len(list_of_lr), "Length of list_of_num_iters must match length of list_of_lr."
     for lr in list_of_lr:
         if lr > 1:
@@ -98,10 +107,24 @@ def main(job_name, cuda_num, downsample_n, filter_traj, lg_version, use_log_prio
     np.random.seed(np_seed)
 
     ########################## data ########################
-    data_dir = repo_dir + '/SocialBehaviorptc/data/trajs_all'
-    trajs = joblib.load(data_dir)
+    if data_type == 'full':
+        data_dir = repo_dir + '/SocialBehaviorptc/data/trajs_all'
+        traj = joblib.load(data_dir)
+        traj = traj[int(36000 * video_clip_start):int(36000 * video_clip_end)]
+    elif data_type == 'selected_010_virgin':
+        assert animal == 'virgin', "animal much be 'virgin', but got {}.".format(animal)
+        data_dir = repo_dir + '/SocialBehaviorptc/data/traj_010_virgin_selected'
+        traj = joblib.load(data_dir)
+        T = len(traj)
+        traj = traj[int(T*start): int(T*end)]
+    else:
+        raise ValueError("unsupported data type: {}".format(data_type))
 
-    traj = trajs[int(36000*video_clip_start):int(36000*video_clip_end)]
+    if animal == 'virgin':
+        traj = traj[:,0:2]
+    elif animal == 'mother':
+        traj = traj[:,2:4]
+
     traj = downsample(traj, downsample_n)
     if filter_traj:
         traj = filter_traj_by_speed(traj, q1=0.99, q2=0.99)
@@ -112,13 +135,15 @@ def main(job_name, cuda_num, downsample_n, filter_traj, lg_version, use_log_prio
     T = data.shape[0]
     breakpoint = int(T*(1-held_out_proportion))
     training_data = data[:breakpoint]
-
     valid_data = data[breakpoint:]
+
+    sample_T = training_data.shape[0]
 
     ######################### model ####################
 
     # model
-    D = 4
+    D = data.shape[1]
+    assert D == 2 or 4, D
     M = 0
     Df = 4
 
@@ -160,16 +185,19 @@ def main(job_name, cuda_num, downsample_n, filter_traj, lg_version, use_log_prio
 
             n_x = len(tran.x_grids) - 1
             n_y = len(tran.y_grids) - 1
-
-            acc_factor = tran.acc_factor
-            use_log_prior = tran.use_log_prior
-            no_boundary_prior = tran.no_boundary_prior
-            add_log_diagonal_prior = tran.add_log_diagonal_prior
-            log_prior_sigma_sq = get_np(tran.log_prior_sigma_sq)
+            if isinstance(model, LinearGridTransformation):
+                acc_factor = tran.acc_factor
+                use_log_prior = tran.use_log_prior
+                no_boundary_prior = tran.no_boundary_prior
+                add_log_diagonal_prior = tran.add_log_diagonal_prior
+                log_prior_sigma_sq = get_np(tran.log_prior_sigma_sq)
 
     else:
-        bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX],
-                           [ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX]])
+        if D == 4:
+            bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX],
+                               [ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX]])
+        else:
+            bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX]])
 
         # grids
         if x_grids is None:
@@ -190,15 +218,20 @@ def main(job_name, cuda_num, downsample_n, filter_traj, lg_version, use_log_prio
             acc_factor = downsample_n * 10
 
         print("Creating the model...")
-        tran = LinearGridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids,
-                                        Df=Df, feature_vec_func=f_corner_vec_func, acc_factor=acc_factor,
-                                        use_log_prior=use_log_prior, no_boundary_prior=no_boundary_prior,
-                                        add_log_diagonal_prior=add_log_diagonal_prior,
-                                        log_prior_sigma_sq=log_prior_sigma_sq, device=device, version=lg_version)
+        if animal == 'both':
+            tran = LinearGridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids,
+                                            Df=Df, feature_vec_func=f_corner_vec_func, acc_factor=acc_factor,
+                                            use_log_prior=use_log_prior, no_boundary_prior=no_boundary_prior,
+                                            add_log_diagonal_prior=add_log_diagonal_prior,
+                                            log_prior_sigma_sq=log_prior_sigma_sq, device=device, version=lg_version)
+        else:
+            tran = SingleLinearGridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids, device=device)
         obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=1, bounds=bounds, transformation=tran, device=device)
 
         if transition == 'sticky':
             transition_kwargs = dict(alpha=sticky_alpha, kappa=sticky_kappa)
+        elif transition == 'grid':
+            transition_kwargs = dict(x_grids=x_grids, y_grids=y_grids)
         else:
             transition_kwargs = None
         model = HMM(K=K, D=D, M=M, transition=transition, observation=obs, transition_kwargs=transition_kwargs,
@@ -208,6 +241,7 @@ def main(job_name, cuda_num, downsample_n, filter_traj, lg_version, use_log_prio
     # save experiment params
     exp_params = {"job_name":   job_name,
                   'downsample_n': downsample_n,
+                  'data_type': data_type,
                   "filter_traj": filter_traj,
                   "lg_version": lg_version,
                   "use_log_prior": use_log_prior,
@@ -216,6 +250,7 @@ def main(job_name, cuda_num, downsample_n, filter_traj, lg_version, use_log_prio
                   "log_prior_sigma_sq": log_prior_sigma_sq,
                   "load_model": load_model,
                   "load_model_dir": load_model_dir,
+                  "animal": animal,
                   "reset_prior_info": reset_prior_info,
                   "load_opt_dir": load_opt_dir,
                   "transition": transition,
@@ -231,6 +266,8 @@ def main(job_name, cuda_num, downsample_n, filter_traj, lg_version, use_log_prio
                   "pbar_update_interval": pbar_update_interval,
                   "video_clip_start": video_clip_start,
                   "video_clip_end": video_clip_end,
+                  "start_percentage": start,
+                  "end_percentage": end,
                   "held_out_proportion": held_out_proportion,
                   "torch_seed": torch_seed,
                   "np_seed": np_seed,
@@ -244,7 +281,7 @@ def main(job_name, cuda_num, downsample_n, filter_traj, lg_version, use_log_prio
     print("Experiment params:")
     print(exp_params)
 
-    rslt_dir = addDateTime("rslts/lineargrid/" + job_name)
+    rslt_dir = addDateTime("rslts/lineargrid/{}/{}".format(animal, job_name))
     rslt_dir = os.path.join(repo_dir, rslt_dir)
     if not os.path.exists(rslt_dir):
         os.makedirs(rslt_dir)
@@ -254,34 +291,61 @@ def main(job_name, cuda_num, downsample_n, filter_traj, lg_version, use_log_prio
         json.dump(exp_params, f, indent=4, cls=NumpyEncoder)
 
     # compute memory
-    print("Computing memory...")
-    gridpoints_idx_a = tran.get_gridpoints_idx_for_batch(training_data[:-1, 0:2])  # (T-1, n_gps, 4)
-    gridpoints_idx_b = tran.get_gridpoints_idx_for_batch(training_data[:-1, 2:4])  # (T-1, n_gps, 4)
-    gridpoints_a = tran.get_gridpoints_for_batch(gridpoints_idx_a)  # (T-1, d, 2)
-    gridpoints_b = tran.get_gridpoints_for_batch(gridpoints_idx_b)  # (T-1, d, 2)
-    feature_vecs_a = f_corner_vec_func(training_data[:-1, 0:2])  # (T, Df, 2)
-    feature_vecs_b = f_corner_vec_func(training_data[:-1, 2:4])  # (T, Df, 2)
-
-    gridpoints_idx = (gridpoints_idx_a, gridpoints_idx_b)
-    gridpoints = (gridpoints_a, gridpoints_b)
-    feature_vecs = (feature_vecs_a, feature_vecs_b)
-    memory_kwargs = dict(gridpoints_idx=gridpoints_idx, gridpoints=gridpoints, feature_vecs=feature_vecs)
-
-    if len(valid_data) > 0:
-        gridpoints_idx_a_v = tran.get_gridpoints_idx_for_batch(valid_data[:-1, 0:2])  # (T-1, n_gps, 4)
-        gridpoints_idx_b_v = tran.get_gridpoints_idx_for_batch(valid_data[:-1, 2:4])  # (T-1, n_gps, 4)
-        gridpoints_a_v = tran.get_gridpoints_for_batch(gridpoints_idx_a_v)  # (T-1, d, 2)
-        gridpoints_b_v = tran.get_gridpoints_for_batch(gridpoints_idx_b_v)  # (T-1, d, 2)
-        feature_vecs_a_v = f_corner_vec_func(valid_data[:-1, 0:2])  # (T, Df, 2)
-        feature_vecs_b_v = f_corner_vec_func(valid_data[:-1, 2:4])  # (T, Df, 2)
-
-        gridpoints_idx_v = (gridpoints_idx_a_v, gridpoints_idx_b_v)
-        gridpoints_v = (gridpoints_a_v, gridpoints_b_v)
-        feature_vecs_v = (feature_vecs_a_v, feature_vecs_b_v)
-        valid_data_memory_kwargs = dict(gridpoints_idx=gridpoints_idx_v, gridpoints=gridpoints_v,
-                                        feature_vecs=feature_vecs_v)
+    if transition == "grid":
+        print("Computing transition memory...")
+        joint_grid_idx = model.transition.get_grid_idx(training_data[:-1])
+        transition_memory_kwargs = dict(joint_grid_idx=joint_grid_idx)
+        valid_joint_grid_idx = model.transition.get_grid_idx(valid_data[:-1])
+        valid_data_transition_memory_kwargs = dict(joint_grid_idx=valid_joint_grid_idx)
     else:
-        valid_data_memory_kwargs = {}
+        transition_memory_kwargs = None
+        valid_data_transition_memory_kwargs = None
+
+    print("Computing observation memory...")
+    if animal == 'both':
+        gridpoints_idx_a = tran.get_gridpoints_idx_for_batch(training_data[:-1, 0:2])  # (T-1, n_gps, 4)
+        gridpoints_idx_b = tran.get_gridpoints_idx_for_batch(training_data[:-1, 2:4])  # (T-1, n_gps, 4)
+        gridpoints_a = tran.get_gridpoints_for_batch(gridpoints_idx_a)  # (T-1, d, 2)
+        gridpoints_b = tran.get_gridpoints_for_batch(gridpoints_idx_b)  # (T-1, d, 2)
+        feature_vecs_a = f_corner_vec_func(training_data[:-1, 0:2])  # (T, Df, 2)
+        feature_vecs_b = f_corner_vec_func(training_data[:-1, 2:4])  # (T, Df, 2)
+
+        gridpoints_idx = (gridpoints_idx_a, gridpoints_idx_b)
+        gridpoints = (gridpoints_a, gridpoints_b)
+        feature_vecs = (feature_vecs_a, feature_vecs_b)
+        memory_kwargs = dict(gridpoints_idx=gridpoints_idx, gridpoints=gridpoints, feature_vecs=feature_vecs)
+
+        if len(valid_data) > 0:
+            gridpoints_idx_a_v = tran.get_gridpoints_idx_for_batch(valid_data[:-1, 0:2])  # (T-1, n_gps, 4)
+            gridpoints_idx_b_v = tran.get_gridpoints_idx_for_batch(valid_data[:-1, 2:4])  # (T-1, n_gps, 4)
+            gridpoints_a_v = tran.get_gridpoints_for_batch(gridpoints_idx_a_v)  # (T-1, d, 2)
+            gridpoints_b_v = tran.get_gridpoints_for_batch(gridpoints_idx_b_v)  # (T-1, d, 2)
+            feature_vecs_a_v = f_corner_vec_func(valid_data[:-1, 0:2])  # (T, Df, 2)
+            feature_vecs_b_v = f_corner_vec_func(valid_data[:-1, 2:4])  # (T, Df, 2)
+
+            gridpoints_idx_v = (gridpoints_idx_a_v, gridpoints_idx_b_v)
+            gridpoints_v = (gridpoints_a_v, gridpoints_b_v)
+            feature_vecs_v = (feature_vecs_a_v, feature_vecs_b_v)
+            valid_data_memory_kwargs = dict(gridpoints_idx=gridpoints_idx_v, gridpoints=gridpoints_v,
+                                            feature_vecs=feature_vecs_v)
+        else:
+            valid_data_memory_kwargs = {}
+    else:
+        def get_memory_kwargs(data):
+            if data is None or data.shape[0] == 0:
+                return {}
+
+            gridpoints_idx = tran.get_gridpoints_idx_for_batch(data)
+            gridpoints = tran.gridpoints[gridpoints_idx]
+            coeffs = tran.get_lp_coefficients(data, gridpoints[:, 0], gridpoints[:, 3], device=device)
+
+            return dict(gridpoints_idx=gridpoints_idx, coeffs=coeffs)
+
+        memory_kwargs = get_memory_kwargs(training_data[:-1])
+        valid_data_memory_kwargs = get_memory_kwargs(valid_data[:-1])
+
+    log_prob = model.log_likelihood(training_data, transition_memory_kwargs=transition_memory_kwargs, **memory_kwargs)
+    print("log_prob = {}".format(log_prob))
 
     ##################### training ############################
     if train_model:
@@ -292,9 +356,13 @@ def main(job_name, cuda_num, downsample_n, filter_traj, lg_version, use_log_prio
         else:
             opt = None
         for i, (num_iters, lr) in enumerate(zip(list_of_num_iters, list_of_lr)):
-            training_losses, opt, valid_losses = model.fit(training_data, optimizer=opt, method='adam', num_iters=num_iters, lr=lr,
-                                    pbar_update_interval=pbar_update_interval, valid_data=valid_data,
-                                    valid_data_memory_kwargs=valid_data_memory_kwargs, **memory_kwargs)
+            training_losses, opt, valid_losses, _ = \
+                model.fit(training_data, optimizer=opt, method='adam', num_iters=num_iters, lr=lr,
+                          pbar_update_interval=pbar_update_interval, valid_data=valid_data,
+                          transition_memory_kwargs=transition_memory_kwargs,
+                          valid_data_transition_memory_kwargs=valid_data_transition_memory_kwargs,
+                          valid_data_memory_kwargs=valid_data_memory_kwargs, **memory_kwargs)
+
             list_of_losses.append(training_losses)
 
             checkpoint_dir = rslt_dir + "/checkpoint_{}".format(i)
@@ -326,14 +394,16 @@ def main(job_name, cuda_num, downsample_n, filter_traj, lg_version, use_log_prio
                 print("ckpt {}: skip!\n".format(i))
                 continue
             with torch.no_grad():
-                rslt_saving(rslt_dir=checkpoint_dir, model=model, data=training_data, memory_kwargs=memory_kwargs,
+                rslt_saving(rslt_dir=checkpoint_dir, model=model, data=training_data, animal=animal,
+                            memory_kwargs=memory_kwargs,
                             list_of_k_steps=list_of_k_steps, sample_T=sample_T,
                             quiver_scale=quiver_scale, valid_data=valid_data,
                             valid_data_memory_kwargs=valid_data_memory_kwargs, device=device)
 
     else:
         # only save the results
-        rslt_saving(rslt_dir=rslt_dir, model=model, data=training_data, memory_kwargs=memory_kwargs,
+        rslt_saving(rslt_dir=rslt_dir, model=model, data=training_data, animal=animal,
+                    memory_kwargs=memory_kwargs,
                     list_of_k_steps=list_of_k_steps, sample_T=sample_T,
                     quiver_scale=quiver_scale, valid_data=valid_data,
                     valid_data_memory_kwargs=valid_data_memory_kwargs, device=device)

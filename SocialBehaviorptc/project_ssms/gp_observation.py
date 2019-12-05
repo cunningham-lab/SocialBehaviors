@@ -46,7 +46,7 @@ class GPObservation(BaseObservation):
 
         self.us = torch.rand(self.K, self.n_gps, self.D, dtype=torch.float64, device=self.device, requires_grad=True)
 
-        # define GP parameters, suppose parameters work for all Ks
+        # define n_gps parameters, suppose parameters work for all Ks
         if rs is None:
             x_grids = get_np(x_grids)
             y_grids = get_np(y_grids)
@@ -69,18 +69,20 @@ class GPObservation(BaseObservation):
 
     @property
     def params(self):
-        return self.us, self.rs, self.vs
+        return self.us, self.rs, self.vs, self.log_sigmas
 
     @params.setter
     def params(self, values):
         self.us = set_param(self.us, values[0])
         self.rs = set_param(self.rs, values[1])
         self.vs = set_param(self.vs, values[2])
+        self.log_sigmas = set_param(self.log_sigmas, values[3])
 
     def permute(self, perm):
         self.us = self.us[perm]
         self.rs = self.rs[perm]
         self.vs = self.vs[perm]
+        self.log_sigmas = self.log_sigmas[perm]
 
     def log_prob(self, inputs, **kwargs):
         """

@@ -44,7 +44,7 @@ class GPGridTransformation(BaseWeightedDirectionTransformation):
         self.gpts_pairwise_xydist_sq = self.get_gpts_pariwise_xydist_sq()
         assert self.gpts_pairwise_xydist_sq.shape == (self.n_grids, 4, 4, 2), self.gpts_pairwise_xydist_sq.shape
 
-        # define GP parameters, suppose parameters work for all Ks
+        # define n_gps parameters, suppose parameters work for all Ks
         if rs_factor is None:
             x_grids = get_np(x_grids)
             y_grids = get_np(y_grids)

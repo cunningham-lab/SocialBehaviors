@@ -3,6 +3,7 @@ import numpy as np
 
 from project_ssms.coupled_transformations.lineargrid_transformation import LinearGridTransformation,\
     one_d_interpolation, two_d_interpolation
+from project_ssms.single_transformations.single_lineargird_transformation import SingleLinearGridTransformation
 from project_ssms.feature_funcs import f_corner_vec_func, feature_direction_vec
 from project_ssms.ar_truncated_normal_observation import ARTruncatedNormalObservation
 from project_ssms.utils import k_step_prediction_for_lineargrid_model
@@ -87,7 +88,7 @@ def test_get_grid_point_idx():
                                     Df=4, feature_vec_func=f_corner_vec_func)
 
     point = torch.tensor([0.5, 0.5], dtype=torch.float64)
-    idx = tran.get_gridpoints_idx_for_single(point)  # (GP, 4)
+    idx = tran.get_gridpoints_idx_for_single(point)  # (n_gps, 4)
 
     true_idx_0 = torch.zeros((20, 4), dtype=torch.float64)
     true_idx_0[0, 0] = 1
@@ -130,7 +131,7 @@ def test_get_grid_point_idx():
     points = torch.tensor([[0.5, 0.5], [2.5, 1.9], [0.0, 0.0], [4.0, 3.0]], dtype=torch.float64)
     idx = tran.get_gridpoints_idx_for_batch(points)
 
-    # (T, GP, 4)
+    # (T, n_gps, 4)
     true_idx = torch.stack([true_idx_0, true_idx_1, true_idx_2, true_idx_3], dim=0)
     assert torch.all(torch.eq(idx, true_idx))
 
@@ -145,8 +146,8 @@ def test_weights():
 
     # single point case
     point = torch.tensor([0.5, 0.5], dtype=torch.float64)
-    idx = tran.get_gridpoints_idx_for_single(point)  # (GP, 4)
-    # (d, GP) * (GP, 2) --> (d, 2)
+    idx = tran.get_gridpoints_idx_for_single(point)  # (n_gps, 4)
+    # (d, n_gps) * (n_gps, 2) --> (d, 2)
     grid_points = torch.matmul(tran.gridpoints, idx[:, [0, -1]])
 
     true_grid_points = torch.tensor([[0, 1], [0, 1]], dtype=torch.float64)   # (2, 2)
@@ -163,7 +164,7 @@ def test_weights():
     # batch case
     points = torch.tensor([[0.5, 0.5], [2, 2], [4, 3]], dtype=torch.float64)
     T = points.shape[0]
-    idx = tran.get_gridpoints_idx_for_batch(points)  # (T, GP, 4)
+    idx = tran.get_gridpoints_idx_for_batch(points)  # (T, n_gps, 4)
     assert idx.shape == (T, tran.GP, 4)
 
     grid_points = torch.matmul(tran.gridpoints, idx[:, :, [0,-1]])  # (T, d, 2)
@@ -218,8 +219,8 @@ def test_tran():
     transformed_data = tran.transform(data)
 
     # calculate memory
-    grid_points_idx_a = tran.get_gridpoints_idx_for_batch(data[:, 0:2])  # (T, GP, 4)
-    grid_points_idx_b = tran.get_gridpoints_idx_for_batch(data[:, 2:4])  # (T, GP, 4)
+    grid_points_idx_a = tran.get_gridpoints_idx_for_batch(data[:, 0:2])  # (T, n_gps, 4)
+    grid_points_idx_b = tran.get_gridpoints_idx_for_batch(data[:, 2:4])  # (T, n_gps, 4)
     grid_points_idx = (grid_points_idx_a, grid_points_idx_b)
 
     gridpoints_a = tran.get_gridpoints_for_batch(grid_points_idx_a)  # (T, d, 2)
@@ -328,11 +329,50 @@ def test_model():
     sample_z, sample_x = model.sample(sample_T)
 
 
+def test_single_lineargrid():
+    torch.manual_seed(0)
+    np.random.seed(0)
 
+    T = 5
+    x_grids = np.array([0.0, 5.0, 10.0])
+    y_grids = np.array([0.0, 4.0, 8.0])
 
+    data = np.array([[1.0, 1.0], [3.0, 6.0],
+                     [4.0, 7.0], [6.0, 7.0], [8.0, 2.0]])
+    data = torch.tensor(data, dtype=torch.float64)
+
+    tran = SingleLinearGridTransformation(K=2, D=2, x_grids=x_grids, y_grids=y_grids)
+    gridpoints_idx = tran.get_gridpoints_idx_for_batch(data)
+
+    correct_idx = np.array([[0,1,3,4],[1,2,4,5],[1,2,4,5],[4,5,7,8],[3,4,6,7]])
+    assert np.all(np.equal(correct_idx, gridpoints_idx)), "correct: {}, but got {}".format(correct_idx, gridpoints_idx)
+
+    gridpoints = tran.gridpoints[gridpoints_idx]
+    assert gridpoints.shape == (T, 4, 2)  # Q11, Q21, Q12, Q22
+    correct_gridpoints = np.array([[[0., 0.], [0., 4.], [5., 0.], [5., 4.]],
+                                   [[0., 4.], [0., 8.], [5., 4.], [5., 8.]],
+                                   [[0., 4.], [0., 8.], [5., 4.],[5., 8.]],
+                                   [[ 5., 4.],[ 5., 8.],[10., 4.], [10., 8.]],
+                                  [[5., 0.], [5., 4.], [10., 0.], [10., 4.]]])
+    assert np.all(np.equal(correct_gridpoints, gridpoints)), "correct: {}, but got {}".format(correct_gridpoints, gridpoints)
+    coeffs = tran.get_lp_coefficients(data, gridpoints[:, 0], gridpoints[:, 3])
+    correct_coeffs = torch.tensor([[0.6000, 0.2000, 0.1500, 0.0500],
+                                   [0.2000, 0.2000, 0.3000, 0.3000],
+                                   [0.0500, 0.1500, 0.2000, 0.6000],
+                                   [0.2000, 0.6000, 0.0500, 0.1500],
+                                   [0.2000, 0.2000, 0.3000, 0.3000]], dtype=torch.float64)
+    assert torch.all(torch.eq(coeffs, correct_coeffs)), "correct: {}, but got {}".format(coeffs, correct_coeffs)
+
+"""
+# coupled lineargrid model
 test_one_d_interpolation()
 test_two_d_interpolation()
 test_get_grid_point_idx()
 test_weights()
 test_tran()
 test_model()
+"""
+
+test_single_lineargrid()
+
+

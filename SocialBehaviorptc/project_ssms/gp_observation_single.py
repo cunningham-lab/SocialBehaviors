@@ -15,8 +15,8 @@ class GPObservationSingle(BaseObservation):
     weights of any random point = a weighted combination of weights of all the grid vertices
     where the weights = softmax
     """
-    def __init__(self, K, D, x_grids, y_grids, bounds, mus_init=None,
-                rs=None, train_rs=False, train_vs=False,
+    def __init__(self, K, D, x_grids, y_grids, bounds, mus_init=None, log_sigmas_init=None, log_sigmas=None,
+                rs=None, train_rs=False, train_vs=False, train_sigmas=False,
                  device=torch.device('cpu')):
         assert D == 2
         super(GPObservationSingle, self).__init__(K, D)
@@ -32,10 +32,18 @@ class GPObservationSingle(BaseObservation):
         else:
             self.mus_init = check_and_convert_to_tensor(mus_init, dtype=torch.float64, device=self.device)
         # consider diagonal covariance
-        self.log_sigmas_init = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, device=self.device)
-        # shape (K,D)
-        self.log_sigmas = torch.tensor(np.log(5*np.ones((K, D))), dtype=torch.float64, device=self.device,
-                                         requires_grad=True)
+        if log_sigmas_init is None:
+            self.log_sigmas_init = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, device=self.device)
+        else:
+            self.log_sigmas_init = check_and_convert_to_tensor(log_sigmas_init, dtype=torch.float64, device=self.device)
+        assert self.log_sigmas_init.shape == (self.K, self.D)
+        if log_sigmas is None:
+            self.log_sigmas = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, device=self.device,
+                                           requires_grad=train_sigmas)
+        else:
+            self.log_sigmas = check_and_convert_to_tensor(log_sigmas, dtype=torch.float64, device=self.device,
+                                                          requires_grad=train_sigmas)
+        assert self.log_sigmas.shape == (self.K, self.D)
 
         # specify gp dynamics parameters
         self.x_grids = check_and_convert_to_tensor(x_grids, dtype=torch.float64, device=self.device)  # [x_0, x_1, ..., x_m]
@@ -47,7 +55,7 @@ class GPObservationSingle(BaseObservation):
 
         self.us = torch.rand(self.K, self.n_gps, self.D, dtype=torch.float64, device=self.device, requires_grad=True)
 
-        # define GP parameters, suppose parameters work for all Ks
+        # define n_gps parameters, suppose parameters work for all Ks
         if rs is None:
             x_grids = get_np(x_grids)
             y_grids = get_np(y_grids)

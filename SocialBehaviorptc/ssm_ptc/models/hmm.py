@@ -24,6 +24,13 @@ from ssm_ptc.utils import check_and_convert_to_tensor, set_param, ensure_args_ar
 import tqdm
 from tqdm import trange
 import time
+import matplotlib
+matplotlib.use("TkAgg")
+import matplotlib.pyplot as plt
+import seaborn as sns
+from project_ssms.plot_utils import get_colors_and_cmap, add_grid
+from project_ssms.gp_observation_single_original import GPObservationSingle
+
 
 TRANSITION_CLASSES = dict(stationary=StationaryTransition,
                           sticky=StickyTransition,
@@ -33,6 +40,7 @@ TRANSITION_CLASSES = dict(stationary=StationaryTransition,
 OBSERVATION_CLASSES = dict(gaussian=ARGaussianObservation,
                            logitnormal=ARLogitNormalObservation,
                            truncatednormal=ARTruncatedNormalObservation)
+
 
 class DummyFile(object):
   file = None
@@ -177,7 +185,7 @@ class HMM:
             z_pre, x_pre = prefix
             assert len(z_pre.shape) == 1
             T_pre = z_pre.shape[0]
-            assert x_pre.shape == (T_pre, self.D)
+            assert x_pre.shape == (T_pre, self.D), "should be {}, but got {}.".format((T_pre, self.D), x_pre.shape)
 
             z_pre = check_and_convert_to_tensor(z_pre, dtype=torch.int, device=self.device)
             x_pre = check_and_convert_to_tensor(x_pre, dtype=dtype, device=self.device)
@@ -401,6 +409,11 @@ class HMM:
             pbar_update_interval=10, valid_data=None,
             transition_memory_kwargs=None, valid_data_transition_memory_kwargs=None,
             valid_data_memory_kwargs=None, **memory_kwargs):
+        plot_color_quiver = True
+        plot_dynamics_quiver = True
+        plot_transition = True
+        plot_update_interval = 5
+
         # TODO, need to add valid_data to valid_datas
         # TODO: need to modify this
         if isinstance(self.transition, InputDrivenTransition) and inputs is None:
@@ -423,6 +436,53 @@ class HMM:
                 param_group['lr'] = lr
 
         losses = []
+        # TODO: collect rs. delete later
+        if isinstance(self.observation, GPObservationSingle):
+            obs_rs = [get_np(self.observation.rs.clone())]
+            x_grids = self.observation.x_grids
+            y_grids = self.observation.y_grids
+        else:
+            x_grids = self.observation.transformation.x_grids
+            y_grids = self.observation.transformation.y_grids
+            obs_rs = []
+
+        K = self.K
+        if plot_color_quiver:
+            h = 1 / K
+            ticks = [(1 / 2 + k) * h for k in range(K)]
+            colors, cm = get_colors_and_cmap(K)
+            fig1 = plt.figure(figsize=(8, 7))
+            ax1 = fig1.add_subplot(1,1,1)
+            self.plot_realdata_quiver(0, "init", None, datas[0], colors, cm, transition_memory_kwargs, memory_kwargs)
+            cb = plt.colorbar(label='k', ticks=ticks)
+            cb.set_ticklabels(range(K))
+            add_grid(x_grids=x_grids, y_grids=y_grids)
+            plt.pause(0.002)
+
+        if plot_dynamics_quiver:
+            fig, axs = plt.subplots(nrows=1, ncols=K, figsize=(4 * K, 4))
+            self.plot_quiver(axs=axs, K=K, scale=1, alpha=1,
+                             x_grids=x_grids, y_grids=y_grids, grid_alpha=1)
+            fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+            fig.suptitle("iter {}".format(0))
+            plt.pause(0.002)
+        if plot_transition:
+            if isinstance(self.transition, StationaryTransition):
+                fig2 = plt.figure(figsize=(6,6))
+                ax_transition = fig2.add_subplot(1,1,1)
+                cbar_ax = fig2.add_axes([.93, .3, .03, .4])
+                self.plot_transition(ax_transition, cbar_ax, get_np(self.transition.stationary_transition_matrix))
+            elif isinstance(self.transition, GridTransition):
+                n_x = len(x_grids) - 1
+                n_y = len(y_grids) - 1
+                fig2, axn = plt.subplots(n_x, n_y, sharex=True, sharey=True, figsize=(6, 6))
+                cbar_ax = fig2.add_axes([.93, .3, .03, .4])
+                self.plot_grid_transition(axn=axn, cbar_ax=cbar_ax, n_x=n_x, n_y=n_y,
+                                          grid_transition=get_np(self.transition.grid_transition_matrix))
+                fig2.tight_layout(rect=[0, 0, .9, 1])
+            fig2.suptitle("iter {}".format(0))
+            plt.pause(0.002)
+
         if valid_data is not None:
             valid_losses = []
             valid_data_memory_kwargs = valid_data_memory_kwargs if valid_data_memory_kwargs else {}
@@ -435,7 +495,30 @@ class HMM:
             loss = get_np(loss)
             losses.append(loss)
 
-            #joblib.dump(self, "model_{}".format(i))
+            # TODO: collect rs. delete later
+            if isinstance(self.observation, GPObservationSingle):
+                obs_rs.append(get_np(self.observation.rs.clone()))
+
+            if i % plot_update_interval == 0:
+                if plot_color_quiver:
+                    self.plot_realdata_quiver(i, loss,ax1, datas[0], colors, cm, transition_memory_kwargs, memory_kwargs)
+                    plt.pause(0.001)
+                if plot_dynamics_quiver:
+                    self.plot_quiver(axs=axs, K=K, scale=1, alpha=1,
+                                     x_grids=x_grids, y_grids=y_grids, grid_alpha=1)
+                    fig.suptitle("iter {}".format(i+1))
+                    plt.pause(0.001)
+                if plot_transition:
+                    fig2.suptitle("iter {}".format(i + 1))
+                    if isinstance(self.transition, StationaryTransition):
+                        self.plot_transition(ax_transition, cbar_ax, get_np(self.transition.stationary_transition_matrix))
+                    elif isinstance(self.transition, GridTransition):
+                        cbar_ax = fig2.add_axes([.93, .3, .03, .4])
+                        self.plot_grid_transition(axn=axn, cbar_ax=cbar_ax, n_x=n_x, n_y=n_y,
+                                                  grid_transition=get_np(self.transition.grid_transition_matrix))
+                    plt.pause(0.001)
+
+
             if valid_data is not None:
                 if len(valid_data) > 0:
                     with torch.no_grad():
@@ -451,14 +534,78 @@ class HMM:
         pbar.close()
 
         if valid_data is not None:
-            return losses, optimizer, valid_losses
+            return losses, optimizer, valid_losses, obs_rs
 
-        return losses, optimizer
+        return losses, optimizer, obs_rs
 
+    def plot_realdata_quiver(self, i, loss, ax, realdata, colors, cm, transition_memory_kwargs, memory_kwargs, **quiver_args):
+        z = self.most_likely_states(realdata, transition_mkwargs=transition_memory_kwargs, **memory_kwargs)
+        z = z[1:]  # (T-1, )
+        start = realdata[:-1]
+        end = realdata[1:]
+        dXY = end - start
+        if ax is None:
+            plt.quiver(start[:, 0], start[:, 1], dXY[:, 0], dXY[:, 1],
+                      angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[z], **quiver_args)
+            plt.title("iter {}, loss = {}".format(i+1, loss))
+        else:
+            ax.quiver(start[:, 0], start[:, 1], dXY[:, 0], dXY[:, 1],
+                       angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[z], **quiver_args)
+            ax.set_title("iter {}, loss = {}".format(i+1, loss))
 
+    def plot_quiver(self, axs, K, scale=1, alpha=1, x_grids=None, y_grids=None, grid_alpha=1):
+        #TODO: for single animal now
+        # quiver
+        XX, YY = np.meshgrid(np.linspace(20, 310, 30),
+                             np.linspace(0, 380, 30))
+        XYs = np.column_stack((np.ravel(XX), np.ravel(YY)))  # shape (900,2) grid values
+        if isinstance(self.observation, GPObservationSingle):
+            XY_next, _ = self.observation.get_mu_and_cov_for_single_animal(XYs, mu_only=True)
+        else:
+            XY_next = self.observation.transformation.transform(torch.tensor(XYs, dtype=torch.float64,
+                                                                             device=self.device))
+        dXYs = get_np(XY_next) - XYs[:, None]
 
+        for k in range(K):
+            axs[k].clear()
+            axs[k].quiver(XYs[:, 0], XYs[:, 1], dXYs[:, k, 0], dXYs[:, k, 1],
+                       angles='xy', scale_units='xy', scale=scale, alpha=alpha)
+            #add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
+            if isinstance(self.observation, GPObservationSingle):
+                axs[k].set_title('K={}, rs={}'.format(k, get_np(self.observation.rs[k])))
+            else:
+                axs[k].set_title('K={}'.format(k))
 
+    def plot_grid_transition(self, axn, cbar_ax, n_x, n_y, grid_transition):
+        """
+        Note: this is for single animal case
+        plot the grid transition matrices. return a Figure object
+        """
+        # n_x corresponds to the number of columns, and n_y corresponds to the number of rows.
+        grid_idx = 0
+        for i in range(n_x):
+            for j in range(n_y):
+                # plot_idx = ij_to_plot_idx(i, j, n_x, n_y)
+                # plt.subplot(n_x, n_y, plot_idx)
+                ax = axn[n_y - j - 1][i]
+                ax.clear()
+                if i == 0 and j == 0:
+                    sns.heatmap(get_np(grid_transition[grid_idx]), ax=ax, vmin=0, vmax=1, cmap="BuGn", square=True,
+                                cbar_ax=cbar_ax)
+                else:
+                    sns.heatmap(get_np(grid_transition[grid_idx]), ax=ax, vmin=0, vmax=1, cmap="BuGn", square=True,
+                                cbar=False)
+                ax.tick_params(axis='both', which='both', length=0)
+                grid_idx += 1
 
+    def plot_transition(self, ax, cbar_ax, transition):
+        """
+        plot the heatmap for one transition matrix
+        :param transition: (K, K)
+        :return:
+        """
+        ax.clear()
+        sns.heatmap(get_np(transition), ax=ax, vmin=0, vmax=1, cmap="BuGn", square=True, cbar_ax=cbar_ax)
 
 
 

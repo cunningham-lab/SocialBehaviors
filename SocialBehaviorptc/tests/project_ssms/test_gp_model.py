@@ -3,7 +3,7 @@ import numpy as np
 
 from ssm_ptc.models.hmm import HMM
 from ssm_ptc.utils import k_step_prediction
-from project_ssms.gp_observation import GPObservation, kernel_distsq
+from project_ssms.gp_observation import GPObservation, kernel_distsq_doubled
 from project_ssms.utils import k_step_prediction_for_gpmodel
 
 
@@ -41,8 +41,8 @@ def test_model():
     log_prob_nocache = obs.log_prob(data)
     print("log_prob_nocache = {}".format(log_prob_nocache))
 
-    kernel_distsq_xg_a = kernel_distsq(data[:-1, 0:2], obs.inducing_points)
-    kernel_distsq_xg_b = kernel_distsq(data[:-1, 2:4], obs.inducing_points)
+    kernel_distsq_xg_a = kernel_distsq_doubled(data[:-1, 0:2], obs.inducing_points)
+    kernel_distsq_xg_b = kernel_distsq_doubled(data[:-1, 2:4], obs.inducing_points)
 
     correct_kernel_distsq_xg_a = torch.tensor([[  2.,   2.,  50.,  50.,  82.,  82., 130., 130.],
         [  2.,   2.,  50.,  50.,  82.,  82., 130., 130.],

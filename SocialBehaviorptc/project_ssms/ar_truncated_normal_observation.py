@@ -130,15 +130,12 @@ class ARTruncatedNormalObservation(BaseObservation):
 
         if transformation:
             samples = mu
-            # some ad-hoc way to address bound issue
-            for d in range(self.D):
-                samples[d] = clip(samples[d], self.bounds[d])
-            samples = samples.detach()
-
         else:
-            # TODO: fix domain error here, add debug infor to print arg check
             dist = TruncatedNormal(mus=mu, log_sigmas=log_sigma, bounds=self.bounds)
             samples = dist.sample()
+
+        for d in range(self.D):
+            samples[d] = clip(samples[d], self.bounds[d])
 
         if return_np:
             return get_np(samples)

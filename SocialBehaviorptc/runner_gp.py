@@ -27,6 +27,7 @@ import json
 @click.command()
 @click.option('--job_name', default=None, help='name of the job')
 @click.option('--cuda_num', default=0, help='which cuda device to use')
+@click.option('--data_type', default='full', help='choose from full, selected_010_virgin')
 @click.option('--downsample_n', default=1, help='downsample factor. Data size will reduce to 1/downsample_n')
 @click.option('--filter_traj', is_flag=True, help='whether or not to filter the trajectory by SPEED')
 @click.option('--load_model', is_flag=True, help='Whether to load the (trained) model')
@@ -38,7 +39,10 @@ import json
 @click.option('--sticky_kappa', default=100, help='value of kappa in sticky transition')
 @click.option('--train_model', is_flag=True, help='Whether to train the model')
 @click.option('--pbar_update_interval', default=500, help='progress bar update interval')
-@click.option('--video_clips', default="0,1", help='The starting video clip of the training data')
+@click.option('--video_clips', default="0,1", help='The starting video clip of the training data. '
+                                                   'useful when data_type is full')
+@click.option('--prop_start_end', default='0,1.0', help='starting and ending proportion. '
+                                                        'useful when data_type is selected')
 @click.option('--held_out_proportion', default=0.0, help='the proportion of the held-out dataset in the whole dataset')
 @click.option('--torch_seed', default=0, help='torch random seed')
 @click.option('--np_seed', default=0, help='numpy random seed')
@@ -57,12 +61,12 @@ import json
 @click.option('--list_of_lr', default='0.005, 0.005', help='learning rate for training')
 @click.option('--ckpts_not_to_save', default=None, help='where to skip saving rslts')
 @click.option('--list_of_k_steps', default=None, help='list of number of steps prediction forward')
-@click.option('--sample_t', default=100, help='length of samples')
+@click.option('--sample_t', default=None, help='length of samples')
 @click.option('--quiver_scale', default=0.8, help='scale for the quiver plots')
-def main(job_name, cuda_num, downsample_n, filter_traj,
+def main(job_name, cuda_num,  data_type, downsample_n, filter_traj,
          load_model, load_model_dir, load_opt_dir, animal,
          transition, sticky_alpha, sticky_kappa, k, x_grids, y_grids, n_x, n_y, rs, train_rs, train_vs,
-         train_model, pbar_update_interval, video_clips, held_out_proportion, torch_seed, np_seed,
+         train_model, pbar_update_interval, video_clips, prop_start_end, held_out_proportion, torch_seed, np_seed,
          list_of_num_iters, ckpts_not_to_save, list_of_lr, list_of_k_steps, sample_t, quiver_scale):
     if job_name is None:
         raise ValueError("Please provide the job name.")
@@ -77,6 +81,7 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
     sample_T = sample_t
     rs = float(rs) if rs else None
     video_clip_start, video_clip_end = [float(x) for x in video_clips.split(",")]
+    start, end = [float(x) for x in prop_start_end.split(",")]
     list_of_num_iters = [int(x) for x in list_of_num_iters.split(",")]
     list_of_lr = [float(x) for x in list_of_lr.split(",")]
     # TODO: fix for no k_steps, k > 0
@@ -95,15 +100,24 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
     np.random.seed(np_seed)
 
     ########################## data ########################
-    data_dir = repo_dir + '/SocialBehaviorptc/data/trajs_all'
-    trajs = joblib.load(data_dir)
+    if data_type == 'full':
+        data_dir = repo_dir + '/SocialBehaviorptc/data/trajs_all'
+        traj = joblib.load(data_dir)
+        traj = traj[int(36000 * video_clip_start):int(36000 * video_clip_end)]
+    elif data_type == 'selected_010_virgin':
+        assert animal == 'virgin', "animal much be 'virgin', but got {}.".format(animal)
+        data_dir = repo_dir + '/SocialBehaviorptc/data/traj_010_virgin_selected'
+        traj = joblib.load(data_dir)
+        T = len(traj)
+        traj = traj[int(T * start): int(T * end)]
+    else:
+        raise ValueError("unsupported data type: {}".format(data_type))
 
     if animal == 'virgin':
-        trajs = trajs[:,0:2]
+        traj = traj[:,0:2]
     elif animal == 'mother':
-        trajs = trajs[:,2:4]
+        traj = traj[:,2:4]
 
-    traj = trajs[int(36000*video_clip_start):int(36000*video_clip_end)]
     traj = downsample(traj, downsample_n)
     if filter_traj:
         traj = filter_traj_by_speed(traj, q1=0.99, q2=0.99)
@@ -115,6 +129,8 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
     breakpoint = int(T*(1-held_out_proportion))
     training_data = data[:breakpoint]
     valid_data = data[breakpoint:]
+    if sample_T is None:
+        sample_T = training_data.shape[0]
 
     ######################### model ####################
 
@@ -122,12 +138,6 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
     D = data.shape[1]
     assert D == 4 or D == 2, D
     M = 0
-
-    if D == 4:
-        bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX],
-                           [ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX]])
-    else:
-        bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX]])
 
     if load_model:
         print("Loading the model from ", load_model_dir)
@@ -139,9 +149,16 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
 
         n_x = len(obs.x_grids) - 1
         n_y = len(obs.y_grids) - 1
+        bounds = obs.bounds
 
     else:
         print("Creating the model...")
+
+        if D == 4:
+            bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX],
+                               [ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX]])
+        else:
+            bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX]])
 
         # grids
         if x_grids is None:
@@ -177,6 +194,7 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
 
     # save experiment params
     exp_params = {"job_name":   job_name,
+                  "data_type": data_type,
                   'downsample_n': downsample_n,
                   "filter_traj": filter_traj,
                   "load_model": load_model,
@@ -198,19 +216,22 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
                   "pbar_update_interval": pbar_update_interval,
                   "video_clip_start": video_clip_start,
                   "video_clip_end": video_clip_end,
+                  "start_percentage": start,
+                  "end_percentage": end,
                   "held_out_proportion": held_out_proportion,
                   "torch_seed": torch_seed,
                   "np_seed": np_seed,
                   "list_of_num_iters": list_of_num_iters,
                   "list_of_lr": list_of_lr,
                   "list_of_k_steps": list_of_k_steps,
+                  "ckpts_not_to_save": ckpts_not_to_save,
                   "sample_T": sample_T,
                   "quiver_scale": quiver_scale}
 
     print("Experiment params:")
     print(exp_params)
 
-    rslt_dir = addDateTime("rslts/gp/" + job_name)
+    rslt_dir = addDateTime("rslts/gp/{}/{}".format(animal, job_name))
     rslt_dir = os.path.join(repo_dir, rslt_dir)
     if not os.path.exists(rslt_dir):
         os.makedirs(rslt_dir)
@@ -271,7 +292,7 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
         else:
             opt = None
         for i, (num_iters, lr) in enumerate(zip(list_of_num_iters, list_of_lr)):
-            training_losses, opt, valid_losses = \
+            training_losses, opt, valid_losses, rs_s = \
                 model.fit(training_data, optimizer=opt, method='adam', num_iters=num_iters, lr=lr,
                           pbar_update_interval=pbar_update_interval, valid_data=valid_data,
                           transition_memory_kwargs=transition_memory_kwargs,
@@ -302,6 +323,21 @@ def main(job_name, cuda_num, downsample_n, filter_traj,
             plt.plot(valid_losses)
             plt.title("validation loss")
             plt.savefig(checkpoint_dir + "/valid_losses.jpg")
+            plt.close()
+
+            rs_s = np.array(rs_s)
+            plt.figure(figsize=(10,5))
+            plt.subplot(1,2,1)
+            plt.title("lengthscale(x)")
+            for k in range(K):
+                plt.plot(rs_s[:,k, 0], label='k={}'.format(k))
+            plt.legend()
+            plt.subplot(1, 2, 2)
+            plt.title("lengthscale(y)")
+            for k in range(K):
+                plt.plot(rs_s[:, k, 1], label='k={}'.format(k))
+            plt.legend()
+            plt.savefig(checkpoint_dir + "/observation_rs.jpg")
             plt.close()
 
             # save rest

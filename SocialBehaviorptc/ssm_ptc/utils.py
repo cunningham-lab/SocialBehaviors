@@ -89,7 +89,7 @@ def k_step_prediction(model, model_z, data, k=0, **kwargs):
     return x_predict_arr
 
 
-def check_and_convert_to_tensor(inputs, dtype=torch.float64, device=torch.device('cpu')):
+def check_and_convert_to_tensor(inputs, dtype=torch.float64, device=torch.device('cpu'), requires_grad=False):
     """
     check if inputs type is either ndarray or tensor (requires_grad=False)
     :param inputs:
@@ -97,11 +97,16 @@ def check_and_convert_to_tensor(inputs, dtype=torch.float64, device=torch.device
     :return: converted tensor
     """
     if isinstance(inputs, np.ndarray):
-        return torch.tensor(inputs, dtype=dtype, device=device)
+        if requires_grad:
+            return torch.tensor(inputs, dtype=dtype, device=device)
+        else:
+            return torch.tensor(inputs, dtype=dtype, device=device, requires_grad=requires_grad)
     elif isinstance(inputs, torch.Tensor):
+        assert inputs.requires_grad == requires_grad, \
+            "inputs requires_grad = {}, does not match {}".format(inputs.requires_grad, requires_grad)
         return inputs
     else:
-        raise ValueError("Inputs must be an ndarray or tensor.")
+        raise ValueError("Inputs must be an ndarray or tensor, but got {}".format(type(inputs)))
 
 
 def get_np(input):

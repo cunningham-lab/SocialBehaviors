@@ -71,7 +71,6 @@ def rslt_saving(rslt_dir, model, data, animal, memory_kwargs, list_of_k_steps, s
 
     for k_step in list_of_k_steps:
         print("{} step prediction".format(k_step))
-
         x_predict_k = k_step_prediction(model, z, data_to_predict, k=k_step)
         x_predict_valid_k = k_step_prediction(model, z, data_to_predict, k=k_step)
         x_predict_k_err = np.mean(np.abs(x_predict_k - get_np(data_to_predict[k_step:])), axis=0)
