@@ -29,7 +29,7 @@ matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import seaborn as sns
 from project_ssms.plot_utils import get_colors_and_cmap, add_grid
-from project_ssms.gp_observation_single_original import GPObservationSingle
+from project_ssms.gp_observation_single import GPObservationSingle
 
 
 TRANSITION_CLASSES = dict(stationary=StationaryTransition,
@@ -86,9 +86,7 @@ class HMM:
 
         if isinstance(transition, str):
             transition = transition.lower()
-
             transition_kwargs = transition_kwargs or {}
-
             if transition not in TRANSITION_CLASSES:
                 raise ValueError("Invalid transition model: {}. Please select from {}.".format(
                     transition, list(TRANSITION_CLASSES.keys())))
@@ -128,7 +126,7 @@ class HMM:
         return torch.nn.Softmax(dim=0)(self.pi0)
 
     def sample_z(self, T):
-        # sample the time-invariant markov chain only
+        # sample the downsampled_t-invariant markov chain only
 
         # TODO: may want to expand to other cases
         assert isinstance(self.transition, StationaryTransition), \
@@ -146,7 +144,7 @@ class HMM:
     def sample(self, T, prefix=None, input=None, transformation=False, return_np=True, **kwargs):
         """
         Sample synthetic data form from the model.
-        :param T: int, the number of time steps to sample
+        :param T: int, the number of downsampled_t steps to sample
         :param prefix: (z_pre, x_pre), preceding hidden states and observations.
         z_pre: shape (T_pre,)
         x_pre: shape (T_pre, D)
@@ -409,9 +407,9 @@ class HMM:
             pbar_update_interval=10, valid_data=None,
             transition_memory_kwargs=None, valid_data_transition_memory_kwargs=None,
             valid_data_memory_kwargs=None, **memory_kwargs):
-        plot_color_quiver = True
-        plot_dynamics_quiver = True
-        plot_transition = True
+        plot_color_quiver = False
+        plot_dynamics_quiver = False
+        plot_transition = False
         plot_update_interval = 5
 
         # TODO, need to add valid_data to valid_datas
@@ -442,6 +440,7 @@ class HMM:
             x_grids = self.observation.x_grids
             y_grids = self.observation.y_grids
         else:
+            print("observation tye", type(self.observation))
             x_grids = self.observation.transformation.x_grids
             y_grids = self.observation.transformation.y_grids
             obs_rs = []
@@ -566,15 +565,25 @@ class HMM:
                                                                              device=self.device))
         dXYs = get_np(XY_next) - XYs[:, None]
 
-        for k in range(K):
-            axs[k].clear()
-            axs[k].quiver(XYs[:, 0], XYs[:, 1], dXYs[:, k, 0], dXYs[:, k, 1],
-                       angles='xy', scale_units='xy', scale=scale, alpha=alpha)
-            #add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
+        if K == 1:
+            axs.clear()
+            axs.quiver(XYs[:, 0], XYs[:, 1], dXYs[:, 0, 0], dXYs[:, 0, 1],
+                          angles='xy', scale_units='xy', scale=scale, alpha=alpha)
+            # add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
             if isinstance(self.observation, GPObservationSingle):
-                axs[k].set_title('K={}, rs={}'.format(k, get_np(self.observation.rs[k])))
+                axs.set_title("K={}, rs={}".format(0, get_np(self.observation.rs[0])))
             else:
-                axs[k].set_title('K={}'.format(k))
+                axs.set_title("K={}".format(0))
+        else:
+            for k in range(K):
+                axs[k].clear()
+                axs[k].quiver(XYs[:, 0], XYs[:, 1], dXYs[:, k, 0], dXYs[:, k, 1],
+                           angles='xy', scale_units='xy', scale=scale, alpha=alpha)
+                #add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
+                if isinstance(self.observation, GPObservationSingle):
+                    axs[k].set_title('K={}, rs={}'.format(k, get_np(self.observation.rs[k])))
+                else:
+                    axs[k].set_title('K={}'.format(k))
 
     def plot_grid_transition(self, axn, cbar_ax, n_x, n_y, grid_transition):
         """

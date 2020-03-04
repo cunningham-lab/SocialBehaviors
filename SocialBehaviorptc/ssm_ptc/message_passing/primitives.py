@@ -12,7 +12,7 @@ def viterbi(log_pi0, log_Ps, ll):
     T, K = ll.shape
 
     # Check if the transition matrices are stationary or
-    # time-varying (hetero)
+    # downsampled_t-varying (hetero)
     hetero = (log_Ps.shape[0] == T-1)
     if not hetero:
         assert log_Ps.shape[0] == 1
