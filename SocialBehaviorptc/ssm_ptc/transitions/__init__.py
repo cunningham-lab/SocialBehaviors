@@ -1,5 +1,5 @@
 from ssm_ptc.transitions.base_transition import BaseTransition
 from ssm_ptc.transitions.grid_transition import GridTransition
 from ssm_ptc.transitions.stationary_transition import StationaryTransition
-from ssm_ptc.transitions.sticky_transition import StationaryTransition
+from ssm_ptc.transitions.sticky_transition import StickyTransition, InputDrivenTransition
 from ssm_ptc.transitions.negative_binomial_semi_markov_transition import NegativeBinomialSemiMarkovTransition

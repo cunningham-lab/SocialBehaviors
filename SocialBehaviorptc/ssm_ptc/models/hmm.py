@@ -7,16 +7,10 @@ import numpy as np
 import numpy.random as npr
 import sys
 import contextlib
-import joblib
 
-from ssm_ptc.transitions.base_transition import BaseTransition
-from ssm_ptc.transitions.stationary_transition import StationaryTransition
-from ssm_ptc.transitions.sticky_transition import StickyTransition, InputDrivenTransition
-from ssm_ptc.transitions.grid_transition import GridTransition
-from ssm_ptc.observations.base_observation import BaseObservation
-from ssm_ptc.observations.ar_gaussian_observation import ARGaussianObservation
-from ssm_ptc.observations.ar_logit_normal_observation import ARLogitNormalObservation
-from ssm_ptc.observations.ar_truncated_normal_observation import ARTruncatedNormalObservation
+from ssm_ptc.init_state_distns import *
+from ssm_ptc.observations import *
+from ssm_ptc.transitions import *
 from ssm_ptc.message_passing.primitives import viterbi
 from ssm_ptc.message_passing.normalizer import hmmnorm_cython
 from ssm_ptc.utils import check_and_convert_to_tensor, set_param, ensure_args_are_lists_of_tensors, get_np
@@ -29,9 +23,9 @@ matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import seaborn as sns
 from project_ssms.plot_utils import get_colors_and_cmap, add_grid
-from project_ssms.gp_observation_single import GPObservationSingle
 
 
+INIT_CLASSES = dict(base=BaseInitStateDistn)
 TRANSITION_CLASSES = dict(stationary=StationaryTransition,
                           sticky=StickyTransition,
                           inputdriven=InputDrivenTransition,
@@ -63,7 +57,7 @@ def nostdout():
 
 class HMM:
 
-    def __init__(self, K, D, M=0, transition='stationary', observation="gaussian", pi0=None, Pi=None,
+    def __init__(self, K, D, M=0, init_state_distn=None, transition='stationary', observation="gaussian",Pi=None,
                  transition_kwargs=None, observation_kwargs=None, device=torch.device('cpu')):
         """
         :param K: number of hidden states
@@ -78,11 +72,14 @@ class HMM:
         self.D = D
         self.M = M
 
-        # parameter for the softmax distribution
-        if pi0 is None:
-            self.pi0 = torch.ones(self.K, dtype=torch.float64, requires_grad=True, device=device)
+        if init_state_distn is None:
+            # set to default
+            self.init_state_distn = BaseInitStateDistn(K=self.K, D=self.D, M=self.M, device=None)
+        elif isinstance(init_state_distn, BaseInitStateDistn):
+            self.init_state_distn = init_state_distn
         else:
-            self.pi0 = check_and_convert_to_tensor(pi0, dtype=torch.float64, device=device)
+            raise TypeError("'init_state_distn' must be a subclass of"
+                            " ssm.init_state_distns.BaseInitStateDistn")
 
         if isinstance(transition, str):
             transition = transition.lower()
@@ -163,7 +160,7 @@ class HMM:
         D = self.D
         M = self.M
 
-        dtype = torch.float64
+        dtype = torch.float32
 
         if prefix is None:
             # no prefix is given. Sample the initial state as the prefix
@@ -271,7 +268,8 @@ class HMM:
             data = check_and_convert_to_tensor(data, torch.float64, device=self.device)
 
             T = data.shape[0]
-            log_pi0 = torch.nn.LogSoftmax(dim=0)(self.pi0)  # (K, )
+            log_pi0 = self.init_state_distn.log_pi
+            #log_pi0 = torch.nn.LogSoftmax(dim=0)(self.pi0)  # (K, )
 
             if isinstance(self.transition, StationaryTransition):
                 log_P = self.transition.log_stationary_transition_matrix
@@ -301,7 +299,7 @@ class HMM:
         """
         :return: a tuple of three items, each item is a list of tensors
         """
-        return (self.pi0, ), self.transition.params, self.observation.params
+        return self.init_state_distn.params, self.transition.params, self.observation.params
 
     @params.setter
     def params(self, values):
@@ -378,8 +376,8 @@ class HMM:
         T = zs.shape[0]
 
         assert T > 0
-
-        xs = torch.zeros((T, self.D), dtype=torch.float64)
+        dtype = torch.float64
+        xs = torch.zeros((T, self.D), dtype=dtype)
         if T == 1:
             if x0 is not None:
                 print("Nothing to sample")
@@ -390,7 +388,7 @@ class HMM:
         if x0 is None:
             x0 = self.observation.sample_x(zs[0], transformation=transformation, return_np=False)
         else:
-            x0 = check_and_convert_to_tensor(x0, dtype=torch.float64, device=self.device)
+            x0 = check_and_convert_to_tensor(x0, dtype=dtype, device=self.device)
             assert x0.shape == (self.D, )
 
         xs[0] = x0
@@ -427,7 +425,7 @@ class HMM:
             else:
                 raise ValueError("Method must be chosen from adam and sgd.")
 
-        elif optimizer is not None:
+        else:
             assert isinstance(optimizer, (torch.optim.SGD, torch.optim.Adam)), \
                 "Optimizer must be chosen from SGD or Adam"
             for param_group in optimizer.param_groups:
@@ -617,4 +615,57 @@ class HMM:
         sns.heatmap(get_np(transition), ax=ax, vmin=0, vmax=1, cmap="BuGn", square=True, cbar_ax=cbar_ax)
 
 
+if __name__ == "__main__":
+    torch.random.manual_seed(0)
+    np.random.seed(0)
+
+    import git
+    import joblib
+
+    from project_ssms.utils import downsample
+    from project_ssms.gp_observation_single import GPObservationSingle
+    from project_ssms.constants import *
+
+    # test for virgin selected
+    repo = git.Repo('.', search_parent_directories=True)  # SocialBehaviorectories=True)
+    repo_dir = repo.working_tree_dir  # SocialBehavior
+
+    start = 0
+    end = 1
+
+    data_dir = repo_dir + '/SocialBehaviorptc/data/traj_010_virgin_selected'
+    traj = joblib.load(data_dir)
+    T = len(traj)
+    traj = traj[int(T * start): int(T * end)]
+
+    downsample_n = 4
+    traj = downsample(traj, downsample_n)
+    traj = traj[200:500]
+
+    device = torch.device('cpu')
+    data = torch.tensor(traj, dtype=torch.float64, device=device)
+
+    K = 2
+    T, D = data.shape
+
+    n_x = 3
+    n_y = 3
+    mus_init = data[0] * torch.ones(K, D, dtype=torch.float64, device=device)
+    x_grid_gap = (ARENA_XMAX - ARENA_XMIN) / n_x
+    x_grids = np.array([ARENA_XMIN + i * x_grid_gap for i in range(n_x + 1)])
+    y_grid_gap = (ARENA_XMAX - ARENA_XMIN) / n_y
+    y_grids = np.array([ARENA_XMIN + i * y_grid_gap for i in range(n_y + 1)])
+    bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX]])
+    train_rs = False
+    obs = GPObservationSingle(K=K, D=D, mus_init=mus_init, x_grids=x_grids, y_grids=y_grids, bounds=bounds,
+                              rs=None, train_rs=train_rs, device=device)
+
+    L = 5
+    model = HMM(K=K, D=D, init_state_distn=None, transition='stationary', observation=obs)
+
+    ll = model.log_likelihood(data)  # -10353.3487
+    print(ll)
+
+    # fitting
+    loss = model.fit(datas=data, num_iters=100, lr=1e-3)  # 10222.51
 

@@ -162,26 +162,27 @@ def rslt_saving(rslt_dir, model, data, animal, memory_kwargs, list_of_k_steps, s
         plt.savefig(rslt_dir + "/grid_transition.jpg")
         plt.close()
 
-    plot_z(z, K, title="most likely z for the ground truth")
-    plt.savefig(rslt_dir + "/z.jpg")
-    plt.close()
-
-    if len(valid_data) > 0:
-        plot_z(z_valid, K, title="most likely z for valid data")
-        plt.savefig(rslt_dir + "/z_valid.jpg")
-        plt.close()
-
     if not os.path.exists(rslt_dir + "/samples"):
         os.makedirs(rslt_dir + "/samples")
         print("Making samples directory...")
 
-    plot_z(sample_z, K, title="sample")
-    plt.savefig(rslt_dir + "/samples/sample_z_{}.jpg".format(sample_T))
-    plt.close()
+    if K > 1:
+        plot_z(z, K, title="most likely z for the ground truth")
+        plt.savefig(rslt_dir + "/z.jpg")
+        plt.close()
 
-    plot_z(sample_z_center, K, title="sample (starting from center)")
-    plt.savefig(rslt_dir + "/samples/sample_z_center_{}.jpg".format(sample_T))
-    plt.close()
+        if len(valid_data) > 0:
+            plot_z(z_valid, K, title="most likely z for valid data")
+            plt.savefig(rslt_dir + "/z_valid.jpg")
+            plt.close()
+
+        plot_z(sample_z, K, title="sample")
+        plt.savefig(rslt_dir + "/samples/sample_z_{}.jpg".format(sample_T))
+        plt.close()
+
+        plot_z(sample_z_center, K, title="sample (starting from center)")
+        plt.savefig(rslt_dir + "/samples/sample_z_center_{}.jpg".format(sample_T))
+        plt.close()
 
     plt.figure(figsize=(4, 4))
     plot_mouse(data, title="ground truth (training)", xlim=[ARENA_XMIN - 20, ARENA_YMAX + 20],
@@ -212,29 +213,30 @@ def rslt_saving(rslt_dir, model, data, animal, memory_kwargs, list_of_k_steps, s
     plt.savefig(rslt_dir + "/samples/sample_x_center_{}.jpg".format(sample_T))
     plt.close()
 
-    plot_realdata_quiver(data, z, K, x_grids, y_grids, title="ground truth (training)")
-    plt.savefig(rslt_dir + "/samples/quiver_ground_truth.jpg", dpi=200)
-    plt.close()
-
-    if len(valid_data) > 0:
-        plot_realdata_quiver(valid_data, z_valid, K, x_grids, y_grids, title="ground truth (valid)")
-        plt.savefig(rslt_dir + "/samples/quiver_ground_truth_valid.jpg", dpi=200)
+    if K > 1:
+        plot_realdata_quiver(data, z, K, x_grids, y_grids, title="ground truth (training)")
+        plt.savefig(rslt_dir + "/samples/quiver_ground_truth.jpg", dpi=200)
         plt.close()
 
-    plot_realdata_quiver(sample_x, sample_z, K, x_grids, y_grids, title="sample")
-    plt.savefig(rslt_dir + "/samples/quiver_sample_x_{}.jpg".format(sample_T), dpi=200)
-    plt.close()
+        if len(valid_data) > 0:
+            plot_realdata_quiver(valid_data, z_valid, K, x_grids, y_grids, title="ground truth (valid)")
+            plt.savefig(rslt_dir + "/samples/quiver_ground_truth_valid.jpg", dpi=200)
+            plt.close()
 
-    plot_realdata_quiver(sample_x_center, sample_z_center, K, x_grids, y_grids, title="sample (starting from center)")
-    plt.savefig(rslt_dir + "/samples/quiver_sample_x_center_{}.jpg".format(sample_T), dpi=200)
-    plt.close()
+        plot_realdata_quiver(sample_x, sample_z, K, x_grids, y_grids, title="sample")
+        plt.savefig(rslt_dir + "/samples/quiver_sample_x_{}.jpg".format(sample_T), dpi=200)
+        plt.close()
+
+        plot_realdata_quiver(sample_x_center, sample_z_center, K, x_grids, y_grids, title="sample (starting from center)")
+        plt.savefig(rslt_dir + "/samples/quiver_sample_x_center_{}.jpg".format(sample_T), dpi=200)
+        plt.close()
 
     if not os.path.exists(rslt_dir + "/dynamics"):
         os.makedirs(rslt_dir + "/dynamics")
         print("Making dynamics directory...")
 
     if animal == 'both':
-        plot_quiver(XY_grids[:, 0:2], dXY[..., 0:2], 'virgin', K=K, scale=quiver_scale, alpha=0.9,
+        plot_quiver(XY_grids[..., 0:2], dXY[..., 0:2], 'virgin', K=K, scale=quiver_scale, alpha=0.9,
                     title="quiver (virgin)", x_grids=x_grids, y_grids=y_grids, grid_alpha=0.2)
         plt.savefig(rslt_dir + "/dynamics/quiver_a.jpg", dpi=200)
         plt.close()
@@ -330,4 +332,3 @@ def rslt_saving(rslt_dir, model, data, animal, memory_kwargs, list_of_k_steps, s
         plt.close()
     except:
         print("plot_space_dist unsuccessful")
-

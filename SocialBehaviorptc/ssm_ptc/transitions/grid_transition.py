@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import numpy as np
 import numpy.random as npr
 
@@ -10,8 +11,8 @@ class GridTransition(BaseTransition):
     """
     each grid has its own transition matrices
     """
-    def __init__(self, K, D, M, x_grids, y_grids, Pi=None, device=torch.device('cpu')):
-        super(GridTransition, self).__init__(K=K, D=D, M=M, device=device)
+    def __init__(self, K, D, M, x_grids, y_grids, Pi=None):
+        super(GridTransition, self).__init__(K=K, D=D, M=M)
         assert D == 2 or D == 4, D
 
         self.x_grids = x_grids  # [x0, ..., xn]
@@ -23,17 +24,17 @@ class GridTransition(BaseTransition):
             if Pis is None:
                 Pis = [2 * np.eye(self.K) + .05 * npr.rand(self.K, self.K)
                        for _ in range(self.n_grids) for _ in range(self.n_grids)]
-            self.Pis = torch.tensor(Pis, dtype=torch.float64, requires_grad=True, device=self.device)
+            self.Pis = nn.Parameter(torch.tensor(Pis, dtype=torch.float64), requires_grad=True)
             assert self.Pis.shape == (self.n_grids, self.n_grids, self.K, self.K), \
                 "shape should be {} instead of {}".format((self.n_grids, self.n_grids, self.K, self.K), self.Pis.shape)
         else:
             if Pis is None:
                 Pis = [2 * np.eye(self.K) + .05 * npr.rand(self.K, self.K)
                        for _ in range(self.n_grids)]
-            self.Pis = torch.tensor(Pis, dtype=torch.float64, requires_grad=True, device=self.device)
+            self.Pis = nn.Parameter(torch.tensor(Pis, dtype=torch.float64), requires_grad=True)
             assert self.Pis.shape == (self.n_grids, self.K, self.K), \
                 "shape should be {} instead of {}".format((self.n_grids, self.K, self.K), self.Pis.shape)
-
+    
     @property
     def params(self):
         return self.Pis,

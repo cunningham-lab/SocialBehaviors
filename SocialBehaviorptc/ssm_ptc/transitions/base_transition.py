@@ -1,12 +1,13 @@
 import torch
+import torch.nn as nn
 from ssm_ptc.utils import ensure_args_are_lists_of_tensors
 
 
-class BaseTransition:
+class BaseTransition(nn.Module):
 
-    def __init__(self, K, D, M=0, device=torch.device('cpu')):
+    def __init__(self, K, D, M=0):
+        super(BaseTransition, self).__init__()
         self.K, self.D, self.M = K, D, M
-        self.device = device
 
     @property
     def params(self):

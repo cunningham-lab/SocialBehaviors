@@ -8,7 +8,6 @@ from ssm_ptc.utils import check_and_convert_to_tensor, set_param, get_np
 from ssm_ptc.observations.base_observation import BaseObservation
 
 
-
 class GPObservationSingle(BaseObservation):
     """
     Learnable parameters: weights of each grid vertex
@@ -16,44 +15,44 @@ class GPObservationSingle(BaseObservation):
     where the weights = softmax
     """
     def __init__(self, K, D, x_grids, y_grids, bounds, mus_init=None, log_sigmas_init=None, log_sigmas=None,
-                rs=None, train_rs=False, train_vs=False, train_sigmas=False,
+                rs=None, train_rs=False, train_vs=False, train_sigmas=False, dtype=torch.float64,
                  device=torch.device('cpu')):
         assert D == 2
         super(GPObservationSingle, self).__init__(K, D)
 
         self.device = device
 
-        self.bounds = check_and_convert_to_tensor(bounds, dtype=torch.float64, device=self.device)
+        self.bounds = check_and_convert_to_tensor(bounds, dtype=dtype, device=self.device)
         assert self.bounds.shape == (self.D, 2), self.bounds.shape
 
         # specify distribution parameters
         if mus_init is None:
-            self.mus_init = torch.zeros(self.K, self.D, dtype=torch.float64, device=self.device)
+            self.mus_init = torch.zeros(self.K, self.D, dtype=dtype, device=self.device)
         else:
-            self.mus_init = check_and_convert_to_tensor(mus_init, dtype=torch.float64, device=self.device)
+            self.mus_init = check_and_convert_to_tensor(mus_init, dtype=dtype, device=self.device)
         # consider diagonal covariance
         if log_sigmas_init is None:
-            self.log_sigmas_init = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, device=self.device)
+            self.log_sigmas_init = torch.tensor(np.log(np.ones((K, D))), dtype=dtype, device=self.device)
         else:
-            self.log_sigmas_init = check_and_convert_to_tensor(log_sigmas_init, dtype=torch.float64, device=self.device)
+            self.log_sigmas_init = check_and_convert_to_tensor(log_sigmas_init, dtype=dtype, device=self.device)
         assert self.log_sigmas_init.shape == (self.K, self.D)
         if log_sigmas is None:
-            self.log_sigmas = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, device=self.device,
+            self.log_sigmas = torch.tensor(np.log(np.ones((K, D))), dtype=dtype, device=self.device,
                                            requires_grad=train_sigmas)
         else:
-            self.log_sigmas = check_and_convert_to_tensor(log_sigmas, dtype=torch.float64, device=self.device,
+            self.log_sigmas = check_and_convert_to_tensor(log_sigmas, dtype=dtype, device=self.device,
                                                           requires_grad=train_sigmas)
         assert self.log_sigmas.shape == (self.K, self.D)
 
         # specify gp dynamics parameters
-        self.x_grids = check_and_convert_to_tensor(x_grids, dtype=torch.float64, device=self.device)  # [x_0, x_1, ..., x_m]
-        self.y_grids = check_and_convert_to_tensor(y_grids, dtype=torch.float64, device=self.device)  # a list [y_0, y_1, ..., y_n]
+        self.x_grids = check_and_convert_to_tensor(x_grids, dtype=dtype, device=self.device)  # [x_0, x_1, ..., x_m]
+        self.y_grids = check_and_convert_to_tensor(y_grids, dtype=dtype, device=self.device)  # a list [y_0, y_1, ..., y_n]
 
         self.inducing_points = torch.tensor([(x_grid, y_grid) for x_grid in self.x_grids for y_grid in self.y_grids],
                                             device=self.device)  # (n_gps, 2)
         self.n_gps = self.inducing_points.shape[0]
 
-        self.us = torch.rand(self.K, self.n_gps, self.D, dtype=torch.float64, device=self.device, requires_grad=True)
+        self.us = torch.rand(self.K, self.n_gps, self.D, dtype=dtype, device=self.device, requires_grad=True)
 
         # define n_gps parameters, suppose parameters work for all Ks
         if rs is None:
@@ -70,12 +69,12 @@ class GPObservationSingle(BaseObservation):
                 assert isinstance(rs, np.ndarray) and rs.shape == (2,)
                 rs = np.repeat(rs[None], self.K, axis=0)
         assert rs.shape == (self.K, 2), rs.shape
-        self.rs = torch.tensor(rs, dtype=torch.float64, device=self.device, requires_grad=train_rs)
+        self.rs = torch.tensor(rs, dtype=dtype, device=self.device, requires_grad=train_rs)
 
         # (K, 2)
         vs = [[1,1] for _ in range(self.K)]
         # TODO: if train_vs, need to make vs positive
-        self.vs = torch.tensor(vs, dtype=torch.float64, device=self.device, requires_grad=train_vs)
+        self.vs = torch.tensor(vs, dtype=dtype, device=self.device, requires_grad=train_vs)
 
         self.kernel_distsq_gg = kernel_distsq(self.inducing_points, self.inducing_points)  # (n_gps, n_gps)
 
@@ -144,7 +143,7 @@ class GPObservationSingle(BaseObservation):
 
         return log_prob
 
-    def get_mu_and_cov_for_single_animal(self, inputs, mu_only=False, **kwargs):
+    def get_mu_and_cov_for_single_animal(self, inputs, mu_only=False, dtype=torch.float64, **kwargs):
         """
 
         :param inputs: (T, 2)
@@ -153,7 +152,7 @@ class GPObservationSingle(BaseObservation):
         :return: mu: (T, K, 2), cov (T, K, 2)
         """
 
-        inputs = check_and_convert_to_tensor(inputs, dtype=torch.float64, device=self.device)
+        inputs = check_and_convert_to_tensor(inputs, dtype=dtype, device=self.device)
 
         T, _ = inputs.shape
 
@@ -222,7 +221,7 @@ class GPObservationSingle(BaseObservation):
         if A_only:
             return _, (A_x, A_y)
 
-        kernel_distsq_xx = torch.zeros((T, 2), dtype=torch.float64, device=self.device)
+        kernel_distsq_xx = self.vs.new_zeros((T,2))
         # (K, 1, 2) * [ (T, 2) / (K, 1, 2)] -> (K, T, 2)
         K_xx = self.vs[:, None] * torch.exp(-kernel_distsq_xx / self.rs[:, None] ** 2)
         assert K_xx.shape == (self.K, T, 2)
@@ -255,7 +254,7 @@ class GPObservationSingle(BaseObservation):
                     sample = mu
                 else:
                     sigmas_z = torch.exp(self.log_sigmas_init[z])  # (D,)
-                    sample = mu + sigmas_z * torch.randn(self.D, dtype=torch.float64)  # (self.D, )
+                    sample = mu + sigmas_z * torch.randn(self.D, dtype=mu.dtype)  # (self.D, )
             else:
                 sample = self.sample_single_animal_x(z, xhist[-1:, 0:2], transformation, **kwargs)
             assert sample.shape == (self.D, ), sample.shape
@@ -346,7 +345,7 @@ class GPObservationSingle(BaseObservation):
         if A_only:
             return 0, (A_x, A_y)
 
-        kernel_distsq_xx = torch.zeros((T, 2), dtype=torch.float64, device=self.device)
+        kernel_distsq_xx = self.vs.new_zeros((T, 2))
         K_xx = self.vs[z] * torch.exp(-(kernel_distsq_xx / self.rs[z] ** 2))
         assert K_xx.shape == (T, 2)
 

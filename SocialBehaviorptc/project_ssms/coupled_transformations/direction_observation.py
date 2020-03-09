@@ -36,7 +36,7 @@ class DirectionTransformation(BaseTransformation):
         :param K: number of hidden states
         :param D: dimension of observations
         :param Df: number of direction vectors (not including the momentum vectors)
-        :param momentum_lags: number of time lags to accumulate the momentum
+        :param momentum_lags: number of downsampled_t lags to accumulate the momentum
         :param momentum_weights: weights for weighted linear regression
         :param feature_vec_func: function to compute the featured direction vector --> (T, 2*Df)
         :param acc_factor: acceleration factor, for the purpose of speed control

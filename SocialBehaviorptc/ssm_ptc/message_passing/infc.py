@@ -15,6 +15,7 @@ def bwd_mp(tran_log_probs, seq_logprobs, fwd_obs_logprobs):
 
     L, T, K = fwd_obs_logprobs.shape
 
+
     log_betas = torch.zeros((T+1, K))
     log_beta_stars = torch.zeros((T+1, K))
 
@@ -37,10 +38,10 @@ def bwd_mp(tran_log_probs, seq_logprobs, fwd_obs_logprobs):
 
 
 # make sure to detach grad
-def viterbi(pi, trans_logprobs, bwd_obs_logprobs, len_logprobs=None, L=None):
+def hsmm_viterbi(log_pi0, trans_logprobs, bwd_obs_logprobs, len_logprobs=None, L=None):
     """
 
-    :param pi: initial dist (K, )
+    :param log_pi0: initial dist (K, )
     :param trans_logprobs: (T-1, K, K)
     :param bwd_obs_logprobs: (L, T, K), bwd_obs_logprobs[:,t] gives log prob for segments ending at t.
     :param len_logprobs: uniform for now
@@ -63,7 +64,7 @@ def viterbi(pi, trans_logprobs, bwd_obs_logprobs, len_logprobs=None, L=None):
     delta_stars = torch.zeros((T + 1, K)) # value
     b_stars = torch.zeros((T, K), dtype=torch.int) # pointer
 
-    delta_stars[0] = pi
+    delta_stars[0] = log_pi0
 
     for t in range(1, T+1):
         steps_back = min(L, t)
@@ -74,19 +75,12 @@ def viterbi(pi, trans_logprobs, bwd_obs_logprobs, len_logprobs=None, L=None):
         bs[t-1] = steps_back - b_t
         deltas[t] = delta_t
 
-        print("t = {}".format(t))
-        print("detla", delta_t)
-        print("b", bs[t - 1])
-
         if t < T:
             # (K, 1) + (K, K)
             delta_star_t = delta_t[:, None] + trans_logprobs[t-1]
             delta_star_t, b_star_t = torch.max(delta_star_t, dim=0)  # (K, ), (K, )
             b_stars[t-1] = b_star_t
             delta_stars[t] = delta_star_t
-
-            print("delta_star", delta_star_t)
-            print("b_star", b_stars[t - 1])
 
     seqs = recover_bp(deltas, bs, b_stars)
     return seqs
@@ -144,15 +138,14 @@ def fwd_to_bwd(fw_logprobs):
     assert len(fw_logprobs.shape) == 3, fw_logprobs.shape
 
     L = len(fw_logprobs)
-    bw_logprobs = fw_logprobs.new().resize_as_(fw_logprobs).fill_(-float("inf"))
+    #bw_logprobs = fw_logprobs.new().resize_as_(fw_logprobs).fill_(-float("inf"))
+    bw_logprobs = fw_logprobs.new_full(fw_logprobs.shape, -float("inf"))
     bw_logprobs[L-1].copy_(fw_logprobs[0])
 
     for l in range(1, L):
         bw_logprobs[L-l-1, l:].copy_(fw_logprobs[l,:-l])
 
     return bw_logprobs
-
-
 
 
 def test_case():
@@ -177,10 +170,11 @@ def test_case():
 
     # check viterbi
     with torch.no_grad():
-        seqs, hidden_state_seqs = viterbi(log_pi, trans_log_probs, bws_obs_logprobs, L=L)
+        seqs, hidden_state_seqs = hsmm_viterbi(log_pi, trans_log_probs, bws_obs_logprobs, L=L)
     print(seqs)
     print(hidden_state_seqs)
 
+    # check fwd to bwd
     # log probs starting at t
     fw_obs_logprobs = torch.stack((
         torch.tensor([[3, 9, 2], [2, 4, -np.inf], [5, -np.inf, -np.inf]], dtype=torch.float),
@@ -190,9 +184,24 @@ def test_case():
     bws_obs_logprobs_2 = fwd_to_bwd(fw_obs_logprobs)
     assert torch.all(bws_obs_logprobs_2 == bws_obs_logprobs)
 
+    # check hsmm_normalizer
     log_betas, log_beta_stars = bwd_mp(trans_log_probs, 0, fwd_obs_logprobs=fw_obs_logprobs)
     log_likelihood = torch.logsumexp(log_beta_stars[0]+log_pi, dim=0)
     print(log_likelihood)
+
+
+def hsmm_normalizer(log_pi, tran_log_probs, seq_logprobs, fwd_obs_logprobs):
+    """
+
+    :param log_pi: (K, )
+    :param tran_log_probs: (T-1, K, K)
+    :param seq_logprobs: (K, L) or None
+    :param fwd_obs_logprobs: (L, T, K)
+    :return: a scalar
+    """
+    _, log_beta_stars = bwd_mp(tran_log_probs=tran_log_probs, seq_logprobs=seq_logprobs, fwd_obs_logprobs=fwd_obs_logprobs)
+    log_likelihood = torch.logsumexp(log_beta_stars[0] + log_pi, dim=0)
+    return log_likelihood
 
 
 if __name__ == "__main__":

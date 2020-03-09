@@ -15,7 +15,7 @@ import string
 def addDateTime(s=""):
     """
     @author: danielhernandez
-    Adds the current date and time at the end of a string.
+    Adds the current date and downsampled_t at the end of a string.
     Inputs:
         s -> string
     Output:

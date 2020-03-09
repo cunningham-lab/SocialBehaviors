@@ -12,7 +12,7 @@ class SingleDirectionTransformation(BaseSingleTransformation):
     x^{self}_t \sim x^{self}_{t-1} + acc_factor * [ \sum_{i=1}^{Df} sigmoid(W^k_i) f_i (self)]
     """
 
-    def __init__(self, K, D, Df, feature_vec_func=None, acc_factor=2):
+    def __init__(self, K, D, Df, feature_vec_func=None, acc_factor=2, dtype=torch.float32):
         super(SingleDirectionTransformation, self).__init__(K, D)
         # d = int(D/2)
 
@@ -26,7 +26,8 @@ class SingleDirectionTransformation(BaseSingleTransformation):
 
         self.acc_factor = acc_factor  # int
 
-        self.Ws = torch.rand(self.K, self.Df, dtype=torch.float64, requires_grad=True)
+        self.Ws = torch.rand(self.K, self.Df, dtype=dtype
+                             , requires_grad=True)
 
     @property
     def params(self):

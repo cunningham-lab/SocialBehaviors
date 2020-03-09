@@ -28,7 +28,7 @@ import json
 @click.option('--job_name', default=None, help='name of the job')
 @click.option('--cuda_num', default=0, help='which cuda device to use')
 @click.option('--data_type', default='full', help='choose from full, selected_010_virgin')
-@click.option('--downsample_n', default=1, help='downsample factor. Data size will reduce to 1/downsample_n')
+@click.option('--data_downsample_n', default=1, help='downsample factor. Data size will reduce to 1/downsample_n')
 @click.option('--filter_traj', is_flag=True, help='whether or not to filter the trajectory by SPEED')
 @click.option('--load_model', is_flag=True, help='Whether to load the (trained) model')
 @click.option('--load_model_dir', default="", help='Directory of model to load')

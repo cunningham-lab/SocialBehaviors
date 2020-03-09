@@ -102,22 +102,25 @@ def plot_4_traces(data, title):
 
 @click.command()
 @click.option("--save_video_dir", default=None, help='name of the video')
-@click.option("--v_start", default=0, help='start of the true data')
-@click.option("--v_end", default=5, help='end of the true data')
+@click.option("--data_type", default="full", help='choose from full, selected_010_virgin')
+@click.option('--prop_start_end', default='0,1.0', help='starting and ending proportion. '
+                                                        'useful when data_type is selected (for real data)')
+@click.option("--mouse", default='both', help='choose from mother, virgin, both')
 @click.option("--data_downsample_n", default=2, help="downsample times for real data")
 @click.option("--checkpoint_dir", default=None, help='checkpoint dir')
 @click.option("--video_downsample_n", default=1, help='downsampling data by downsample_n times')
 @click.option("--fps", default=25, help="fps, frame per second")
-@click.option("--xlim", default=None, help='limit of the xrange')
-@click.option("--ylim", default=None, help='limit of the yrange')
+@click.option("--xlim", default="-100,500", help='limit of the xrange')
+@click.option("--ylim", default="-100,500", help='limit of the yrange')
 @click.option("--grid_alpha", default=0.8, help='alpha for the grid line')
-@click.option("--video_start_and_end", default="0,0.01", help='')
+@click.option("--video_start_and_end", default="0,1.0", help='')
 @click.option("--video_data_type", default="data", help="choose from 'data' or 'sample_x")
 @click.option("--color_only", is_flag=True, help="")
 @click.option("--traj_only", is_flag=True, help="")
-def plot_animation_helper(save_video_dir, v_start, v_end, data_downsample_n, checkpoint_dir,
+@click.option("--plot_type", default="interactive", help="choose from interactive or save")
+def plot_animation_helper(save_video_dir, data_type, prop_start_end, mouse, data_downsample_n, checkpoint_dir,
                           video_start_and_end, video_downsample_n, fps, xlim, ylim, grid_alpha, video_data_type,
-                          color_only, traj_only):
+                          color_only, traj_only, plot_type):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     if save_video_dir is None:
         raise ValueError("Please provide save_video_dir!")
@@ -137,16 +140,35 @@ def plot_animation_helper(save_video_dir, v_start, v_end, data_downsample_n, che
         y_grids = None
 
     K = model.K
+    xlim = np.array([float(x) for x in xlim.split(",")])
+    ylim = np.array([float(x) for x in ylim.split(",")])
+
+    true_data_prop_start, true_data_prop_end = [float(x) for x in prop_start_end.split(",")]
 
     # data
     repo = git.Repo('.', search_parent_directories=True)  # SocialBehaviorectories=True)
     repo_dir = repo.working_tree_dir  # SocialBehavior
 
     if video_data_type == "data":
-        data_dir = repo_dir + '/SocialBehaviorptc/data/trajs_all'
-        trajs = joblib.load(data_dir)
+        if data_type == 'full':
+            data_dir = repo_dir + '/SocialBehaviorptc/data/trajs_all'
+            traj = joblib.load(data_dir)
+            if mouse == 'virgin':
+                traj = traj[:, 0:2]
+            elif mouse == 'mother':
+                traj = traj[:, 2:4]
+            else:
+                assert mouse == 'both', mouse
+        elif data_type == 'selected_010_virgin':
+            assert mouse == 'virgin', "animal must be 'virgin', but got {}.".format(mouse)
+            data_dir = repo_dir + '/SocialBehaviorptc/data/traj_010_virgin_selected'
+            traj = joblib.load(data_dir)
+        else:
+            raise ValueError("unsupported data_type.")
 
-        traj = trajs[36000 * v_start:36000 * v_end]
+        #traj = trajs[36000 * v_start:36000 * v_end]
+        T = len(traj)
+        traj = traj[int(T * true_data_prop_start): int(T * true_data_prop_end)]
         traj = downsample(traj, data_downsample_n)
         data = torch.tensor(traj, dtype=torch.float64, device=device)
         z = numbers['z']
@@ -157,8 +179,13 @@ def plot_animation_helper(save_video_dir, v_start, v_end, data_downsample_n, che
 
         data = downsample(data[start:end], video_downsample_n)
         z = downsample(z[start:end], video_downsample_n)
-        plot_animation(save_video_dir, "data", data, z, K, fps, xlim, ylim, grid_alpha, x_grids, y_grids,
-                       color_only, traj_only)
+
+        print("plotting data shape", data.shape)
+        if plot_type == "save":
+            plot_animation(save_video_dir, "data", mouse, data, z, K, fps, xlim, ylim, grid_alpha, x_grids, y_grids,
+                           color_only, traj_only)
+        elif plot_type == "interactive":
+            animate(data=data, z=z, K=K, xlim=xlim, ylim=ylim)
 
     elif video_data_type == "sample_x":
         # sample x
@@ -166,21 +193,27 @@ def plot_animation_helper(save_video_dir, v_start, v_end, data_downsample_n, che
         sample_z = numbers['sample_z']
 
         T, D = sample_x.shape
+
         start = int(T*video_start)
         end = int(T*video_end)
 
         sample_x = downsample(sample_x[start:end], video_downsample_n)
         sample_z = downsample(sample_z[start:end], video_downsample_n)
 
-        plot_animation(save_video_dir, "sample_x", sample_x, sample_z, K, fps, xlim, ylim, grid_alpha, x_grids, y_grids,
-                       color_only, traj_only)
+        print("plotting data shape", sample_x.shape)
+        if plot_type == "save":
+            plot_animation(save_video_dir, "sample_x", mouse, sample_x, sample_z, K, fps, xlim, ylim, grid_alpha,
+                           x_grids, y_grids,color_only, traj_only)
+        elif plot_type == "interactive":
+            animate(data=sample_x, z=sample_z, K=K, xlim=xlim, ylim=xlim)
 
 
-def plot_animation(save_video_dir, sample_name, x, z, K, fps, xlim, ylim, grid_alpha, x_grids, y_grids,
+def plot_animation(save_video_dir, sample_name, mouse, x, z, K, fps, xlim, ylim, grid_alpha, x_grids, y_grids,
                    color_only=False, traj_only=False):
 
 
     video_T, _ = x.shape
+    print("video_T", video_T)
     duration = int(video_T / fps)
 
     start = x[:-1]
@@ -196,42 +229,62 @@ def plot_animation(save_video_dir, sample_name, x, z, K, fps, xlim, ylim, grid_a
         fig = plt.figure(figsize=(16, 7))
         plt.axis('equal')
 
-        plt.subplot(1, 2, 1)
-        plt.quiver(start[:0, 0], start[:0, 1], dXY[:0, 0], dXY[:0, 1],
-                   angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[z])
-        cb = plt.colorbar(label='k', ticks=ticks)
-        cb.set_ticklabels(range(K))
-        add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
-        plt.title("virgin")
-        if xlim is not None:
-            plt.xlim(xlim)
-        if ylim is not None:
-            plt.ylim(ylim)
+        if mouse == 'both':
+            plt.subplot(1, 2, 1)
+            plt.quiver(start[:0, 0], start[:0, 1], dXY[:0, 0], dXY[:0, 1],
+                       angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[z])
+            cb = plt.colorbar(label='k', ticks=ticks)
+            cb.set_ticklabels(range(K))
+            add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
+            plt.title("virgin")
+            if xlim is not None:
+                plt.xlim(xlim)
+            if ylim is not None:
+                plt.ylim(ylim)
 
-        plt.subplot(1, 2, 2)
-        plt.quiver(start[:0, 2], start[:0, 3], dXY[:0, 2], dXY[:0, 3],
-                   angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[z])
-        cb = plt.colorbar(label='k', ticks=ticks)
-        cb.set_ticklabels(range(K))
-        add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
-        plt.title("mother")
-        if xlim is not None:
-            plt.xlim(xlim)
-        if ylim is not None:
-            plt.ylim(ylim)
+            plt.subplot(1, 2, 2)
+            plt.quiver(start[:0, 2], start[:0, 3], dXY[:0, 2], dXY[:0, 3],
+                       angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[z])
+            cb = plt.colorbar(label='k', ticks=ticks)
+            cb.set_ticklabels(range(K))
+            add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
+            plt.title("mother")
+            if xlim is not None:
+                plt.xlim(xlim)
+            if ylim is not None:
+                plt.ylim(ylim)
+        else:
+            plt.subplot(1,1,1)
+            plt.quiver(start[:0, 0], start[:0, 1], dXY[:0, 0], dXY[:0, 1],
+                       angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[z])
+            cb = plt.colorbar(label='k', ticks=ticks)
+            cb.set_ticklabels(range(K))
+            add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
+            plt.title(mouse)
+            if xlim is not None:
+                plt.xlim(xlim)
+            if ylim is not None:
+                plt.ylim(ylim)
 
         def make_frame(t):
             num_frame = int(t * fps)
-            plt.subplot(1, 2, 1)
-            start_idx = max(0, num_frame-1)
-            plt.quiver(start[start_idx:num_frame, 0], start[start_idx:num_frame, 1],
-                       dXY[start_idx:num_frame, 0], dXY[start_idx:num_frame, 1],
-                       angles='xy', scale_units='xy', scale=1, color=colors[z[start_idx]], cmap=cm)
+            if mouse == 'both':
+                plt.subplot(1, 2, 1)
+                start_idx = max(0, num_frame-1)
+                plt.quiver(start[start_idx:num_frame, 0], start[start_idx:num_frame, 1],
+                           dXY[start_idx:num_frame, 0], dXY[start_idx:num_frame, 1],
+                           angles='xy', scale_units='xy', scale=1, color=colors[z[start_idx]], cmap=cm)
 
-            plt.subplot(1, 2, 2)
-            plt.quiver(start[start_idx:num_frame, 2], start[start_idx:num_frame, 3],
-                       dXY[start_idx:num_frame, 2], dXY[start_idx:num_frame, 3],
-                       angles='xy', scale_units='xy', scale=1, color=colors[z[start_idx]], cmap=cm)
+                plt.subplot(1, 2, 2)
+                plt.quiver(start[start_idx:num_frame, 2], start[start_idx:num_frame, 3],
+                           dXY[start_idx:num_frame, 2], dXY[start_idx:num_frame, 3],
+                           angles='xy', scale_units='xy', scale=1, color=colors[z[start_idx]], cmap=cm)
+            else:
+                plt.subplot(1,1,1)
+                start_idx = max(0, num_frame - 2)
+                plt.quiver(start[start_idx:num_frame, 0], start[start_idx:num_frame, 1],
+                           dXY[start_idx:num_frame, 0], dXY[start_idx:num_frame, 1],
+                           angles='xy', scale_units='xy', scale=1, color=colors[z[start_idx]], cmap=cm)
 
             return mplfig_to_npimage(fig)
 
@@ -252,10 +305,14 @@ def plot_animation(save_video_dir, sample_name, x, z, K, fps, xlim, ylim, grid_a
         plt.axis('equal')
         add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
 
-        plt.quiver(start[:0, 0], start[:0, 1], dXY[:0, 0], dXY[:0, 1],
-                   angles='xy', scale_units='xy', scale=1, label="virgin", color='C0')
-        plt.quiver(start[:0, 2], start[:0, 3], dXY[:0, 2], dXY[:0, 3],
-                   angles='xy', scale_units='xy', scale=1, label="mother", color='C1')
+        if mouse == 'both':
+            plt.quiver(start[:0, 0], start[:0, 1], dXY[:0, 0], dXY[:0, 1],
+                       angles='xy', scale_units='xy', scale=1, label="virgin", color='C0')
+            plt.quiver(start[:0, 2], start[:0, 3], dXY[:0, 2], dXY[:0, 3],
+                       angles='xy', scale_units='xy', scale=1, label="mother", color='C1')
+        else:
+            plt.quiver(start[:0, 0], start[:0, 1], dXY[:0, 0], dXY[:0, 1],
+                       angles='xy', scale_units='xy', scale=1, label=mouse, color='C0')
         #plt.legend()
         plt.legend(loc='center left', bbox_to_anchor=(0.5, 1.0))
         add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
@@ -268,13 +325,17 @@ def plot_animation(save_video_dir, sample_name, x, z, K, fps, xlim, ylim, grid_a
         def make_frame(t):
             num_frame = int(t * fps)
             start_idx = max(0, num_frame-1)
-            plt.quiver(start[start_idx:num_frame, 0], start[start_idx:num_frame, 1],
-                       dXY[start_idx:num_frame, 0], dXY[start_idx:num_frame, 1],
-                       angles='xy', scale_units='xy', scale=1, color='C0')
-            plt.quiver(start[start_idx:num_frame, 2], start[start_idx:num_frame, 3],
-                       dXY[start_idx:num_frame, 2], dXY[start_idx:num_frame, 3],
-                       angles='xy', scale_units='xy', scale=1, color='C1')
-
+            if mouse == 'both':
+                plt.quiver(start[start_idx:num_frame, 0], start[start_idx:num_frame, 1],
+                           dXY[start_idx:num_frame, 0], dXY[start_idx:num_frame, 1],
+                           angles='xy', scale_units='xy', scale=1, color='C0')
+                plt.quiver(start[start_idx:num_frame, 2], start[start_idx:num_frame, 3],
+                           dXY[start_idx:num_frame, 2], dXY[start_idx:num_frame, 3],
+                           angles='xy', scale_units='xy', scale=1, color='C1')
+            else:
+                plt.quiver(start[start_idx:num_frame, 0], start[start_idx:num_frame, 1],
+                           dXY[start_idx:num_frame, 0], dXY[start_idx:num_frame, 1],
+                           angles='xy', scale_units='xy', scale=1, color='C0')
             return mplfig_to_npimage(fig)
 
         animation = VideoClip(make_frame, duration=duration)
@@ -364,7 +425,40 @@ def plot_2d_time_plot_condition_on_all_zs(data, z, K, title, time_start=None, ti
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 
 
+def animate(data, z, K, xlim, ylim, pause_time=0.002):
+    # TODO: use interative mode to update plots
+    T, _ = data.shape
+
+    h = 1 / K
+    ticks = [(1 / 2 + k) * h for k in range(K)]
+    colors, cm = get_colors_and_cmap(K)
+
+    start = data[:-1]
+    end = data[1:]
+    dXY = end - start
+
+    fig = plt.figure(figsize=(8, 7))
+    ax = fig.add_subplot(1, 1, 1)
+
+    im = ax.quiver(start[:1, 0], start[:1, 1], dXY[:1, 0], dXY[:1, 1],
+              angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[z[:1]])
+    cb = fig.colorbar(im, label='k', ticks=ticks)
+    cb.set_ticklabels(range(K))
+    plt.pause(0.002)
+
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    for t in range(2,T):
+        ax.clear()
+        ax.quiver(start[:t, 0], start[:t, 1], dXY[:t, 0], dXY[:t, 1],
+                  angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[z[:t]])
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        plt.pause(pause_time)
+
+
 if __name__ == "__main__":
     plot_animation_helper()
+
 
 
