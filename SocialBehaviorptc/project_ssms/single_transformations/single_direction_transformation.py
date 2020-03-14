@@ -6,7 +6,7 @@ from ssm_ptc.utils import check_and_convert_to_tensor, set_param
 from project_ssms.single_transformations.base_single_transformation import BaseSingleTransformation
 
 
-# base class for transformation
+# base class for with_noise
 class SingleDirectionTransformation(BaseSingleTransformation):
     """
     x^{self}_t \sim x^{self}_{t-1} + acc_factor * [ \sum_{i=1}^{Df} sigmoid(W^k_i) f_i (self)]

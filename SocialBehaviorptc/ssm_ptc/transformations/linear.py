@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import numpy as np
 
 from ssm_ptc.transformations.base_transformation import BaseTransformation
@@ -23,7 +24,7 @@ class LinearTransformation(BaseTransformation):
         if use_bias:
             if bs is None:
                 bs = np.random.randn(self.K, self.D)
-            self.bs = torch.tensor(bs, dtype=torch.float64, requires_grad=True)
+            self.bs = nn.Parameter(torch.tensor(bs, dtype=torch.float64), requires_grad=True)
         else:
             self.bs = torch.zeros(self.K, self.D, dtype=torch.float64)
 
@@ -38,9 +39,10 @@ class LinearTransformation(BaseTransformation):
         self.As = set_param(self.As, values[0])
         self.bs = set_param(self.bs, values[1])
 
+    # TODO: check if violates any property of nn.Parameter / nn.Module
     def permute(self, perm):
-        self.As = torch.tensor(self.As[perm], requires_grad=self.As.requires_grad)
-        self.bs = torch.tensor(self.bs[perm], requires_grad=self.bs.requires_grad)
+        self.As = nn.Parameter(torch.tensor(self.As[perm]), requires_grad=self.As.requires_grad)
+        self.bs = nn.Parameter(torch.tensor(self.bs[perm]), requires_grad=self.bs.requires_grad)
 
     def transform(self, inputs):
         """
@@ -69,7 +71,7 @@ class LinearTransformation(BaseTransformation):
 
     def transform_condition_on_z(self, z, inputs):
         """
-        Perform transformation conditioning on z,
+        Perform with_noise conditioning on z,
         :param z: an integer
         :param inputs: (lags, D)
         :return: (D, )

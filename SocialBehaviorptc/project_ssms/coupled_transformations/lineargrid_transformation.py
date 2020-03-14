@@ -14,7 +14,7 @@ class LinearGridTransformation(BaseTransformation):
     def __init__(self, K, D, x_grids, y_grids, Df, feature_vec_func, tran=None, acc_factor=2, lags=1,
                  use_log_prior=False, no_boundary_prior=False, add_log_diagonal_prior=False, log_prior_sigma_sq=-np.log(1e3),
                  device=torch.device('cpu'), version=1):
-        assert lags == 1, "lags should be 1 for lineargrid transformation."
+        assert lags == 1, "lags should be 1 for lineargrid with_noise."
         super(LinearGridTransformation, self).__init__(K, D)
 
         self.version = version
@@ -113,11 +113,11 @@ class LinearGridTransformation(BaseTransformation):
         return log_prior
 
     def transform(self, inputs, gridpoints=None, gridpoints_idx=None, feature_vecs=None):
-        # do a 2D interpolation of weights, and use that for transformation
+        # do a 2D interpolation of weights, and use that for with_noise
 
         # first, find the grid basis and then compute the weights
 
-        # finally, compute the transformation based on weights and positions (directions)
+        # finally, compute the with_noise based on weights and positions (directions)
 
         T, D = inputs.shape
         assert D == self.D, "input should have last dimension = {}".format(self.D)

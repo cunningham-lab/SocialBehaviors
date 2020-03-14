@@ -20,7 +20,7 @@ class GPGridTransformation(BaseWeightedDirectionTransformation):
     def __init__(self, K, D, x_grids, y_grids, Df, feature_vec_func, acc_factor=2,
                 rs=None, rs_factor=None, train_rs=False, lags=1,
                  device=torch.device('cpu'), version=1):
-        assert lags == 1, "lags should be 1 for weigthedgird transformation"
+        assert lags == 1, "lags should be 1 for weigthedgird with_noise"
         super(GPGridTransformation, self).__init__(K, D, Df, feature_vec_func, acc_factor, lags=lags)
 
         self.version = version

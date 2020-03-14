@@ -237,12 +237,12 @@ class SpatialTemporalGPSingle(BaseObservation):
 
         return Sigma, (A_x, A_y)
 
-    def sample_x(self, z, xhist=None, transformation=False, return_np=True, **kwargs):
+    def sample_x(self, z, xhist=None, with_noise=False, return_np=True, **kwargs):
         """
 
         :param z: a scalar
         :param xhist: (T_pre, D)
-        :param transformation:
+        :param with_noise:
         :param return_np:
         :param kwargs:
         :return: (D,)
@@ -250,13 +250,13 @@ class SpatialTemporalGPSingle(BaseObservation):
         with torch.no_grad():
             if xhist is None or len(xhist) == 0:
                 mu = self.mus_init[z]  # (D,)
-                if transformation:
+                if with_noise:
                     sample = mu
                 else:
                     sigmas_z = torch.exp(self.log_sigmas_init[z])  # (D,)
                     sample = mu + sigmas_z * torch.randn(self.D, dtype=torch.float64)  # (self.D, )
             else:
-                sample = self.sample_single_animal_x(z, xhist[-1:, 0:2], transformation, **kwargs)
+                sample = self.sample_single_animal_x(z, xhist[-1:, 0:2], with_noise, **kwargs)
             assert sample.shape == (self.D, ), sample.shape
 
         for i in range(self.D):

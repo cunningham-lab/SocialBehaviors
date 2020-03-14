@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import numpy as np
 import numpy.random as npr
 
@@ -26,8 +27,8 @@ class StickyTransition(StationaryTransition):
         pi_k ~ Dir(alpha + kappa * e_k)
     """
 
-    def __init__(self, K, D, M=0, Pi=None, alpha=1, kappa=10, device=torch.device('cpu')):
-        super(StickyTransition, self).__init__(K, D, M, Pi, device)
+    def __init__(self, K, D, M=0, Pi=None, alpha=1, kappa=10):
+        super(StickyTransition, self).__init__(K, D, M, Pi)
 
         # not tensor
         self.alpha = alpha
@@ -36,7 +37,7 @@ class StickyTransition(StationaryTransition):
     def log_prior(self):
         K = self.K
 
-        Ps = torch.nn.Softmax(dim=-1)(self.Pi)
+        Ps = torch.nn.Softmax(dim=-1)(self.logits)
         lp = 0
         for k in range(K):
             alpha = torch.tensor(self.alpha * np.ones(K) + self.kappa * (np.arange(K) == k), dtype=torch.float64)
@@ -56,9 +57,10 @@ class InputDrivenTransition(StickyTransition):
     def __init__(self, K, D, M=0, Pi=None, alpha=1, kappa=100, l2_penalty=0.0, use_bias=False):
         super(InputDrivenTransition, self).__init__(K, D, M, Pi, alpha, kappa)
 
-        self.Ws = torch.tensor(npr.rand(K, M), dtype=torch.float64, requires_grad=True)
+        self.Ws = nn.Parameter(torch.tensor(npr.rand(K, M), dtype=torch.float64), requires_grad=True)
 
-        self.bs = torch.zeros(K, dtype=torch.float64, requires_grad=use_bias)
+        self.use_bias = use_bias
+        self.bs = nn.Parameter(torch.zeros(K, dtype=torch.float64), requires_grad=self.use_bias)
 
         # penalty for Ws
         self.l2_penalty = l2_penalty
@@ -73,8 +75,9 @@ class InputDrivenTransition(StickyTransition):
         self.Ws = set_param(self.Ws, values[1])
 
     def permute(self, perm):
-        self.Pi = torch.tensor(self.Pi[np.ix_(perm, perm)], requires_grad=True)
-        self.Ws = torch.tensor(self.Ws[perm], requires_grad=True)
+        self.Pi = nn.Parameter(torch.tensor(self.Pi[np.ix_(perm, perm)]), requires_grad=True)
+        self.Ws = nn.Parameter(torch.tensor(self.Ws[perm]), requires_grad=True)
+        self.bs = nn.Parameter(torch.tensor(self.bs[perm]), requires_grad=self.use_bias)
 
     def log_prior(self):
         lp = super(InputDrivenTransition, self).log_prior()

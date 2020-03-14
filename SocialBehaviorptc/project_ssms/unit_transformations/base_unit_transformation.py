@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 
-# base class for transformation
+# base class for with_noise
 class BaseUnitTransformation(object):
 
     def __init__(self, K, D):

@@ -14,7 +14,7 @@ class WeightedGridTransformation(BaseWeightedDirectionTransformation):
     where the weights = softmax
     """
     def __init__(self, K, D, x_grids, y_grids, Df, feature_vec_func, acc_factor=2, beta=None, train_beta=True, lags=1):
-        assert lags == 1, "lags should be 1 for weigthedgird transformation"
+        assert lags == 1, "lags should be 1 for weigthedgird with_noise"
         super(WeightedGridTransformation, self).__init__(K, D, Df, feature_vec_func, acc_factor, lags=lags)
 
         self.x_grids = check_and_convert_to_tensor(x_grids, dtype=torch.float64)  # [x_0, x_1, ..., x_m]

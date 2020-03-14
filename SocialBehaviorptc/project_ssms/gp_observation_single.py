@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 from torch.distributions import Normal, MultivariateNormal
 import numpy as np
 
@@ -37,22 +38,20 @@ class GPObservationSingle(BaseObservation):
             self.log_sigmas_init = check_and_convert_to_tensor(log_sigmas_init, dtype=dtype, device=self.device)
         assert self.log_sigmas_init.shape == (self.K, self.D)
         if log_sigmas is None:
-            self.log_sigmas = torch.tensor(np.log(np.ones((K, D))), dtype=dtype, device=self.device,
-                                           requires_grad=train_sigmas)
+            log_sigmas = torch.tensor(np.log(np.ones((self.K, self.D))), dtype=dtype)
         else:
-            self.log_sigmas = check_and_convert_to_tensor(log_sigmas, dtype=dtype, device=self.device,
-                                                          requires_grad=train_sigmas)
+            log_sigmas = check_and_convert_to_tensor(log_sigmas, dtype=dtype)
+        self.log_sigmas = nn.Parameter(log_sigmas, requires_grad=train_sigmas)
         assert self.log_sigmas.shape == (self.K, self.D)
 
         # specify gp dynamics parameters
         self.x_grids = check_and_convert_to_tensor(x_grids, dtype=dtype, device=self.device)  # [x_0, x_1, ..., x_m]
         self.y_grids = check_and_convert_to_tensor(y_grids, dtype=dtype, device=self.device)  # a list [y_0, y_1, ..., y_n]
-
         self.inducing_points = torch.tensor([(x_grid, y_grid) for x_grid in self.x_grids for y_grid in self.y_grids],
                                             device=self.device)  # (n_gps, 2)
         self.n_gps = self.inducing_points.shape[0]
 
-        self.us = torch.rand(self.K, self.n_gps, self.D, dtype=dtype, device=self.device, requires_grad=True)
+        self.us = nn.Parameter(torch.rand(self.K, self.n_gps, self.D, dtype=dtype), requires_grad=True)
 
         # define n_gps parameters, suppose parameters work for all Ks
         if rs is None:
@@ -69,12 +68,12 @@ class GPObservationSingle(BaseObservation):
                 assert isinstance(rs, np.ndarray) and rs.shape == (2,)
                 rs = np.repeat(rs[None], self.K, axis=0)
         assert rs.shape == (self.K, 2), rs.shape
-        self.rs = torch.tensor(rs, dtype=dtype, device=self.device, requires_grad=train_rs)
+        self.rs = nn.Parameter(torch.tensor(rs, dtype=dtype), requires_grad=train_rs)
 
         # (K, 2)
         vs = [[1,1] for _ in range(self.K)]
         # TODO: if train_vs, need to make vs positive
-        self.vs = torch.tensor(vs, dtype=dtype, device=self.device, requires_grad=train_vs)
+        self.vs = nn.Parameter(torch.tensor(vs, dtype=dtype), requires_grad=train_vs)
 
         self.kernel_distsq_gg = kernel_distsq(self.inducing_points, self.inducing_points)  # (n_gps, n_gps)
 
@@ -237,26 +236,26 @@ class GPObservationSingle(BaseObservation):
 
         return Sigma, (A_x, A_y)
 
-    def sample_x(self, z, xhist=None, transformation=False, return_np=True, **kwargs):
+    def sample_x(self, z, xhist=None, with_noise=True, return_np=True, **kwargs):
         """
 
         :param z: a scalar
         :param xhist: (T_pre, D)
-        :param transformation:
-        :param return_np:
+        :param with_noise: whether to sample with noise
+        :param return_np: whehter to return np.ndarray or torch.tensor
         :param kwargs:
         :return: (D,)
         """
         with torch.no_grad():
             if xhist is None or len(xhist) == 0:
                 mu = self.mus_init[z]  # (D,)
-                if transformation:
+                if not with_noise:
                     sample = mu
                 else:
                     sigmas_z = torch.exp(self.log_sigmas_init[z])  # (D,)
                     sample = mu + sigmas_z * torch.randn(self.D, dtype=mu.dtype)  # (self.D, )
             else:
-                sample = self.sample_single_animal_x(z, xhist[-1:, 0:2], transformation, **kwargs)
+                sample = self.sample_single_animal_x(z, xhist[-1:, 0:2], with_noise, **kwargs)
             assert sample.shape == (self.D, ), sample.shape
 
         for i in range(self.D):
@@ -266,12 +265,12 @@ class GPObservationSingle(BaseObservation):
             sample = sample.detach().numpy()
         return sample
 
-    def sample_single_animal_x(self, z, x_pre,expectation, **kwargs):
+    def sample_single_animal_x(self, z, x_pre, with_noise, **kwargs):
         """
 
         :param z: a scalar
         :param x_pre: (1, 2)
-        :param expectation:
+        :param with_noise:
         :return: (2, )
         """
         assert x_pre.shape == (1, 2), x_pre.shape
@@ -281,7 +280,7 @@ class GPObservationSingle(BaseObservation):
 
         if A is None:
             #print("Not using cache. Calculating Sigma, A...")
-            Sigma, A = self.get_gp_cache_condition_on_z(x_pre, z, A_only=expectation, **kwargs)
+            Sigma, A = self.get_gp_cache_condition_on_z(x_pre, z, A_only=not with_noise, **kwargs)
 
         # each is (1, n_gps)
         A_x, A_y = A
@@ -294,7 +293,7 @@ class GPObservationSingle(BaseObservation):
         mu = mu + x_pre[0]
         assert mu.shape == (2, )
 
-        if expectation:
+        if not with_noise:
             return mu
 
         assert Sigma.shape == (1, 2)

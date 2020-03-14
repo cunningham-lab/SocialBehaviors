@@ -74,7 +74,7 @@ class HMM:
 
         if init_state_distn is None:
             # set to default
-            self.init_state_distn = BaseInitStateDistn(K=self.K, D=self.D, M=self.M, device=None)
+            self.init_state_distn = BaseInitStateDistn(K=self.K, D=self.D, M=self.M)
         elif isinstance(init_state_distn, BaseInitStateDistn):
             self.init_state_distn = init_state_distn
         else:
@@ -88,7 +88,7 @@ class HMM:
                 raise ValueError("Invalid transition model: {}. Please select from {}.".format(
                     transition, list(TRANSITION_CLASSES.keys())))
 
-            self.transition = TRANSITION_CLASSES[transition](self.K, self.D, self.M, Pi=Pi, device=device, **transition_kwargs)
+            self.transition = TRANSITION_CLASSES[transition](self.K, self.D, self.M, Pi=Pi, **transition_kwargs)
 
         elif isinstance(transition, BaseTransition):
             self.transition = transition
@@ -104,7 +104,7 @@ class HMM:
                 raise ValueError("Invalid observaiton model: {}. Please select from {}.".format(
                     observation, list(OBSERVATION_CLASSES.keys())))
 
-            self.observation = OBSERVATION_CLASSES[observation](self.K, self.D, self.M, device=device, **observation_kwargs)
+            self.observation = OBSERVATION_CLASSES[observation](self.K, self.D, self.M, **observation_kwargs)
 
         elif isinstance(observation, BaseObservation):
             self.observation = observation
@@ -118,10 +118,6 @@ class HMM:
         self.transition.initialize(datas, inputs)
         self.observation.initialize(datas, inputs)
 
-    @property
-    def init_dist(self):
-        return torch.nn.Softmax(dim=0)(self.pi0)
-
     def sample_z(self, T):
         # sample the downsampled_t-invariant markov chain only
 
@@ -130,7 +126,7 @@ class HMM:
             "Sampling the makov chain only supports for stationary transition"
 
         z = torch.empty(T, dtype=torch.int, device=self.device)
-        pi0 = get_np(self.init_dist)
+        pi0 = get_np(self.init_state_distn.probs)
         z[0] = npr.choice(self.K, p=pi0)
 
         P = get_np(self.transition.stationary_transition_matrix)  # (K, K)
@@ -138,7 +134,7 @@ class HMM:
             z[t] = npr.choice(self.K, p=P[z[t - 1]])
         return z
 
-    def sample(self, T, prefix=None, input=None, transformation=False, return_np=True, **kwargs):
+    def sample(self, T, prefix=None, input=None, with_noise=True, return_np=True, **kwargs):
         """
         Sample synthetic data form from the model.
         :param T: int, the number of downsampled_t steps to sample
@@ -169,9 +165,9 @@ class HMM:
             data = torch.empty((T, D), dtype=dtype, device=self.device)
 
             # sample the first state from the initial distribution
-            pi0 = get_np(self.init_dist)
+            pi0 = get_np(self.init_state_distn.probs)
             z[0] = npr.choice(self.K, p=pi0)
-            data[0] = self.observation.sample_x(z[0], data[:0], transformation=transformation, return_np=False, **kwargs)
+            data[0] = self.observation.sample_x(z[0], data[:0], with_noise=with_noise, return_np=False, **kwargs)
 
             # We only need to sample T-1 datapoints now
             T = T - 1
@@ -194,7 +190,7 @@ class HMM:
             P = get_np(self.transition.stationary_transition_matrix) # (K, K)
             for t in range(T_pre, T_pre + T):
                 z[t] = npr.choice(K, p=P[z[t-1]])
-                data[t] = self.observation.sample_x(z[t], data[:t], transformation=transformation, return_np=False,
+                data[t] = self.observation.sample_x(z[t], data[:t], with_noise=with_noise, return_np=False,
                                                     **kwargs)
         else:
             for t in range(T_pre, T_pre + T):
@@ -205,11 +201,10 @@ class HMM:
                 P = get_np(P)
 
                 z[t] = npr.choice(K, p=P[z[t-1]])
-                data[t] = self.observation.sample_x(z[t], data[:t], transformation=transformation, return_np=False,
+                data[t] = self.observation.sample_x(z[t], data[:t], with_noise=with_noise, return_np=False,
                                                     **kwargs)
-
-        assert z.requires_grad is False
-        assert data.requires_grad is False
+        #assert not z.requires_grad
+        #assert not data.requires_grad
 
         if prefix is None:
             if return_np:
@@ -268,8 +263,7 @@ class HMM:
             data = check_and_convert_to_tensor(data, torch.float64, device=self.device)
 
             T = data.shape[0]
-            log_pi0 = self.init_state_distn.log_pi
-            #log_pi0 = torch.nn.LogSoftmax(dim=0)(self.pi0)  # (K, )
+            log_pi0 = self.init_state_distn.log_probs
 
             if isinstance(self.transition, StationaryTransition):
                 log_P = self.transition.log_stationary_transition_matrix
@@ -306,7 +300,7 @@ class HMM:
         """only change values, keep requires_grad property"""
         assert type(values) == tuple
 
-        self.pi0 = set_param(self.pi0, values[0][0])
+        self.init_state_distn.params = values[0]
         self.transition.params = values[1]
         self.observation.params = values[2]
 
@@ -340,7 +334,7 @@ class HMM:
         data = check_and_convert_to_tensor(data, device=self.device)
         T = data.shape[0]
 
-        log_pi0 = get_np(self.init_dist)  # (K, )
+        log_pi0 = get_np(self.init_state_distn.log_probs)
 
         if isinstance(self.transition, StationaryTransition):
             log_Ps = self.transition.log_stationary_transition_matrix
@@ -358,9 +352,10 @@ class HMM:
         return viterbi(log_pi0, log_Ps, log_likes)
 
     def permute(self, perm):
-        self.pi0 = torch.tensor(self.pi0[perm], requires_grad=True)
-        self.transition.permute(perm)
-        self.observation.permute(perm)
+        with torch.no_grad():
+            self.init_state_distn.permute(perm)
+            self.transition.permute(perm)
+            self.observation.permute(perm)
 
     # return np
     def sample_condition_on_zs(self, zs, x0=None, transformation=False, return_np=True, **kwargs):
@@ -383,17 +378,17 @@ class HMM:
                 print("Nothing to sample")
                 return
             else:
-                return self.observation.sample_x(zs[0], transformation=transformation)
+                return self.observation.sample_x(zs[0], with_noise=transformation)
 
         if x0 is None:
-            x0 = self.observation.sample_x(zs[0], transformation=transformation, return_np=False)
+            x0 = self.observation.sample_x(zs[0], with_noise=transformation, return_np=False)
         else:
             x0 = check_and_convert_to_tensor(x0, dtype=dtype, device=self.device)
             assert x0.shape == (self.D, )
 
         xs[0] = x0
         for t in np.arange(1, T):
-            x_t = self.observation.sample_x(zs[t], xihst=xs[:t], transformation=transformation, return_np=False, **kwargs)
+            x_t = self.observation.sample_x(zs[t], xihst=xs[:t], with_noise=transformation, return_np=False, **kwargs)
             xs[t] = x_t
 
         if return_np:
@@ -621,10 +616,12 @@ if __name__ == "__main__":
 
     import git
     import joblib
+    import matplotlib.pyplot as plt
 
     from project_ssms.utils import downsample
     from project_ssms.gp_observation_single import GPObservationSingle
     from project_ssms.constants import *
+    from project_ssms.grid_utils import plot_realdata_quiver
 
     # test for virgin selected
     repo = git.Repo('.', search_parent_directories=True)  # SocialBehaviorectories=True)
@@ -653,8 +650,8 @@ if __name__ == "__main__":
     mus_init = data[0] * torch.ones(K, D, dtype=torch.float64, device=device)
     x_grid_gap = (ARENA_XMAX - ARENA_XMIN) / n_x
     x_grids = np.array([ARENA_XMIN + i * x_grid_gap for i in range(n_x + 1)])
-    y_grid_gap = (ARENA_XMAX - ARENA_XMIN) / n_y
-    y_grids = np.array([ARENA_XMIN + i * y_grid_gap for i in range(n_y + 1)])
+    y_grid_gap = (ARENA_YMAX - ARENA_YMIN) / n_y
+    y_grids = np.array([ARENA_YMIN + i * y_grid_gap for i in range(n_y + 1)])
     bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX]])
     train_rs = False
     obs = GPObservationSingle(K=K, D=D, mus_init=mus_init, x_grids=x_grids, y_grids=y_grids, bounds=bounds,
@@ -663,9 +660,16 @@ if __name__ == "__main__":
     L = 5
     model = HMM(K=K, D=D, init_state_distn=None, transition='stationary', observation=obs)
 
-    ll = model.log_likelihood(data)  # -10353.3487
+    ll = model.log_likelihood(data)  # -10315.3303
     print(ll)
 
-    # fitting
-    loss = model.fit(datas=data, num_iters=100, lr=1e-3)  # 10222.51
+    #z = model.most_likely_states(data)
+    #plot_realdata_quiver(data, z, K=K, x_grids=x_grids, y_grids=y_grids, title="before training")
 
+    # fitting
+    num_iters = 100
+    loss = model.fit(datas=data, num_iters=num_iters, lr=1e-3)  # 10178.42
+
+    #z = model.most_likely_states(data)
+    #plot_realdata_quiver(data, z, K=K, x_grids=x_grids, y_grids=y_grids, title="after {} epochs".format(num_iters))
+    #plt.show()

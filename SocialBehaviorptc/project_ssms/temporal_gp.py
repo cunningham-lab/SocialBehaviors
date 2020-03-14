@@ -38,7 +38,7 @@ class TemporalGPObservation(BaseObservation):
             self.transformation = transformation
         elif isinstance(transformation, str):
             if transformation not in TRANSFORMATION_CLASSES:
-                raise Exception("Invalid transformation model: {}. Must be one of {}".
+                raise Exception("Invalid with_noise model: {}. Must be one of {}".
                                 format(transformation, list(TRANSFORMATION_CLASSES.keys())))
 
             transformation_kwargs = transformation_kwargs or {}
@@ -74,12 +74,12 @@ class TemporalGPObservation(BaseObservation):
         out = torch.sum(out, dim=-1)  # (T, K)
         return out
 
-    def sample_x(self, z, xhist=None, transformation=False, return_np=True, **memory_kwargs):
+    def sample_x(self, z, xhist=None, with_noise=False, return_np=True, **memory_kwargs):
         """
 
         :param z: an integer
         :param xhist: (T_pre, D)
-        :param transformation: return transformed value as sample value, instead of sampling
+        :param with_noise: return transformed value as sample value, instead of sampling
         :param return_np: boolean, whether return np.ndarray or torch.tensor
         :return: one sample (D, )
         """
@@ -99,7 +99,7 @@ class TemporalGPObservation(BaseObservation):
 
             log_sigma = self.log_sigmas[z]
 
-        if transformation:
+        if with_noise:
             samples = mu
         else:
             dist = TruncatedNormal(mus=mu, log_sigmas=log_sigma, bounds=self.bounds)
@@ -116,7 +116,7 @@ class TemporalGPObservation(BaseObservation):
         """
 
         :param data: (T, D)
-        :param memory_args: for transformation's use
+        :param memory_args: for with_noise's use
         :return: mus, the mean for data (T, D)
         """
         T, D = data.shape
@@ -133,7 +133,7 @@ class TemporalGPObservation(BaseObservation):
         assert mus.shape == (T, self.K, self.D)
         return mus
 
-    def rsample_x(self, z, xhist, transformation=False, **kwargs):
+    def rsample_x(self, z, xhist, with_noise=False, **kwargs):
         raise NotImplementedError
 
 

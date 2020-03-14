@@ -41,7 +41,7 @@ class SingleLinearGridTransformation(BaseTransformation):
 
     def transform(self, inputs, **kwargs):
         """
-        do a 2D interpolation of weights, and use that for transformation
+        do a 2D interpolation of weights, and use that for with_noise
         :param inputs: (T, D)
         :param kwargs:
         :return: (T, K, D)

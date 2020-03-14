@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 from torch.distributions import Normal, MultivariateNormal
 
 import numpy as np
@@ -47,11 +48,13 @@ class ARLogitNormalObservation(BaseObservation):
 
         # consider diagonal covariance
         if sigmas is None:
-            self.log_sigmas = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, requires_grad=train_sigma)
+            self.log_sigmas = nn.Parameter(torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64),
+                                           requires_grad=train_sigma)
         else:
             # TODO: assert sigmas positive
             assert sigmas.shape == (self.K, self.D)
-            self.log_sigmas = torch.tensor(np.log(sigmas), dtype=torch.float64, requires_grad=train_sigma)
+            self.log_sigmas = nn.Parameter(torch.tensor(np.log(sigmas), dtype=torch.float64)
+                                           , requires_grad=train_sigma)
 
         if bounds is None:
             raise ValueError("Please provide bounds.")
@@ -81,11 +84,12 @@ class ARLogitNormalObservation(BaseObservation):
         self.log_sigmas = set_param(self.log_sigmas, values[0])
         self.transformation.params = values[1:]
 
+    # TODO: check this
     def permute(self, perm):
         self.mus_init = self.mus_init[perm]
         self.log_sigmas_init = self.log_sigmas_init[perm]
 
-        self.log_sigmas = torch.tensor(self.log_sigmas[perm], requires_grad=self.log_sigmas.requires_grad)
+        self.log_sigmas = nn.Parameter(torch.tensor(self.log_sigmas[perm]), requires_grad=self.log_sigmas.requires_grad)
         self.transformation.permute(perm)
 
     def _compute_mus_based_on(self, data):
@@ -137,7 +141,7 @@ class ARLogitNormalObservation(BaseObservation):
 
         return torch.cat((log_prob_init[None,], log_prob_ar))
 
-    def rsample_x(self, z, xhist=None, transformation=False):
+    def rsample_x(self, z, xhist=None, with_noise=False):
         """
         generate reparameterized samples
         :param z: shape ()
@@ -154,7 +158,7 @@ class ARLogitNormalObservation(BaseObservation):
             mu = self.transformation.transform_condition_on_z(z, xhist[-self.lags:])  # (D, )
             assert mu.shape == (self.D, )
 
-        if transformation:
+        if with_noise:
             out = mu
         else:
             p = LogitNormal(mus=mu, log_sigmas=self.log_sigmas[z], bounds=self.bounds, alpha=self.alpha)

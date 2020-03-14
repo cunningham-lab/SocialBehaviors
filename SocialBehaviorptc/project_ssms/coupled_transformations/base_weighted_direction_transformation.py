@@ -60,7 +60,7 @@ class BaseWeightedDirectionTransformation(BaseTransformation):
             feature_vecs_b = self.feature_vec_func(inputs[:,2:4])
         assert feature_vecs_b.shape == (T, self.Df, 2)
 
-        # make transformation
+        # make with_noise
         # (T, K, Df) * (T, Df, d) --> (T, K, d)
         out_a = torch.matmul(weights_a, feature_vecs_a)
         out_b = torch.matmul(weights_b, feature_vecs_b)
@@ -100,7 +100,7 @@ class BaseWeightedDirectionTransformation(BaseTransformation):
         assert feature_vec_a.shape == (1, self.Df, self.d)
         assert feature_vec_b.shape == (1, self.Df, self.d)
 
-        # make transformation
+        # make with_noise
         # (1, Df), (1, Df, d) --> (1, 1, d)
         out_a = torch.matmul(weights_a, feature_vec_a)
         out_b = torch.matmul(weights_b, feature_vec_b)

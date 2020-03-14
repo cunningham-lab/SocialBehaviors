@@ -4,7 +4,7 @@ inference stuff. non-cythonized yet
 import torch
 import numpy as np
 
-
+# TODO: check if -infs in tran_log_probs violates anything
 def bwd_mp(tran_log_probs, seq_logprobs, fwd_obs_logprobs):
     """
     :param tran_log_probs: (T, K, K)
@@ -15,16 +15,16 @@ def bwd_mp(tran_log_probs, seq_logprobs, fwd_obs_logprobs):
 
     L, T, K = fwd_obs_logprobs.shape
 
-
-    log_betas = torch.zeros((T+1, K))
-    log_beta_stars = torch.zeros((T+1, K))
+    #log_betas = torch.zeros((T+1, K))
+    #log_beta_stars = torch.zeros((T+1, K))
+    log_betas = tran_log_probs.new_zeros((T+1, K))
+    log_beta_stars = tran_log_probs.new_zeros((T+1, K))
 
     for t in range(1, T+1):
         steps_fwd = min(L, t)
 
         # \log beta*_t(k) = log \sum_l beta_{t+l}(k) p(x_{t+1:t+l}) p(l)
         log_beta_star = log_betas[T-t+1:T-t+1+steps_fwd] + fwd_obs_logprobs[:steps_fwd, T - t] # (steps_fwd, K) + (steps_fwd, K)
-
         log_beta_stars[T-t] = torch.logsumexp(log_beta_star, dim=0) # (K,)
 
         if t < T:
@@ -37,7 +37,6 @@ def bwd_mp(tran_log_probs, seq_logprobs, fwd_obs_logprobs):
     return log_betas, log_beta_stars
 
 
-# make sure to detach grad
 def hsmm_viterbi(log_pi0, trans_logprobs, bwd_obs_logprobs, len_logprobs=None, L=None):
     """
 
@@ -61,8 +60,9 @@ def hsmm_viterbi(log_pi0, trans_logprobs, bwd_obs_logprobs, len_logprobs=None, L
     bs = torch.zeros((T, K), dtype=torch.int) # pointer
 
     # argmax over state variable
-    delta_stars = torch.zeros((T + 1, K)) # value
-    b_stars = torch.zeros((T, K), dtype=torch.int) # pointer
+    #delta_stars = torch.zeros((T + 1, K)) # value
+    delta_stars = log_pi0.new_zeros((T+1, K))
+    b_stars = torch.zeros((T, K), dtype=torch.int)  # pointer
 
     delta_stars[0] = log_pi0
 
@@ -82,8 +82,8 @@ def hsmm_viterbi(log_pi0, trans_logprobs, bwd_obs_logprobs, len_logprobs=None, L
             b_stars[t-1] = b_star_t
             delta_stars[t] = delta_star_t
 
-    seqs = recover_bp(deltas, bs, b_stars)
-    return seqs
+    seqs, hidden_state_seqs = recover_bp(deltas, bs, b_stars)
+    return seqs, hidden_state_seqs
 
 
 def recover_bp(deltas, bs, b_stars):
@@ -111,7 +111,7 @@ def recover_bp(deltas, bs, b_stars):
         z = b_stars[t-1, z]
     seqs = seqs[::-1]
     hidden_states_seqs = hidden_states_seqs[::-1]
-    return seqs, hidden_states_seqs
+    return seqs, np.array(hidden_states_seqs)
 
 
 def fwd_to_bwd(fw_logprobs):
@@ -187,7 +187,7 @@ def test_case():
     # check hsmm_normalizer
     log_betas, log_beta_stars = bwd_mp(trans_log_probs, 0, fwd_obs_logprobs=fw_obs_logprobs)
     log_likelihood = torch.logsumexp(log_beta_stars[0]+log_pi, dim=0)
-    print(log_likelihood)
+    print(log_likelihood)  # (14.4752)
 
 
 def hsmm_normalizer(log_pi, tran_log_probs, seq_logprobs, fwd_obs_logprobs):

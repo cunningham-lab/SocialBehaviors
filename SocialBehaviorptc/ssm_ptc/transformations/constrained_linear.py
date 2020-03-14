@@ -7,7 +7,7 @@ from ssm_ptc.utils import random_rotation, check_and_convert_to_tensor
 
 class ConstrainedLinearTransformation(LinearTransformation):
     """
-    Actually 1-layer MLP: one linear-transformation + scaled sigmoid
+    Actually 1-layer MLP: one linear-with_noise + scaled sigmoid
     """
 
     def __init__(self, K, D, bounds, lags=1, As=None, use_bias=True, bs=None, alpha=0.2):
@@ -30,7 +30,7 @@ class ConstrainedLinearTransformation(LinearTransformation):
 
     def transform_condition_on_z(self, z, inputs):
         """
-        Perform transformation conditioning on z
+        Perform with_noise conditioning on z
         :param z: an integer
         :param inputs: (T, d_in)
         :return: (T, D)

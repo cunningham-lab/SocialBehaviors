@@ -1,10 +1,12 @@
+import torch.nn as nn
 from abc import ABC, abstractmethod
 
 
-# base class for transformation
-class BaseTransformation:
+# base class for with_noise
+class BaseTransformation(nn.Module):
 
     def __init__(self, K, D):
+        super(BaseTransformation, self).__init__()
         self.K = K
         self.D = D # output dimension
 

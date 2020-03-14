@@ -20,7 +20,7 @@ def normalize(f, norm=1):
 
 class DirectionTransformation(BaseTransformation):
     """
-    transformation:
+    with_noise:
     x^a_t \sim x^a_{t-1} + acc_factor * [ sigmoid(W^a_0) m_t  + \sum_{i=1}^{Df} sigmoid(W^a_i) f_i ]
     x^b_t \sim x^b_{t-1} + acc_factor * [ sigmoid(W^b_0) m_t  + \sum_{i=1}^{Df} sigmoid(W^b_i) f_i ]
 
@@ -100,7 +100,7 @@ class DirectionTransformation(BaseTransformation):
 
     def transform(self, inputs, **memory_kwargs):
         """
-        Perform the following transformation:
+        Perform the following with_noise:
             x^a_t \sim x^a_{t-1} + acc_factor * [ sigmoid(W^a_0) m_t  + \sum_{i=1}^{Df} sigmoid(W^a_i) f_i ]
             x^b_t \sim x^b_{t-1} + acc_factor * [ sigmoid(W^b_0) m_t  + \sum_{i=1}^{Df} sigmoid(W^b_i) f_i ]
 
@@ -150,7 +150,7 @@ class DirectionTransformation(BaseTransformation):
 
     def transform_condition_on_z(self, z, inputs, **memory_kwargs):
         """
-        Perform transformation for given z
+        Perform with_noise for given z
         :param z: an integer
         :param inputs: (T_pre, D)
         :param memory_kwargs: supposedly, momentum_vec = (D, ), features = (features_a, features_b), each of shape (Df, )
@@ -208,7 +208,7 @@ class DirectionObservation(BaseObservation):
     """
     Consider a coupled momentum model:
 
-    transformation:
+    with_noise:
     x^a_t \sim x^a_{t-1} + vs * sigmoid(\alpha_a) \frac{m_t}{momentum_lags} + vs * sigmoid(Wf(x^a_t-1, x^b_t-1)+b)
     x^b_t \sim x^b_{t-1} + vs * sigmoid(\alpha_b) \frac{m_t}{momentum_lags} + vs * sigmoid(Wf(x^b_t-1, x^a_t-1)+b)
 

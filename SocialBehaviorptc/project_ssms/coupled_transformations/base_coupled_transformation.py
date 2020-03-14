@@ -6,7 +6,7 @@ from ssm_ptc.transformations.base_transformation import BaseTransformation
 
 class BaseCoupledTransformation(BaseTransformation):
     """
-    Two animals, decoupling transformation
+    Two animals, decoupling with_noise
     """
 
     def __init__(self, K, D):

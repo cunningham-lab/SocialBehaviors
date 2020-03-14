@@ -22,7 +22,7 @@ T = 100
 """
 As = [random_rotation(D) for _ in range(K)]
 true_tran = LinearTransformation(K=K, momentum_lags=1, D=D, As=As)
-true_observation = ARGaussianObservation(K=K, D=D, M=0, transformation=true_tran)
+true_observation = ARGaussianObservation(K=K, D=D, M=0, with_noise=true_tran)
 true_model = HMM(K=K, D=D, M=0, observation=true_observation)
 
 z, data = true_model.sample(T, return_np=False)
@@ -30,7 +30,7 @@ z, data = true_model.sample(T, return_np=False)
 # Define a model to fit the data
 
 tran = LinearTransformation(K=K, momentum_lags=1, D=D)
-observation = ARGaussianObservation(K=K, D=D, M=0, momentum_lags=1, transformation=tran)
+observation = ARGaussianObservation(K=K, D=D, M=0, momentum_lags=1, with_noise=tran)
 model = HMM(K=K, D=D, M=0, observation=observation)
 
 # Model fitting

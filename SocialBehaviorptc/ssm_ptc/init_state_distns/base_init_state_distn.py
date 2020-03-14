@@ -1,34 +1,45 @@
-import numpy as np
 import torch
+import torch.nn as nn
+from torch.distributions import Categorical
 from ssm_ptc.utils import check_and_convert_to_tensor, set_param
 
 
-class BaseInitStateDistn:
+class BaseInitStateDistn(nn.Module):
 
-    def __init__(self, K, D, M=0, pi=None, dtype=torch.float64, device=None):
-
+    def __init__(self, K, D, M=0, logits=None, dtype=torch.float64):
+        super(BaseInitStateDistn, self).__init__()
         self.K, self.D, self.M = K, D, M
 
-        if pi is None:
-            self.pi = torch.ones(self.K, dtype=dtype, requires_grad=True, device=device)
+        if logits is None:
+           logits = torch.ones(self.K, dtype=dtype)
         else:
-            self.pi = check_and_convert_to_tensor(pi, dtype=dtype, requires_grad=True, device=device)
+            logits = check_and_convert_to_tensor(logits, dtype=dtype)
+        self.logits = nn.Parameter(logits, requires_grad=True)
 
     def log_prior(self):
         return 0
 
     @property
     def params(self):
-        return self.pi,
+        return self.logits,
 
     @params.setter
     def params(self, values):
-        self.pi = set_param(self.pi0, values[0])
+        self.logits = set_param(self.logits, values[0])
 
     @property
-    def log_pi(self):
-        return torch.softmax(self.pi, dim=0) # (K, z0
+    def log_probs(self):
+        return torch.log_softmax(self.logits, dim=0)
+
+    @property
+    def probs(self):
+        return torch.softmax(self.logits, dim=0)
 
     def permute(self, perm):
-        self.pi = torch.tensor(self.pi[perm], requires_grad=True)
+        self.logits = torch.tensor(self.logits[perm], requires_grad=True)
+
+    def sample(self):
+        m = Categorical(logits=self.logits)
+        return  m.sample() # int 64
+
 

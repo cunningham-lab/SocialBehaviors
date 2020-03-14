@@ -90,7 +90,7 @@ class LogitNormal(BaseDistribution):
         z = p.rsample(sample_shape)
         assert z.shape == sample_shape + self.mus.shape
 
-        # scaled sigmoid transformation
+        # scaled sigmoid with_noise
         z_tran = self._scale_fn(z)
         assert z_tran.shape == sample_shape + self.mus.shape
         return z_tran

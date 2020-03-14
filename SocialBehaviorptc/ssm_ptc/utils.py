@@ -79,7 +79,7 @@ def k_step_prediction(model, model_z, data, k=0, **kwargs):
 
         for t in range(1, T-k+1):
             # TODO: fix k-step prediction sample size
-            zx_predict = model.sample(k, prefix=(model_z[:t], data[:t]), return_np=True, transformation=True, **kwargs)
+            zx_predict = model.sample(k, prefix=(model_z[:t], data[:t]), return_np=True, with_noise=True, **kwargs)
             assert zx_predict[1].shape == (k, D)
             x_predict = zx_predict[1][-1]
             x_predict_arr.append(x_predict)

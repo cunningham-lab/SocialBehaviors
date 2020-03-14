@@ -7,7 +7,7 @@ from project_ssms.unit_transformations.base_unit_transformation import BaseUnitT
 from project_ssms.momentum_utils import get_momentum_in_batch, get_momentum
 
 
-# base class for transformation
+# base class for with_noise
 class UnitMomentumDirectionTransformation(BaseUnitTransformation):
     """
     x^{self}_t \sim x^{self}_{t-1} + acc_factor * [ sigmoid(W_0) m_t  + \sum_{i=1}^{Df} sigmoid(W_i) f_i (self, other)]

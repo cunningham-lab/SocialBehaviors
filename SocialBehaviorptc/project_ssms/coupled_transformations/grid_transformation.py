@@ -30,7 +30,7 @@ class GridTransformation(BaseTransformation):
 
         unit_tran = UNIT_TRANSFORMATION_CLASSES.get(unit_transformation, None)
         if unit_tran is None:
-            raise ValueError("Invalid unit transformation model: {}. Must be one of {}".
+            raise ValueError("Invalid unit with_noise model: {}. Must be one of {}".
                              format(unit_transformation, list(UNIT_TRANSFORMATION_CLASSES.keys())))
 
         self.transformations_a = [unit_tran(K=self.K, D=self.D, **unit_transformation_kwargs)
@@ -115,7 +115,7 @@ class GridTransformation(BaseTransformation):
         memory_kwargs_a = memory_kwargs_a or {}
         memory_kwargs_b = memory_kwargs_b or {}
 
-        # decide which transformation ot use
+        # decide which with_noise ot use
         g_a = self.find_grid_index(inputs[-1, :2], self.x_grids, self.y_grids)
         g_b = self.find_grid_index(inputs[-1, 2:], self.x_grids, self.y_grids)
 

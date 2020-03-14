@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 from torch.distributions import Normal
 
 import numpy as np
@@ -8,7 +9,8 @@ from ssm_ptc.observations.base_observation import BaseObservation
 from ssm_ptc.transformations.base_transformation import BaseTransformation
 from ssm_ptc.transformations.linear import LinearTransformation
 
-from ssm_ptc.utils import check_and_convert_to_tensor, set_param, ensure_args_are_lists_of_tensors
+from ssm_ptc.utils import check_and_convert_to_tensor, set_param
+
 
 class ARGaussianObservation(BaseObservation):
     """
@@ -28,11 +30,12 @@ class ARGaussianObservation(BaseObservation):
         self.log_sigmas_init = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64)
 
         if sigmas is None:
-            self.log_sigmas = torch.tensor(np.log(5*np.ones((K, D))), dtype=torch.float64, requires_grad=train_sigma)
+            self.log_sigmas = nn.Parameter(torch.tensor(np.log(5*np.ones((K, D))), dtype=torch.float64),
+                                           requires_grad=train_sigma)
         else:
             # TODO: assert sigmas positive
             assert sigmas.shape == (self.K, self.D)
-            self.log_sigmas = torch.tensor(np.log(sigmas), dtype=torch.float64, requires_grad=True)
+            self.log_sigmas = nn.Parameter(torch.tensor(np.log(sigmas), dtype=torch.float64), requires_grad=True)
 
         self.lags = lags
 
@@ -54,10 +57,11 @@ class ARGaussianObservation(BaseObservation):
         self.log_sigmas = set_param(self.log_sigmas, values[0])
         self.transformation.params = values[1:]
 
+    # TODO: check this
     def permute(self, perm):
         self.mus_init = self.mus_init[perm]
         self.log_sigmas_init = self.log_sigmas_init[perm]
-        self.log_sigmas = torch.tensor(self.log_sigmas[perm], requires_grad=self.log_sigmas.requires_grad)
+        self.log_sigmas = nn.Parameter(torch.tensor(self.log_sigmas[perm]), requires_grad=self.log_sigmas.requires_grad)
         self.transformation.permute(perm)
 
     def _get_scale_tril(self, log_sigmas):
@@ -113,7 +117,7 @@ class ARGaussianObservation(BaseObservation):
 
         return torch.cat((log_prob_init[None,], log_prob_ar))
 
-    def rsample_x(self, z, xhist=None, transformation=False, **kwargs):
+    def rsample_x(self, z, xhist=None, with_noise=False, **kwargs):
         """
         generate reparameterized samples
         :param z: shape ()
@@ -131,7 +135,7 @@ class ARGaussianObservation(BaseObservation):
             mu = self.transformation.transform_condition_on_z(z, xhist[-self.lags:])  # (D, )
             sigmas_z = torch.exp(self.log_sigmas[z])  # (D,)
 
-        if transformation:
+        if with_noise:
             return mu
 
         out = mu + sigmas_z * torch.randn(self.D, dtype=torch.float64)  # (self.D, )

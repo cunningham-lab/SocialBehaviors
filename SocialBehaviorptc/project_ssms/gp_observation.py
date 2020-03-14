@@ -183,12 +183,12 @@ class GPObservation(BaseObservation):
         assert mu.shape == (T, self.K, self.D)
         return mu
 
-    def sample_x(self, z, xhist=None, transformation=False, return_np=True, **kwargs):
+    def sample_x(self, z, xhist=None, with_noise=False, return_np=True, **kwargs):
         """
 
         :param z: a scalar
         :param xhist: (T_pre, D)
-        :param transformation:
+        :param with_noise:
         :param return_np:
         :param kwargs:
         :return: (D,)
@@ -196,14 +196,14 @@ class GPObservation(BaseObservation):
         with torch.no_grad():
             if xhist is None or len(xhist) == 0:
                 mu = self.mus_init[z]  # (D,)
-                if transformation:
+                if with_noise:
                     sample = mu
                 else:
                     sigmas_z = torch.exp(self.log_sigmas_init[z])  # (D,)
                     sample = mu + sigmas_z * torch.randn(self.D, dtype=torch.float64)  # (self.D, )
             else:
-                sample_a = self.sample_single_animal_x(z, xhist[-1:, 0:2], 0, transformation, **kwargs)
-                sample_b = self.sample_single_animal_x(z, xhist[-1:, 2:4], 1, transformation, **kwargs)
+                sample_a = self.sample_single_animal_x(z, xhist[-1:, 0:2], 0, with_noise, **kwargs)
+                sample_b = self.sample_single_animal_x(z, xhist[-1:, 2:4], 1, with_noise, **kwargs)
                 sample = torch.cat((sample_a,sample_b))
             assert sample.shape == (self.D, ), sample.shape
 
@@ -214,13 +214,13 @@ class GPObservation(BaseObservation):
             sample = sample.detach().numpy()
         return sample
 
-    def sample_single_animal_x(self, z, x_pre, animal_idx, expectation, **kwargs):
+    def sample_single_animal_x(self, z, x_pre, animal_idx, with_noise, **kwargs):
         """
 
         :param z: a scalar
         :param x_pre: (1, 2)
         :param animal_idx
-        :param expectation:
+        :param with_noise:
         :return: (2, )
         """
         assert x_pre.shape == (1, 2), x_pre.shape
@@ -230,7 +230,7 @@ class GPObservation(BaseObservation):
 
         if A is None:
             #print("Not using cache. Calculating Sigma, A...")
-            Sigma, A = self.get_gp_cache_condition_on_z(x_pre, z, animal_idx, A_only=expectation, **kwargs)
+            Sigma, A = self.get_gp_cache_condition_on_z(x_pre, z, animal_idx, A_only=not with_noise, **kwargs)
 
         assert A.shape == (1, 2, self.n_gps*2)
         A = torch.squeeze(A, dim=0)
@@ -247,7 +247,7 @@ class GPObservation(BaseObservation):
         mu = mu + x_pre[0]
         assert mu.shape == (2, )
 
-        if expectation:
+        if not with_noise:
             return mu
 
         assert Sigma.shape == (1, 2, 2)

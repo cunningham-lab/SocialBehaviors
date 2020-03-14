@@ -49,7 +49,7 @@ class HSMM:
 
         if init_state_distn is None:
             # set to default
-            self.init_state_distn = BaseInitStateDistn(K=self.K, D=self.D, M=self.M, device=None)
+            self.init_state_distn = BaseInitStateDistn(K=self.K, D=self.D, M=self.M)
         elif isinstance(init_state_distn, BaseInitStateDistn):
             self.init_state_distn = init_state_distn
         else:
@@ -107,6 +107,15 @@ class HSMM:
                 out.append(p)
         return out
 
+    @property
+    def trainable_params_2(self):
+        result = []
+        for object in [self.init_state_distn, self.transition, self.observation]:
+            if (object is not None) and isinstance(object, nn.Module):
+                result = itertools.chain(result, object.parameters())
+
+        return result
+
     """
     def params(self):
         result = []
@@ -120,8 +129,7 @@ class HSMM:
             return result
     """
 
-    # TODO: implement this
-    def sample(self, T, prefix=None, input=None, tag=None, with_noise=True):
+    def sample(self, T, prefix=None, input=None, with_noise=True, return_np=False):
         """
         Sample synthetic data from the model. Optionally, condition on a given
         prefix (preceding discrete states and data).
@@ -146,110 +154,123 @@ class HSMM:
         x_sample : (T x observation_dim) array_like
             Array of sampled data
         """
-        K = self.K
-        D = (self.D,) if isinstance(self.D, int) else self.D
-        M = (self.M,) if isinstance(self.M, int) else self.M
-        assert isinstance(D, tuple)
-        assert isinstance(M, tuple)
-        assert T > 0
+        with torch.no_grad():
+            if isinstance(self.transition, InputDrivenTransition) and input is None:
+                raise ValueError("Please provide input.")
 
-        # Check the inputs
-        if input is not None:
-            assert input.shape == (T,) + M
+            if input is not None:
+                input = check_and_convert_to_tensor(input, device=self.device)
 
-        # Get the type of the observations
-        dummy_data = self.observation.sample_x(0, np.empty(0,) + D)
-        dtype = dummy_data.dtype
+            K = self.K
+            D = self.D
+            M = self.M
 
-        # Initialize the data array
-        if prefix is None:
-            # No prefix is given.  Sample the initial state as the prefix.
-            pad = 1
-            z = np.zeros(T, dtype=int)
-            data = np.zeros((T,) + D, dtype=dtype)
-            input = np.zeros((T,) + M) if input is None else input
-            mask = np.ones((T,) + D, dtype=bool)
+            dtype = torch.float64
+            if prefix is None:
+                # no prefix is given. Sample the initial state as the prefix
+                z = torch.empty(T, dtype=torch.int, device=self.device)
+                data = torch.empty((T, D), dtype=dtype, device=self.device)
 
-            # Sample the first state from the initial distribution
-            pi0 = self.init_state_distn.initial_state_distn
-            z[0] = npr.choice(self.K, p=pi0)
-            data[0] = self.observation.sample_x(z[0], data[:0], input=input[0], with_noise=with_noise)
+                # sample the first state from the initial distribution
+                z_0 = self.init_state_distn.sample()
+                # sample duration
+                L_0 = torch.randint(low=1, high=self.L+1, size=[])
+                L_0 = min(int(L_0), T)
+                z[0:L_0] = torch.stack([z_0]*L_0)
+                # forward sample L_0 steps
+                for t in range(L_0):
+                    data[t] = self.observation.sample_x(z=z_0, xhist=data[:t], with_noise=with_noise, return_np=False)
+                # We only need to sample T-L0 datapoints now
+                T = T - L_0
+                T_pre = L_0
+            else:
+                # check that the prefix is of the right shape
+                z_pre, x_pre = prefix
+                assert len(z_pre.shape) == 1
+                T_pre = z_pre.shape[0]
+                assert x_pre.shape == (T_pre, self.D), "should be {}, but got {}.".format((T_pre, self.D), x_pre.shape)
+                z_pre = check_and_convert_to_tensor(z_pre, dtype=torch.int, device=self.device)
+                x_pre = check_and_convert_to_tensor(x_pre, dtype=dtype, device=self.device)
+                # construct the states and data
+                z = torch.cat((z_pre, torch.empty(T, dtype=torch.int, device=self.device)))
+                assert z.shape == (T_pre + T,)
+                data = torch.cat((x_pre, torch.empty((T, D), dtype=dtype, device=self.device)))
 
-            # We only need to sample T-1 datapoints now
-            T = T - 1
+            if isinstance(self.transition, StationaryTransition):
+                P = get_np(self.transition.stationary_transition_matrix)  # (K, K)
+                t = T_pre
+                while True:
+                #for t in range(T_pre, T_pre + T):
+                    z_t = torch.tensor(npr.choice(K, p=P[z[t-1]]))
+                    L_t = torch.randint(low=1, high=self.L+1, size=[])
+                    L_t = min(int(L_t), T_pre+T-t)
+                    z[t:t+L_t] = torch.stack([z_t]*L_t)
+                    for t_forward in range(t, t+L_t):
+                        data[t_forward] = self.observation.sample_x(z_t, data[:t_forward], with_noise=with_noise,
+                                                                    return_np=False)
+                    t = t + L_t
+                    if t == T_pre + T:
+                        break
+            else:
+                # TODO: not yet modified
+                for t in range(T_pre, T_pre + T):
+                    input_t = input[t - 1:t] if input else input
+                    P = self.transition.transition_matrix(data[t - 1:t], input_t)
+                    assert P.shape == (1, self.K, self.K)
+                    P = torch.squeeze(P, dim=0)
+                    P = get_np(P)
 
-        else:
-            # Check that the prefix is of the right type
-            zpre, xpre = prefix
-            pad = len(zpre)
-            assert zpre.dtype == int and zpre.min() >= 0 and zpre.max() < K
-            assert xpre.shape == (pad,) + D
+                    z[t] = npr.choice(K, p=P[z[t - 1]])
+                    data[t] = self.observation.sample_x(z[t], data[:t], with_noise=with_noise, return_np=False)
 
-            # Construct the states, data, inputs, and mask arrays
-            z = np.concatenate((zpre, np.zeros(T, dtype=int)))
-            data = np.concatenate((xpre, np.zeros((T,) + D, dtype)))
-            input = np.zeros((T+pad,) + M) if input is None else np.concatenate((np.zeros((pad,) + M), input))
-            mask = np.ones((T+pad,) + D, dtype=bool)
-
-        # Convert the discrete states to the range (1, ..., K_total)
-        m = self.state_map
-        K_total = len(m)
-        _, starts = np.unique(m, return_index=True)
-        z = starts[z]
-
-        # Fill in the rest of the data
-        for t in range(pad, pad+T):
-            Pt = self.transition.transition_matrices(data[t-1:t+1], input[t-1:t+1], mask=mask[t-1:t+1], tag=tag)[0]
-            z[t] = npr.choice(K_total, p=Pt[z[t-1]])
-            data[t] = self.observation.sample_x(m[z[t]], data[:t], input=input[t], tag=tag, with_noise=with_noise)
-
-        # Collapse the states
-        z = m[z]
-
-        # Return the whole data if no prefix is given.
-        # Otherwise, just return the simulated part.
-        if prefix is None:
-            return z, data
-        else:
-            return z[pad:], data[pad:]
+            if prefix is None:
+                if return_np:
+                    return get_np(z), get_np(data)
+                return z, data
+            else:
+                if return_np:
+                    return get_np(z[T_pre:]), get_np(data[T_pre:])
+                return z[T_pre:], data[T_pre:]
 
     # TODO: avoid unnecessary computation
     # TODO: implement viterbi
     def most_likely_states(self, data, input=None, cache=None, transition_mkwargs=None, **memory_kwargs):
-        if len(data) == 0:
-            return np.array([])
+        with torch.no_grad():
+            if len(data) == 0:
+                return np.array([])
 
-        log_pi0 = cache.get("log_pi0", None)
-        log_Ps = cache.get("log_Ps", None)
-        bwd_obs_logprobs = cache.get("bwd_obs_log_probs", None)
+            cache = cache if cache else {}
+            log_pi0 = cache.get("log_pi0", None)
+            log_Ps = cache.get("log_Ps", None)
+            bwd_obs_logprobs = cache.get("bwd_obs_log_probs", None)
 
-        if input is not None:
-            input = check_and_convert_to_tensor(input, device=self.device)
+            if input is not None:
+                input = check_and_convert_to_tensor(input, device=self.device)
 
-        data = check_and_convert_to_tensor(data, device=self.device)
-        T = data.shape[0]
+            data = check_and_convert_to_tensor(data, device=self.device)
+            T = data.shape[0]
 
-        if log_pi0 is None:
-            log_pi0 = get_np(self.init_dist)  # (K, )
+            if log_pi0 is None:
+                log_pi0 = self.init_state_distn.log_probs  # (K, )
 
-        if log_Ps is None:
-            if isinstance(self.transition, StationaryTransition):
-                log_Ps = self.transition.log_stationary_transition_matrix
-                log_Ps = get_np(log_Ps)  # (K, K)
-                log_Ps = log_Ps[None,]
-            else:
-                assert isinstance(self.transition, GridTransition), type(self.transition)
-                transition_mkwargs = transition_mkwargs if transition_mkwargs else {}
-                input = input[:-1] if input else input
-                log_Ps = self.transition.log_transition_matrix(data[:-1], input, **transition_mkwargs)
-                log_Ps = get_np(log_Ps)
-                assert log_Ps.shape == (T - 1, self.K, self.K), log_Ps.shape
-        if bwd_obs_logprobs is None:
-            log_likes = get_np(self.observation.log_prob(data, **memory_kwargs))
+            if log_Ps is None:
+                if isinstance(self.transition, StationaryTransition):
+                    log_Ps = self.transition.log_stationary_transition_matrix
+                    log_Ps = log_Ps  # (K, K)
+                    log_Ps = log_Ps[None,].repeat(T-1, 1, 1)
 
+                else:
+                    assert isinstance(self.transition, GridTransition), type(self.transition)
+                    transition_mkwargs = transition_mkwargs if transition_mkwargs else {}
+                    input = input[:-1] if input else input
+                    log_Ps = self.transition.log_transition_matrix(data[:-1], input, **transition_mkwargs)
+                    log_Ps = log_Ps
+                    assert log_Ps.shape == (T - 1, self.K, self.K), log_Ps.shape
+            if bwd_obs_logprobs is None:
+                log_likes = self.observation.log_prob(data, **memory_kwargs)  # (T, K)
+                bwd_obs_logprobs = self.stacked_bw_log_likes_helper(log_likes, self.L)
 
-
-        return hsmm_viterbi(log_pi0, trans_logprobs=log_Ps, bwd_obs_logprobs=bwd_obs_logprobs, len_logprobs=None)
+            return hsmm_viterbi(log_pi0, trans_logprobs=log_Ps, bwd_obs_logprobs=bwd_obs_logprobs, len_logprobs=None, L=self.L)
 
     @ensure_args_are_lists_of_tensors
     def fit(self, datas, inputs=None, optimizer=None, method='adam', num_iters=1000, lr=0.001,
@@ -260,7 +281,7 @@ class HSMM:
 
         if optimizer is None:
             if method == 'adam':
-                optimizer = torch.optim.Adam(self.trainable_params, lr=lr)
+                optimizer = torch.optim.Adam(self.trainable_params_2, lr=lr)
             elif method == 'sgd':
                 optimizer = torch.optim.SGD(self.trainable_params, lr=lr)
             else:
@@ -349,7 +370,7 @@ class HSMM:
             data = check_and_convert_to_tensor(data, torch.float64, device=self.device)
 
             T = data.shape[0]
-            log_pi0 = self.init_state_distn.log_pi
+            log_pi0 = self.init_state_distn.log_probs
 
             if isinstance(self.transition, StationaryTransition):
                 log_P = self.transition.log_stationary_transition_matrix
@@ -390,7 +411,7 @@ class HSMM:
         for l in range(2, max_L+1):
             log_like_l = stacked_log_likes[l-1-1][:T-l+1] + log_likes[l-1:]  # (T-l+1)
             assert log_like_l.shape == (T-l+1, K)
-            log_like_l_pad = log_like_l.new(l-1, K).fill_(-float("inf"))
+            log_like_l_pad = log_like_l.new_empty((l-1, K)).fill_(-float("inf"))
             log_like_l = torch.cat((log_like_l, log_like_l_pad), dim=0) # (T, K)
             assert log_like_l.shape == (T, K), log_like_l.shape
             stacked_log_likes.append(log_like_l)
@@ -419,7 +440,7 @@ class HSMM:
         for l in range(2, max_L+1):
             log_like_l = stacked_log_likes[l-1-1][:T-l+1] + log_likes[l-1:]  # (T-l+1)
             assert log_like_l.shape == (T-l+1, K)
-            log_like_l_pad = log_like_l.new(l-1, K).fill(-float("inf"))
+            log_like_l_pad = log_like_l.new_empty((l-1, K)).fill_(-float("inf"))
             log_like_l = torch.cat((log_like_l_pad, log_like_l), dim=0)  # (T, K)
             assert log_like_l.shape == (T, K), log_like_l.shape
             stacked_log_likes.append(log_like_l)
@@ -504,9 +525,11 @@ if __name__ == "__main__":
     import git
     import joblib
 
+    import matplotlib.pyplot as plt
     from project_ssms.utils import downsample
     from project_ssms.gp_observation_single import GPObservationSingle
     from project_ssms.constants import *
+    from project_ssms.grid_utils import plot_realdata_quiver
 
     # test for virgin selected
     repo = git.Repo('.', search_parent_directories=True)  # SocialBehaviorectories=True)
@@ -529,14 +552,15 @@ if __name__ == "__main__":
 
     K = 2
     T, D = data.shape
+    print("data shape", data.shape)
 
     n_x = 3
     n_y = 3
     mus_init = data[0] * torch.ones(K, D, dtype=torch.float64, device=device)
     x_grid_gap = (ARENA_XMAX - ARENA_XMIN) / n_x
     x_grids = np.array([ARENA_XMIN + i * x_grid_gap for i in range(n_x + 1)])
-    y_grid_gap = (ARENA_XMAX - ARENA_XMIN) / n_y
-    y_grids = np.array([ARENA_XMIN + i * y_grid_gap for i in range(n_y + 1)])
+    y_grid_gap = (ARENA_YMAX - ARENA_YMIN) / n_y
+    y_grids = np.array([ARENA_YMIN + i * y_grid_gap for i in range(n_y + 1)])
     bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX]])
     train_rs = False
     obs = GPObservationSingle(K=K, D=D, mus_init=mus_init, x_grids=x_grids, y_grids=y_grids, bounds=bounds,
@@ -545,11 +569,60 @@ if __name__ == "__main__":
     L = 5
     model = HSMM(K=K, D=D, L=L, init_state_distn=None, transition='stationary', observation=obs)
 
-    ll = model.log_likelihood(data)  # tensor(-10207.9570, grad_fn=<AddBackward0>)
+    ll = model.log_likelihood(data)  # tensor(-10110.7855, dtype=torch.float64, grad_fn=<AddBackward0>)
     print(ll)
 
+    #sample_T = 100
+    #sample_z, sample_x = model.sample(sample_T)
+    #plot_realdata_quiver(sample_x, sample_z, K=K, x_grids=x_grids, y_grids=y_grids, title="samples before training")
+    #plt.show()
+
+    #_, hidden_state_seqs = model.most_likely_states(data)
+    #print(len(hidden_state_seqs))
+    #print(hidden_state_seqs)
+
+    #plot_realdata_quiver(data, hidden_state_seqs, K=2, x_grids=x_grids, y_grids=y_grids, title="before training")
+    #plt.show()
+
+
     # fitting
-    loss = model.fit(datas=data, num_iters=100, lr=1e-3)  # 8744.38
+    num_iters = 100
+    loss, opt = model.fit(datas=data, num_iters=num_iters, lr=1e-3)  # 9975.38
+    #print(type(loss))
+    #plt.plot(loss)
+    #plt.show()
+
+    #sample_T = 100
+    #sample_z, sample_x = model.sample(sample_T)
+    #plot_realdata_quiver(sample_x, sample_z, K=K, x_grids=x_grids, y_grids=y_grids, title="samples after {} epochs".format(num_iters))
+    #plt.show()
+    # infer the most likely hidden states
+    #_, hidden_state_seqs = model.most_likely_states(data)
+    #print(len(hidden_state_seqs))
+    #print(hidden_state_seqs)
+    #plot_realdata_quiver(data, hidden_state_seqs, K=2, x_grids=x_grids, y_grids=y_grids, title="after {} epochs".format(num_iters))
+    #plt.show()
+
+    # samples
+    #samples = model.sample()
+
+
+    # quivers
+
+    # training dynamics (how the color changes)
+
+
+
+    ########### quite constrained matrix initialization ########
+    import numpy.random as npr
+    logits_ = npr.rand(K, K)
+    # then get probs...
+
+
+# TODO: check time complexity. check different Ks, check different Ls, held-out prediction
+# TODO: check sample quality
+# TODO: figure out the posterior dist for L
+
 
 
 
