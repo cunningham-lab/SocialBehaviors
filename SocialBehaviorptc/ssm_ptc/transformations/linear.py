@@ -18,7 +18,7 @@ class LinearTransformation(BaseTransformation):
                 np.column_stack([random_rotation(self.D), np.zeros((self.D, (self.lags - 1) * self.D))])
             for _ in range(K)])
 
-        self.As = torch.tensor(As, dtype=torch.float64, requires_grad=True)
+        self.As = nn.Parameter(torch.tensor(As, dtype=torch.float64), requires_grad=True)
         assert self.As.shape == (self.K, D, D * self.lags)
 
         if use_bias:
@@ -29,20 +29,6 @@ class LinearTransformation(BaseTransformation):
             self.bs = torch.zeros(self.K, self.D, dtype=torch.float64)
 
         assert self.bs.shape == (self.K, self.D)
-
-    @property
-    def params(self):
-        return self.As, self.bs
-
-    @params.setter
-    def params(self, values):
-        self.As = set_param(self.As, values[0])
-        self.bs = set_param(self.bs, values[1])
-
-    # TODO: check if violates any property of nn.Parameter / nn.Module
-    def permute(self, perm):
-        self.As = nn.Parameter(torch.tensor(self.As[perm]), requires_grad=self.As.requires_grad)
-        self.bs = nn.Parameter(torch.tensor(self.bs[perm]), requires_grad=self.bs.requires_grad)
 
     def transform(self, inputs):
         """

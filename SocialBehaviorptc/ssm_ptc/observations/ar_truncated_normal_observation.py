@@ -1,8 +1,7 @@
 import torch
-from torch.distributions import Normal, MultivariateNormal
+import torch.nn as nn
 
 import numpy as np
-import numpy.random as npr
 
 from ssm_ptc.observations.base_observation import BaseObservation
 from ssm_ptc.transformations.base_transformation import BaseTransformation
@@ -46,11 +45,12 @@ class ARTruncatedNormalObservation(BaseObservation):
 
         # consider diagonal covariance
         if sigmas is None:
-            self.log_sigmas = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, requires_grad=train_sigma)
+            log_sigmas = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64)
         else:
             # TODO: assert sigmas positive
             assert sigmas.shape == (self.K, self.D)
-            self.log_sigmas = torch.tensor(np.log(sigmas), dtype=torch.float64, requires_grad=train_sigma)
+            log_sigmas = check_and_convert_to_tensor(np.log(sigmas), dtype=torch.float64)
+        self.log_sigmas = nn.Parameter(log_sigmas, requires_grad=train_sigma)
 
         if bounds is None:
             raise ValueError("Please provide bounds.")
@@ -68,22 +68,6 @@ class ARTruncatedNormalObservation(BaseObservation):
 
         # consider diagonal covariance
         self.log_sigmas_init = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64)
-
-    @property
-    def params(self):
-        return (self.log_sigmas, ) + self.transformation.params
-
-    @params.setter
-    def params(self, values):
-        self.log_sigmas = set_param(self.log_sigmas, values[0])
-        self.transformation.params = values[1:]
-
-    def permute(self, perm):
-        self.mus_init = self.mus_init[perm]
-        self.log_sigmas_init = self.log_sigmas_init[perm]
-
-        self.log_sigmas = torch.tensor(self.log_sigmas[perm], requires_grad=self.log_sigmas.requires_grad)
-        self.transformation.permute(perm)
 
     def _compute_mus_based_on(self, data):
         # not tested.

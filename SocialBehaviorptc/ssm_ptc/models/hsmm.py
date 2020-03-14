@@ -25,7 +25,6 @@ TRANSITION_CLASSES = dict(stationary=StationaryTransition,
                           inputdriven=InputDrivenTransition,
                           grid=GridTransition)
 OBSERVATION_CLASSES = dict(gaussian=ARGaussianObservation,
-                           logitnormal=ARLogitNormalObservation,
                            truncatednormal=ARTruncatedNormalObservation)
 
 class HSMM:
@@ -88,27 +87,6 @@ class HSMM:
 
     @property
     def params(self):
-        return self.init_state_distn.params, self.transition.params, self.observation.params
-
-    @property
-    def params_unpack(self):
-        return self.params[0] + self.params[1] + self.params[2]
-
-    @property
-    def trainable_params(self):
-        """
-        :return: the parameters that require grad. maybe helpful for optimization
-        """
-        params_unpack = self.params_unpack
-
-        out = []
-        for p in params_unpack:
-            if p.requires_grad:
-                out.append(p)
-        return out
-
-    @property
-    def trainable_params_2(self):
         result = []
         for object in [self.init_state_distn, self.transition, self.observation]:
             if (object is not None) and isinstance(object, nn.Module):
@@ -116,18 +94,14 @@ class HSMM:
 
         return result
 
-    """
-    def params(self):
+    @property
+    def trainable_params(self):
         result = []
         for object in [self.init_state_distn, self.transition, self.observation]:
             if (object is not None) and isinstance(object, nn.Module):
-                result = itertools.chain(result, object.parameters())
+                result = itertools.chain(result, filter(lambda p: p.requires_grad, object.parameters()))
 
-        if isinstance(result, list):
-            return None
-        else:
-            return result
-    """
+        return result
 
     def sample(self, T, prefix=None, input=None, with_noise=True, return_np=False):
         """
@@ -281,7 +255,7 @@ class HSMM:
 
         if optimizer is None:
             if method == 'adam':
-                optimizer = torch.optim.Adam(self.trainable_params_2, lr=lr)
+                optimizer = torch.optim.Adam(self.trainable_params, lr=lr)
             elif method == 'sgd':
                 optimizer = torch.optim.SGD(self.trainable_params, lr=lr)
             else:
@@ -624,7 +598,7 @@ if __name__ == "__main__":
 # TODO: figure out the posterior dist for L
 
 
-
+# TODO: chek transformation -> with_noise in k_step_prediction: set with_noise = False
 
 
 

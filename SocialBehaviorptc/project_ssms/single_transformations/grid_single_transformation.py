@@ -22,7 +22,7 @@ UNIT_TRANSFORMATION_CLASSES = dict(
 
 class GridSingleTransformation(BaseTransformation):
     """
-    Receive inputs in 4 dimension, but only perform with_noise in the first 2 dimensions
+    Receive inputs in 4 dimension, but only perform transformation in the first 2 dimensions
     """
     def __init__(self, K, D, x_grids, y_grids, unit_transformation, **unit_transformation_kwargs):
         super(GridSingleTransformation, self).__init__(K, D)
@@ -36,27 +36,11 @@ class GridSingleTransformation(BaseTransformation):
 
         unit_tran = UNIT_TRANSFORMATION_CLASSES.get(unit_transformation, None)
         if unit_tran is None:
-            raise ValueError("Invalid unit with_noise model: {}. Must be one of {}".
+            raise ValueError("Invalid unit transformation model: {}. Must be one of {}".
                              format(unit_transformation, list(UNIT_TRANSFORMATION_CLASSES.keys())))
 
         self.transformations_a = [unit_tran(K=self.K, D=self.D*2, **unit_transformation_kwargs)
                                   for _ in range(self.G)]
-
-    @property
-    def params(self):
-        params = ()
-        for g in range(self.G):
-            params = params + self.transformations_a[g].params
-        return params
-
-    @params.setter
-    def params(self, values):
-        for g in range(self.G):
-            self.transformations_a[g].params = values[g]
-
-    def permute(self, perm):
-        for g in range(self.G):
-            self.transformations_a[g].permute(perm)
 
     def transform(self, inputs_self, masks_a=None, memory_kwargs_a=None):
         """
@@ -104,7 +88,7 @@ class GridSingleTransformation(BaseTransformation):
         """
         memory_kwargs_a = memory_kwargs_a or {}
 
-        # decide which with_noise ot use
+        # decide which transformation to use
         g_a = self.find_grid_index(inputs_self[-1], self.x_grids, self.y_grids)
 
         out_a = self.transformations_a[g_a].transform_condition_on_z(z, inputs_self, inputs_other, **memory_kwargs_a)

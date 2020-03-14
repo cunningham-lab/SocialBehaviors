@@ -10,24 +10,12 @@ class BaseTransformation(nn.Module):
         self.K = K
         self.D = D # output dimension
 
-    @property
-    def params(self):
-        raise NotImplementedError
-
-    @params.setter
-    def params(self, values):
-        raise NotImplementedError
-
     @abstractmethod
     def transform(self, inputs, **kwargs):
         pass
 
     @abstractmethod
     def transform_condition_on_z(self, z, inputs, **kwargs):
-        pass
-
-    @abstractmethod
-    def permute(self, perm):
         pass
 
     def log_prior(self):

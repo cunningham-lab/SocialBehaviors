@@ -47,23 +47,6 @@ class ARGaussianObservation(BaseObservation):
             self.transformation = transformation
             self.lags = self.transformation.lags
 
-    @property
-    def params(self):
-        # do not train initial parameters
-        return (self.log_sigmas, ) + self.transformation.params
-
-    @params.setter
-    def params(self, values):
-        self.log_sigmas = set_param(self.log_sigmas, values[0])
-        self.transformation.params = values[1:]
-
-    # TODO: check this
-    def permute(self, perm):
-        self.mus_init = self.mus_init[perm]
-        self.log_sigmas_init = self.log_sigmas_init[perm]
-        self.log_sigmas = nn.Parameter(torch.tensor(self.log_sigmas[perm]), requires_grad=self.log_sigmas.requires_grad)
-        self.transformation.permute(perm)
-
     def _get_scale_tril(self, log_sigmas):
         sigmas = torch.exp(log_sigmas)
         return torch.diag_embed(sigmas)

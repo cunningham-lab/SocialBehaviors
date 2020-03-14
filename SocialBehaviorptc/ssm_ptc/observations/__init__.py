@@ -1,5 +1,3 @@
 from ssm_ptc.observations.ar_gaussian_observation import ARGaussianObservation
-from ssm_ptc.observations.ar_logit_normal_observation import ARLogitNormalObservation
 from ssm_ptc.observations.ar_truncated_normal_observation import ARTruncatedNormalObservation
 from ssm_ptc.observations.base_observation import BaseObservation
-from ssm_ptc.observations.truncated_normal_observation import TruncatedNormalObservation

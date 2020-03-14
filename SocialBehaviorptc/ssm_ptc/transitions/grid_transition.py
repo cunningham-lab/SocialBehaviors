@@ -34,14 +34,6 @@ class GridTransition(BaseTransition):
             self.Pis = nn.Parameter(torch.tensor(Pis, dtype=torch.float64), requires_grad=True)
             assert self.Pis.shape == (self.n_grids, self.K, self.K), \
                 "shape should be {} instead of {}".format((self.n_grids, self.K, self.K), self.Pis.shape)
-    
-    @property
-    def params(self):
-        return self.Pis,
-
-    @params.setter
-    def params(self, values):
-        self.Pis = set_param(self.Pis, values[0])
 
     @property
     def grid_transition_matrix(self):
@@ -50,16 +42,6 @@ class GridTransition(BaseTransition):
     @property
     def grid_log_transition_matrix(self):
         return torch.nn.LogSoftmax(dim=-1)(self.Pis)
-
-    def permute(self, perm):
-        Pis = self.Pis.detach().numpy()  # (n_grids, n_grids, K, K)
-        if self.D == 4:
-            Pis = np.reshape(Pis, (-1, self.K, self.K))
-            Pis = [Pi[np.idx(perm, perm)] for Pi in Pis]
-            Pis = np.reshape(Pis, (self.n_grids, self.n_grids, self.K, self.K))
-        else:
-            Pis = [Pi[np.idx(perm, perm)] for Pi in Pis]
-        self.Pi = torch.tensor(Pis, dtype=torch.float64, requires_grad=True, device=self.device)
 
     def transition_matrix(self, data, input, log=False, **kwargs):
         """

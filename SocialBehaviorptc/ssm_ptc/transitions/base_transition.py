@@ -9,18 +9,7 @@ class BaseTransition(nn.Module):
         super(BaseTransition, self).__init__()
         self.K, self.D, self.M = K, D, M
 
-    @property
-    def params(self):
-        raise NotImplementedError
-
-    @params.setter
-    def params(self, values):
-        raise NotImplementedError
-
     def transition_matrix(self, data, input, log=False):
-        raise NotImplementedError
-
-    def permute(self, perm):
         raise NotImplementedError
 
     @ensure_args_are_lists_of_tensors

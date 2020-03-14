@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import numpy as np
 
 from ssm_ptc.transformations.base_transformation import BaseTransformation
@@ -18,8 +19,8 @@ class SingleLinearGridTransformation(BaseTransformation):
         assert D == 2, D
         self.device = device
 
-        self.x_grids = check_and_convert_to_tensor(x_grids, dtype=torch.float64, device=self.device)  # [x_0, x_1, ..., x_m]
-        self.y_grids = check_and_convert_to_tensor(y_grids, dtype=torch.float64, device=self.device)  # a list [y_0, y_1, ..., y_n]
+        self.x_grids = nn.Parameter(check_and_convert_to_tensor(x_grids, dtype=torch.float64), requires_grad=False)  # [x_0, x_1, ..., x_m]
+        self.y_grids = nn.Parameter(check_and_convert_to_tensor(y_grids, dtype=torch.float64), requires_grad=False)  # a list [y_0, y_1, ..., y_n]
         self.n_x = len(x_grids) - 1
         self.n_y = len(y_grids) - 1
         self.ly = len(y_grids)
@@ -29,15 +30,7 @@ class SingleLinearGridTransformation(BaseTransformation):
         self.n_gps = self.gridpoints.shape[0]
 
         # dynamics at the grid points
-        self.us = torch.rand((self.K, self.n_gps, self.D), dtype=torch.float64, device=device, requires_grad=True)
-
-    @property
-    def params(self):
-        return self.us,
-
-    @params.setter
-    def params(self, values):
-        self.Ws = set_param(self.Ws, values)
+        self.us = nn.Parameter(torch.rand((self.K, self.n_gps, self.D), dtype=torch.float64), requires_grad=True)
 
     def transform(self, inputs, **kwargs):
         """

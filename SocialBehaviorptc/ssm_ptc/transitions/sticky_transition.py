@@ -65,20 +65,6 @@ class InputDrivenTransition(StickyTransition):
         # penalty for Ws
         self.l2_penalty = l2_penalty
 
-    @property
-    def params(self):
-        return self.Pi, self.Ws, self.bs
-
-    @params.setter
-    def params(self, values):
-        self.Pi = set_param(self.Pi, values[0])
-        self.Ws = set_param(self.Ws, values[1])
-
-    def permute(self, perm):
-        self.Pi = nn.Parameter(torch.tensor(self.Pi[np.ix_(perm, perm)]), requires_grad=True)
-        self.Ws = nn.Parameter(torch.tensor(self.Ws[perm]), requires_grad=True)
-        self.bs = nn.Parameter(torch.tensor(self.bs[perm]), requires_grad=self.use_bias)
-
     def log_prior(self):
         lp = super(InputDrivenTransition, self).log_prior()
         lp = lp + np.sum(-0.5 * self.l2_penalty * self.Ws ** 2)

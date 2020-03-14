@@ -19,14 +19,6 @@ class StationaryTransition(BaseTransition):
         self.logits = nn.Parameter(torch.tensor(logits, dtype=dtype), requires_grad=True)
 
     @property
-    def params(self):
-        return self.logits,
-
-    @params.setter
-    def params(self, values):
-        self.logits = set_param(self.logits, values[0])
-
-    @property
     def stationary_transition_matrix(self):
         return torch.nn.Softmax(dim=-1)(self.logits)
 
@@ -40,8 +32,6 @@ class StationaryTransition(BaseTransition):
 
         return torch.nn.Softmax(dim=-1)(self.logits)
 
-    def permute(self, perm):
-        self.logits = torch.tensor(self.logits.detach().numpy()[np.ix_(perm, perm)], requires_grad=True)
 
 # TODO: fix tomorrow
 class ConstrainedStationaryTransition(BaseTransition):
@@ -52,14 +42,6 @@ class ConstrainedStationaryTransition(BaseTransition):
         else:
             assert logits_.shape == (self.K, self.K-1), logits_.shape
         self.logits_ = nn.Parameter(torch.tensor(logits_, dtype=dtype), requires_grad=True)
-
-    @property
-    def params(self):
-        return self.logits_,
-
-    @params.setter
-    def params(self, values):
-        self.logits_ = values[0]
 
     @property
     def stationary_transition_matrix(self):

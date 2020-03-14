@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import numpy as np
 
 from ssm_ptc.transformations.base_transformation import BaseTransformation
@@ -33,12 +34,12 @@ class ARTruncatedNormalObservation(BaseObservation):
             assert M == obs.M
 
             self.lags = obs.lags
-            self.bounds = check_and_convert_to_tensor(get_np(obs.bounds), device=self.device)
+            self.bounds = nn.Parameter(check_and_convert_to_tensor(get_np(obs.bounds)), requires_grad=False)
             assert self.bounds.shape == (self.D, 2)
 
-            self.mus_init = torch.tensor(obs.mus_init, dtype=torch.float64, device=self.device)
-            self.log_sigmas_init = torch.tensor(get_np(obs.log_sigmas_init), device=self.device)
-            self.log_sigmas = torch.tensor(get_np(obs.log_sigmas), dtype=torch.float64, device=self.device,
+            self.mus_init = nn.Parameter(torch.tensor(obs.mus_init, dtype=torch.float64), requires_grad=False)
+            self.log_sigmas_init = nn.Parameter(torch.tensor(get_np(obs.log_sigmas_init)), requires_grad=False)
+            self.log_sigmas = nn.Parameter(torch.tensor(get_np(obs.log_sigmas), dtype=torch.float64),
                                            requires_grad=train_sigma)
 
             tran = obs.transformation
@@ -55,12 +56,13 @@ class ARTruncatedNormalObservation(BaseObservation):
 
             if bounds is None:
                 raise ValueError("Must provide bounds.")
-            self.bounds = check_and_convert_to_tensor(bounds, device=self.device)
+            self.bounds = nn.Parameter(check_and_convert_to_tensor(bounds), requires_grad=False)
             assert self.bounds.shape == (self.D, 2)
 
-            self.mus_init = torch.eye(self.K, self.D, dtype=torch.float64, device=self.device)
-            self.log_sigmas_init = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, device=self.device)
-            self.log_sigmas = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, device=self.device,
+            self.mus_init = nn.Parameter(torch.eye(self.K, self.D, dtype=torch.float64), requires_grad=False)
+            self.log_sigmas_init = nn.Parameter(torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64),
+                                                requires_grad=False)
+            self.log_sigmas = nn.Parameter(torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64),
                                            requires_grad=train_sigma)
 
             if isinstance(transformation, BaseTransformation):
@@ -73,23 +75,6 @@ class ARTruncatedNormalObservation(BaseObservation):
                 transformation_kwargs = transformation_kwargs or {}
                 self.transformation = TRANSFORMATION_CLASSES[transformation](K=self.K, D=self.D, M=self.M, lags=self.lags,
                                                                              device=device, **transformation_kwargs)
-
-    @property
-    def params(self):
-        return (self.log_sigmas, ) + self.transformation.params
-
-    @params.setter
-    def params(self, values):
-        self.log_sigmas = set_param(self.log_sigmas, values[0])
-        self.transformation.params = values[1:]
-
-    def permute(self, perm):
-        self.mus_init = self.mus_init[perm]
-        self.log_sigmas_init = self.log_sigmas_init[perm]
-
-        self.log_sigmas = torch.tensor(self.log_sigmas[perm], requires_grad=self.log_sigmas.requires_grad,
-                                       device=self.device)
-        self.transformation.permute(perm)
 
     def log_prior(self):
         return self.transformation.log_prior()

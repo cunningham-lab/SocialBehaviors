@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 from torch.distributions import Normal, MultivariateNormal
 import numpy as np
 
@@ -22,29 +23,31 @@ class GPObservation(BaseObservation):
 
         self.device = device
 
-        self.bounds = check_and_convert_to_tensor(bounds, dtype=torch.float64, device=self.device)
+        self.bounds = nn.Parameter(check_and_convert_to_tensor(bounds, dtype=torch.float64), requires_grad=False)
         assert self.bounds.shape == (self.D, 2), self.bounds.shape
 
         # specify distribution parameters
         if mus_init is None:
-            self.mus_init = torch.zeros(self.K, self.D, dtype=torch.float64, device=self.device)
+            mus_init = torch.zeros(self.K, self.D, dtype=torch.float64)
         else:
-            self.mus_init = check_and_convert_to_tensor(mus_init, dtype=torch.float64, device=self.device)
+            mus_init = check_and_convert_to_tensor(mus_init, dtype=torch.float64)
+        self.mus_init = nn.Parameter(mus_init, requires_grad=False)
         # consider diagonal covariance
-        self.log_sigmas_init = torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64, device=self.device)
+        self.log_sigmas_init = \
+            nn.Parameter(torch.tensor(np.log(np.ones((K, D))), dtype=torch.float64), requires_grad=False)
         # shape (K,D)
-        self.log_sigmas = torch.tensor(np.log(5*np.ones((K, D))), dtype=torch.float64, device=self.device,
+        self.log_sigmas = nn.Parameter(torch.tensor(np.log(5*np.ones((K, D))), dtype=torch.float64),
                                          requires_grad=True)
 
         # specify gp dynamics parameters
-        self.x_grids = check_and_convert_to_tensor(x_grids, dtype=torch.float64, device=self.device)  # [x_0, x_1, ..., x_m]
-        self.y_grids = check_and_convert_to_tensor(y_grids, dtype=torch.float64, device=self.device)  # a list [y_0, y_1, ..., y_n]
+        self.x_grids = nn.Parameter(check_and_convert_to_tensor(x_grids, dtype=torch.float64), requires_grad=False)  # [x_0, x_1, ..., x_m]
+        self.y_grids = nn.Parameter(check_and_convert_to_tensor(y_grids, dtype=torch.float64), requires_grad=False)  # a list [y_0, y_1, ..., y_n]
 
-        self.inducing_points = torch.tensor([(x_grid, y_grid) for x_grid in self.x_grids for y_grid in self.y_grids],
-                                            device=self.device)  # (n_gps, 2)
+        self.inducing_points = nn.Parameter(torch.tensor([(x_grid, y_grid) for x_grid in self.x_grids for y_grid in self.y_grids]),
+                                            requires_grad=False)  # (n_gps, 2)
         self.n_gps = self.inducing_points.shape[0]
 
-        self.us = torch.rand(self.K, self.n_gps, self.D, dtype=torch.float64, device=self.device, requires_grad=True)
+        self.us = nn.Parameter(torch.rand(self.K, self.n_gps, self.D, dtype=torch.float64), requires_grad=True)
 
         # define n_gps parameters, suppose parameters work for all Ks
         if rs is None:
@@ -58,31 +61,14 @@ class GPObservation(BaseObservation):
         elif isinstance(rs, float):
             rs = rs * np.ones(self.K, 2, 2, 2)
         assert rs.shape == (self.K, 2, 2, 2), rs.shape
-        self.rs = torch.tensor(rs, dtype=torch.float64, device=self.device, requires_grad=train_rs)
+        self.rs = nn.Parameter(torch.tensor(rs, dtype=torch.float64), requires_grad=train_rs)
 
         # (K, 2, 2,2)
         vs = [[[[1,0],[0,1]],[[1,0], [0,1]]] for _ in range(self.K)]
-        self.vs = torch.tensor(vs, dtype=torch.float64, device=self.device, requires_grad=train_vs)
+        self.vs = nn.Parameter(torch.tensor(vs, dtype=torch.float64), requires_grad=train_vs)
         # real_vs = vs**2
 
         self.kernel_distsq_gg = kernel_distsq_doubled(self.inducing_points, self.inducing_points)  # (n_gps*2, n_gps*2)
-
-    @property
-    def params(self):
-        return self.us, self.rs, self.vs, self.log_sigmas
-
-    @params.setter
-    def params(self, values):
-        self.us = set_param(self.us, values[0])
-        self.rs = set_param(self.rs, values[1])
-        self.vs = set_param(self.vs, values[2])
-        self.log_sigmas = set_param(self.log_sigmas, values[3])
-
-    def permute(self, perm):
-        self.us = self.us[perm]
-        self.rs = self.rs[perm]
-        self.vs = self.vs[perm]
-        self.log_sigmas = self.log_sigmas[perm]
 
     def log_prob(self, inputs, **kwargs):
         """

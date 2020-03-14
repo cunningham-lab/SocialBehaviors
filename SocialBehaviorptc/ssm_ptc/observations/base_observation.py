@@ -12,17 +12,6 @@ class BaseObservation(nn.Module):
     def log_prior(self):
         return 0
 
-    @property
-    def params(self):
-        raise NotImplementedError
-
-    @params.setter
-    def params(self, values):
-        raise NotImplementedError
-
-    def permute(self, perm):
-        raise NotImplementedError
-
     def log_prob(self, data, **kwargs):
         raise NotImplementedError
 

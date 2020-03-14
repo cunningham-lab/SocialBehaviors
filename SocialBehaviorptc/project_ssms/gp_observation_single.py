@@ -74,27 +74,7 @@ class GPObservationSingle(BaseObservation):
         vs = [[1,1] for _ in range(self.K)]
         # TODO: if train_vs, need to make vs positive
         self.vs = nn.Parameter(torch.tensor(vs, dtype=dtype), requires_grad=train_vs)
-
         self.kernel_distsq_gg = kernel_distsq(self.inducing_points, self.inducing_points)  # (n_gps, n_gps)
-
-    @property
-    def params(self):
-        return self.log_sigmas, self.us, self.rs, self.vs
-
-    @params.setter
-    def params(self, values):
-        self.log_sigmas = set_param(self.log_sigmas, values[0])
-        self.us = set_param(self.us, values[1])
-        self.rs = set_param(self.rs, values[2])
-        self.vs = set_param(self.vs, values[3])
-
-    def permute(self, perm):
-        self.mus_init = self.mus_init[perm]
-        self.log_sigmas_init = self.log_sigmas_init[perm]
-        self.log_sigmas = self.log_sigmas[perm]
-        self.us = self.us[perm]
-        self.rs = self.rs[perm]
-        self.vs = self.vs[perm]
 
     def log_prob(self, inputs, **kwargs):
         """

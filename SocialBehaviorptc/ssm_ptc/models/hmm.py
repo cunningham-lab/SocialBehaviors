@@ -3,10 +3,12 @@ the code is mainly based on https://github.com/slinderman/ssm
 """
 
 import torch
+import torch.nn as nn
 import numpy as np
 import numpy.random as npr
 import sys
 import contextlib
+import itertools
 
 from ssm_ptc.init_state_distns import *
 from ssm_ptc.observations import *
@@ -32,7 +34,6 @@ TRANSITION_CLASSES = dict(stationary=StationaryTransition,
                           grid=GridTransition)
 
 OBSERVATION_CLASSES = dict(gaussian=ARGaussianObservation,
-                           logitnormal=ARLogitNormalObservation,
                            truncatednormal=ARTruncatedNormalObservation)
 
 
@@ -290,36 +291,20 @@ class HMM:
 
     @property
     def params(self):
-        """
-        :return: a tuple of three items, each item is a list of tensors
-        """
-        return self.init_state_distn.params, self.transition.params, self.observation.params
-
-    @params.setter
-    def params(self, values):
-        """only change values, keep requires_grad property"""
-        assert type(values) == tuple
-
-        self.init_state_distn.params = values[0]
-        self.transition.params = values[1]
-        self.observation.params = values[2]
-
-    @property
-    def params_unpack(self):
-        return self.params[0] + self.params[1] + self.params[2]
+        result = []
+        for object in [self.init_state_distn, self.transition, self.observation]:
+            if (object is not None) and isinstance(object, nn.Module):
+                result = itertools.chain(result, object.parameters())
+        return result
 
     @property
     def trainable_params(self):
-        """
-        :return: the parameters that require grad. maybe helpful for optimization
-        """
-        params_unpack = self.params_unpack
+        result = []
+        for object in [self.init_state_distn, self.transition, self.observation]:
+            if (object is not None) and isinstance(object, nn.Module):
+                result = itertools.chain(result, filter(lambda p: p.requires_grad, object.parameters()))
 
-        out = []
-        for p in params_unpack:
-            if p.requires_grad:
-                out.append(p)
-        return out
+        return result
 
     # numpy operation
     def most_likely_states(self, data, input=None, transition_mkwargs=None, **memory_kwargs):
