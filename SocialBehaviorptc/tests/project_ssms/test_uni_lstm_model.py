@@ -52,7 +52,7 @@ def test_tran():
     assert torch.allclose(weights[0], weights_2[0])
     assert torch.allclose(weights[1], weights_2[1])
 
-    # transformation
+    # with_noise
     feature_vecs_a = toy_feature_vec_func(data[:, 0:2])
     feature_vecs_b = toy_feature_vec_func(data[:, 2:4])
     feature_vecs = (feature_vecs_a, feature_vecs_b)

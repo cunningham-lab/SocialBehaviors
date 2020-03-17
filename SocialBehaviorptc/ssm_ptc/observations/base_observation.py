@@ -32,3 +32,6 @@ class BaseObservation(nn.Module):
     @ensure_args_are_lists_of_tensors
     def initialize(self, datas, inputs):
         pass
+
+    def log_prob(self, data, z, **kwargs):
+        raise NotImplementedError

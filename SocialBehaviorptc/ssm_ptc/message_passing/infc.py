@@ -4,56 +4,59 @@ inference stuff. non-cythonized yet
 import torch
 import numpy as np
 
-# TODO: check if -infs in tran_log_probs violates anything
-def bwd_mp(tran_log_probs, seq_logprobs, fwd_obs_logprobs):
+# TODO: check if -infs in tran_logprobs violates anything
+def bwd_mp(tran_logprobs, len_logprobs, fwd_obs_logprobs):
     """
-    :param tran_log_probs: (T, K, K)
-    :param seq_logprobs: =1 for now
+    :param tran_logprobs: (T, K, K)
+    :param len_logprobs:  [(steps_fwd, K) tensor for steps_fwd in 1, ..., L], log_probs for duration variables
     :param fwd_obs_logprobs: (L, T, K)
     :return:
     """
 
     L, T, K = fwd_obs_logprobs.shape
+    log_betas = tran_logprobs.new_zeros((T + 1, K))
+    log_beta_stars = tran_logprobs.new_zeros((T + 1, K))
 
-    #log_betas = torch.zeros((T+1, K))
-    #log_beta_stars = torch.zeros((T+1, K))
-    log_betas = tran_log_probs.new_zeros((T+1, K))
-    log_beta_stars = tran_log_probs.new_zeros((T+1, K))
-
-    for t in range(1, T+1):
+    for t in range(1, T+1): # t recorders the number of steps to the end
         steps_fwd = min(L, t)
+        len_logprob = len_logprobs[min(L-1, steps_fwd-1)]  # (steps_fwd, K)
 
-        # \log beta*_t(k) = log \sum_l beta_{t+l}(k) p(x_{t+1:t+l}) p(l)
-        log_beta_star = log_betas[T-t+1:T-t+1+steps_fwd] + fwd_obs_logprobs[:steps_fwd, T - t] # (steps_fwd, K) + (steps_fwd, K)
+        # \log beta*_t(k) = log \sum_l beta_{t+l}(k) p(l_{t+1}=l |k) p(x_{t+1:t+l}) p(l)
+        log_beta_star = log_betas[T-t+1:T-t+1+steps_fwd] + len_logprob \
+                        + fwd_obs_logprobs[:steps_fwd, T - t] # (steps_fwd, K) + (steps_fwd, K)
         log_beta_stars[T-t] = torch.logsumexp(log_beta_star, dim=0) # (K,)
 
         if t < T:
             # compute beta_t(j)
             # \log beta_t(j) = log \sum_k beta*_t(k) p(z_{t+1}=k | z_t=j)
-            log_beta = log_beta_stars[T-t][None, ] + tran_log_probs[T-t-1]  # (1, K) + (K, K)
+            log_beta = log_beta_stars[T-t][None, ] + tran_logprobs[T - t - 1]  # (1, K) + (K, K)
             log_beta = torch.logsumexp(log_beta, dim=1)  # (K, )
             log_betas[T-t] = log_beta
 
     return log_betas, log_beta_stars
 
 
-def hsmm_viterbi(log_pi0, trans_logprobs, bwd_obs_logprobs, len_logprobs=None, L=None):
+def hsmm_viterbi(log_pi0, trans_logprobs, bwd_obs_logprobs, len_logprobs):
     """
-
+    # TODO: no need to flip len_logprobs for now, since it is uniform
     :param log_pi0: initial dist (K, )
     :param trans_logprobs: (T-1, K, K)
     :param bwd_obs_logprobs: (L, T, K), bwd_obs_logprobs[:,t] gives log prob for segments ending at t.
-    :param len_logprobs: uniform for now
-    :param ret_delt:
+    More specifically, bws_obs_logprobs[-steps_back:, t] = p(x_{t-d+1:t}) fot d from #largest possible steps back to 1,
+    :param len_logprobs: [(steps_fwd, K) tensor for steps_fwd in 1, ..., L], log_probs for duration variables
     :return:
     """
 
     Tm1, K, _ = trans_logprobs.shape
     T = Tm1 + 1
-    if len_logprobs is None:
-        assert L is not None
-    else:
-        L = len(len_logprobs)
+    L = len(len_logprobs)
+
+    # currently len_logprobs contains tensors that are [1 step back; 2 steps back; ... L steps_back]
+    # but we need to flip on the 0'th axis
+    flipped_len_logprobs = []
+    for l in range(len(len_logprobs)):
+        llps = len_logprobs[l]
+        flipped_len_logprobs.append(torch.stack([llps[-i - 1] for i in range(llps.size(0))]))
 
     # argmax over length variable
     deltas = torch.zeros((T+1, K)) # value
@@ -68,8 +71,19 @@ def hsmm_viterbi(log_pi0, trans_logprobs, bwd_obs_logprobs, len_logprobs=None, L
 
     for t in range(1, T+1):
         steps_back = min(L, t)
+        steps_fwd = min(L, T-t+1)
+
+        if steps_back <= steps_fwd:
+            # steps_fwd x K -> steps_back x K
+            len_terms = flipped_len_logprobs[min(L-1, steps_fwd-1)][-steps_back:]
+        else: # we need to pick probs from different distributions...
+            len_terms = torch.stack([len_logprobs[min(L, T+1-t+jj)-1][jj]
+                                     for jj in range(L-1, -1, -1)])
 
         delta_t = bwd_obs_logprobs[-steps_back:, t-1] + delta_stars[t-steps_back:t]  # (steps_back, K)
+        #print("len_terms shape", len_terms.shape)
+        #print("delta_t terms shape", delta_t.shape)
+        delta_t = delta_t + len_terms
         delta_t, b_t = torch.max(delta_t, dim=0)  # (K, ), (K, )  b_t=0, length=steps_back. b_t=1, length=steps_back-1
         # if steps_back <= L, b_t=0 -> L, b_t=1 -> L-1, ...
         bs[t-1] = steps_back - b_t
@@ -128,7 +142,7 @@ def fwd_to_bwd(fw_logprobs):
     [[-inf, -inf, -inf, p1:4]
     [-inf, -inf, p1:3, p2:4]
     [-inf, p1:2, p2:3, p3:4]
-    [p1, p2, p3, p4]]
+    [p1,   p2,   p3,   p4]]
 
     :param fw_logprobs: (L, T, K). First dimension: duration=1, duration=2, ..., duration=L.
     fw_logprobs[:,t,k] represents the logprobs of p(x_{t:t+d-1}|z_t=k) for d=1:L. I.e. the prob starting at t
@@ -190,16 +204,16 @@ def test_case():
     print(log_likelihood)  # (14.4752)
 
 
-def hsmm_normalizer(log_pi, tran_log_probs, seq_logprobs, fwd_obs_logprobs):
+def hsmm_normalizer(log_pi, tran_logprobs, len_logprobs, fwd_obs_logprobs):
     """
 
     :param log_pi: (K, )
-    :param tran_log_probs: (T-1, K, K)
-    :param seq_logprobs: (K, L) or None
+    :param tran_logprobs: (T-1, K, K)
+    :param len_logprobs: (K, L) or None
     :param fwd_obs_logprobs: (L, T, K)
     :return: a scalar
     """
-    _, log_beta_stars = bwd_mp(tran_log_probs=tran_log_probs, seq_logprobs=seq_logprobs, fwd_obs_logprobs=fwd_obs_logprobs)
+    _, log_beta_stars = bwd_mp(tran_logprobs=tran_logprobs, len_logprobs=len_logprobs, fwd_obs_logprobs=fwd_obs_logprobs)
     log_likelihood = torch.logsumexp(log_beta_stars[0] + log_pi, dim=0)
     return log_likelihood
 

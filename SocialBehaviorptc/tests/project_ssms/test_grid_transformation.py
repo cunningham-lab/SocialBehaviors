@@ -115,7 +115,7 @@ for m, p in zip(masks_b, true_masks_b):
     assert torch.all(torch.eq(m, p))
 
 
-################### check transformation ##################
+################### check with_noise ##################
 data_transformed = tran.transform(data)
 
 

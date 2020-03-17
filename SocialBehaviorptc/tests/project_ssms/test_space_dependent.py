@@ -59,7 +59,7 @@ m_kwargs_a = dict(feature_vecs=feature_vecs_a)
 m_kwargs_b = dict(feature_vecs=feature_vecs_b)
 
 # observation
-obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=1, bounds=bounds, transformation=tran)
+obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=1, bounds=bounds, with_noise=tran)
 
 # model
 model = HMM(K=K, D=D, M=M, observation=obs)
@@ -68,7 +68,7 @@ model = HMM(K=K, D=D, M=M, observation=obs)
 ################## test params #######################
 tran2 = SpaceDependentTransformation(K=K, D=D, Df=Df, feature_vec_func=toy_feature_vec_func, dhs=[5], acc_factor=10)
 
-obs2 = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=1, bounds=bounds, transformation=tran2)
+obs2 = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=1, bounds=bounds, with_noise=tran2)
 model2 = HMM(K=K, D=D, M=M, observation=obs2)
 
 model2.params = model.params
@@ -138,7 +138,7 @@ m_kwargs_b = dict(feature_vecs=feature_vecs_b)
 model = joblib.load("model")
 """
 tran = SpaceDependentTransformation(K=K, D=D, Df=Df, feature_vec_func=f_corner_vec_func, dhs=[8,8], acc_factor=20)
-obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=1, bounds=bounds, transformation=tran)
+obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=1, bounds=bounds, with_noise=tran)
 model = HMM(K=K, D=D, M=M, observation=obs)
 """
 

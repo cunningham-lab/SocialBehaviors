@@ -215,7 +215,7 @@ def test_tran():
 
     assert tran.GP == 9
 
-    # transformation
+    # with_noise
     transformed_data = tran.transform(data)
 
     # calculate memory

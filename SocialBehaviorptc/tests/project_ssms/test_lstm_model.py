@@ -48,10 +48,10 @@ def test_tran():
     tran = LSTMTransformation(K=K, D=D, Df=Df, feature_vec_func=toy_feature_vec_func, lags=lags)
 
     """
-    # transformation
+    # with_noise
     transformed_data = tran.transform(data)
 
-    # transformation with saved memory
+    # with_noise with saved memory
     lagged_data = get_lagged_data(data, lags=lags)
     transformed_data_2 = tran.transform(data, lagged_data=lagged_data)
 
@@ -82,7 +82,7 @@ def test_tran():
     assert torch.allclose(weights[0], weights_2[0])
     assert torch.allclose(weights[1], weights_2[1])
 
-    # transformation
+    # with_noise
     transform_data = tran.transform(data)
     transform_data_2 = tran.transform(data, packed_data=packed_data)
 

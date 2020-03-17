@@ -1,7 +1,3 @@
-"""
-the code is partly based on https://github.com/slinderman/ssm
-"""
-
 import torch
 import torch.nn as nn
 import numpy as np
@@ -27,21 +23,13 @@ TRANSITION_CLASSES = dict(stationary=StationaryTransition,
 OBSERVATION_CLASSES = dict(gaussian=ARGaussianObservation,
                            truncatednormal=ARTruncatedNormalObservation)
 
+
 class HSMM:
-    """
-    Hidden semi-Markov model with non-geometric duration distributions.
-    The trick is to expand the state space with "super states" and "sub states"
-    that effectively count duration. We rely on the transition model to
-    specify a "state map," which maps the super states (1, .., K) to
-    super+sub states ((1,1), ..., (1,r_1), ..., (K,1), ..., (K,r_K)).
-    Here, r_k denotes the number of sub-states of state k.
-    """
 
     def __init__(self, K, D, L, M=0, init_state_distn=None,
-                 transition="nb", transition_kwargs=None,
+                 transition="stationary", transition_kwargs=None,
                  observation="gaussian", observation_kwargs=None,
-                 device=torch.device('cpu'),
-                 **kwargs):
+                 device=torch.device('cpu')):
 
         self.K, self.D, self.M, self.L = K, D, M, L
         self.device = device
@@ -84,6 +72,23 @@ class HSMM:
         else:
             raise TypeError("'observations' must be a subclass of"
                             " BaseObservation")
+
+        # uniform len distribution now
+        self.len_scores = torch.ones((1, self.L), dtype=torch.float64).expand(self.K, self.L)
+        self.len_logprobs = self.len_logprobs_helper(self.len_scores)  # a list
+
+    @staticmethod
+    def len_logprobs_helper(len_scores):
+        """
+        :param len_scores: a (K, L) tensor giving the len_probs in ideal case (#possible steps >= L)
+        :return: a list [1 x K tensor, 2 x K tensor, ..., (L-1) x K tensor, L x K tensor],
+        each tensor corresponds to len_probs [1 step, 2 steps, ... #possible steps] for #possible steps = 1:L
+        """
+        K, L = len_scores.shape
+        lplist = [len_scores.new_zeros((1, K))]
+        for l in range(2, L + 1):
+            lplist.append(torch.log_softmax(len_scores.narrow(1, 0, l), dim=1).t())
+        return lplist
 
     @property
     def params(self):
@@ -244,7 +249,8 @@ class HSMM:
                 log_likes = self.observation.log_prob(data, **memory_kwargs)  # (T, K)
                 bwd_obs_logprobs = self.stacked_bw_log_likes_helper(log_likes, self.L)
 
-            return hsmm_viterbi(log_pi0, trans_logprobs=log_Ps, bwd_obs_logprobs=bwd_obs_logprobs, len_logprobs=None, L=self.L)
+            return hsmm_viterbi(log_pi0, trans_logprobs=log_Ps, bwd_obs_logprobs=bwd_obs_logprobs,
+                                len_logprobs=self.len_logprobs)
 
     @ensure_args_are_lists_of_tensors
     def fit(self, datas, inputs=None, optimizer=None, method='adam', num_iters=1000, lr=0.001,
@@ -306,6 +312,38 @@ class HSMM:
     def log_probability(self, datas, inputs=None, transition_memory_kwargs=None, **memory_kwargs):
         return self.log_likelihood(datas, inputs, transition_memory_kwargs=transition_memory_kwargs, **memory_kwargs) + self.log_prior()
 
+    def log_joint_likelihood(self, zs, Ls, data):
+        """
+        # TODO: add cache
+        # TODO: add len_logprobs
+        :param zs: (T, )
+        :param Ls: (T, ) list of integers
+        :param data: (T, D)
+        :return: a scalar
+        """
+        T, D = data.shape
+        assert zs.shape == Ls.shape == (T, ), \
+            "zs.shape = {}, Ls.shape = {}. data length = {}".format(zs.shape, Ls.shape, T)
+        assert D == self.D, "D = {}, model.D = {}".format(D, self.D)
+
+        t = 0
+        log_likelihood = 0
+        x_pre = None
+        log_transition = self.init_state_distn.log_probs[zs[0]] # a scalar
+        while True:
+            #print("interval ", [t, t+Ls[t]])
+            log_seg = self.observation.log_prob_condition_on_z(data[t:t+Ls[t]], zs[t], x_pre=x_pre)
+            if t+Ls[t] == T:
+                break
+            if t+Ls[t] > T:
+                raise ValueError("Ls does not match data length")
+
+            log_likelihood += log_seg + log_transition
+            t = t+Ls[t]
+            x_pre = data[t-1:t]
+            log_transition = self.transition.stationary_transition_matrix[zs[t-1], zs[t]]
+        return log_likelihood
+
     @ensure_args_are_lists_of_tensors
     def log_likelihood(self, datas, inputs=None, transition_memory_kwargs=None, **memory_kwargs):
         """
@@ -364,7 +402,7 @@ class HSMM:
             assert log_likes.shape == (T, self.K)
             log_likes = self.stacked_fw_log_likes_helper(log_likes, self.L)
 
-            ll = ll + hsmm_normalizer(log_pi=log_pi0, tran_log_probs=log_Ps, seq_logprobs=None, fwd_obs_logprobs=log_likes)
+            ll = ll + hsmm_normalizer(log_pi=log_pi0, tran_logprobs=log_Ps, len_logprobs=self.len_logprobs, fwd_obs_logprobs=log_likes)
         return ll
 
     @staticmethod
@@ -503,7 +541,7 @@ if __name__ == "__main__":
     from project_ssms.utils import downsample
     from project_ssms.gp_observation_single import GPObservationSingle
     from project_ssms.constants import *
-    from project_ssms.grid_utils import plot_realdata_quiver
+    from project_ssms.grid_utils import plot_realdata_quiver, plot_quiver
 
     # test for virgin selected
     repo = git.Repo('.', search_parent_directories=True)  # SocialBehaviorectories=True)
@@ -561,7 +599,7 @@ if __name__ == "__main__":
 
     # fitting
     num_iters = 100
-    loss, opt = model.fit(datas=data, num_iters=num_iters, lr=1e-3)  # 9975.38
+    loss, opt = model.fit(datas=data, num_iters=num_iters, lr=1e-3)  # -10312.4181 for 100 epochs
     #print(type(loss))
     #plt.plot(loss)
     #plt.show()
@@ -592,6 +630,17 @@ if __name__ == "__main__":
     logits_ = npr.rand(K, K)
     # then get probs...
 
+    # dynamics
+    XX, YY = np.meshgrid(np.linspace(20, 310, 30),
+                         np.linspace(0, 380, 30))
+    XY_grids = np.column_stack((np.ravel(XX), np.ravel(YY)))  # shape (900,2) grid values
+    obs = model.observation
+    XY_next, _ = obs.get_mu_and_cov_for_single_animal(XY_grids, mu_only=True)
+    dXY = get_np(XY_next) - XY_grids[:, None]
+    animal = "virgin"
+    quiver_scale = 1
+    plot_quiver(XY_grids, dXY, animal, K=K, scale=quiver_scale, alpha=0.9,
+                title="quiver ({})".format(animal), x_grids=x_grids, y_grids=y_grids, grid_alpha=0.2)
 
 # TODO: check time complexity. check different Ks, check different Ls, held-out prediction
 # TODO: check sample quality

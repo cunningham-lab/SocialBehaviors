@@ -75,7 +75,7 @@ m_kwargs_a = dict(momentum_vecs=momentum_vecs_a, feature_vecs=feature_vecs_a)
 m_kwargs_b = dict(momentum_vecs=momentum_vecs_b, feature_vecs=feature_vecs_b)
 
 # observation
-obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=momentum_lags, bounds=bounds, transformation=tran)
+obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=momentum_lags, bounds=bounds, with_noise=tran)
 
 # model
 model = HMM(K=K, D=D, M=M, observation=obs)
@@ -87,7 +87,7 @@ tran2 = tran = GridTransformation(K=K, D=D, x_grids=x_grids, y_grids=y_grids,
                           Df=Df, feature_vec_func=toy_feature_vec_func,
                           lags=momentum_lags, momentum_weights=momentum_weights)
 
-obs2 = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=momentum_lags, bounds=bounds, transformation=tran2)
+obs2 = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=momentum_lags, bounds=bounds, with_noise=tran2)
 
 model2 = HMM(K=K, D=D, M=M, observation=obs2)
 
@@ -192,7 +192,7 @@ m_kwargs_b = dict(momentum_vecs=momentum_vecs_b, feature_vecs=feature_vecs_b)
 
 
 # observation
-obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=momentum_lags, bounds=bounds, transformation=tran)
+obs = ARTruncatedNormalObservation(K=K, D=D, M=M, lags=momentum_lags, bounds=bounds, with_noise=tran)
 
 
 # model
@@ -268,8 +268,8 @@ losses, opt = model.fit(data, num_iters=num_iters, lr=0.001, masks=(masks_a, mas
 print("start sampling")
 sample_z, sample_x = model.sample(T)
 
-print("start sampling based on transformation")
-sample_z2, sample_x2 = model.sample(T, transformation=True)
+print("start sampling based on with_noise")
+sample_z2, sample_x2 = model.sample(T, with_noise=True)
 
 
 # inference

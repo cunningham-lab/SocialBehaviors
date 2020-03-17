@@ -100,6 +100,56 @@ class GPObservationSingle(BaseObservation):
 
         return log_prob
 
+    def log_prob_condition_on_z(self, data, z, x_pre=None, **kwargs):
+        """
+        To avoid memory copying.. compute mu and var for data[0] and data[1:] separately.
+        :param z: a scalar
+        :param x_pre: (1, 2)
+        :param with_noise:
+        :return: (2, )
+        """
+        # compute for data[0:]
+        if x_pre is None:
+            x_pre = self.mus_init[z:z+1]
+
+        assert x_pre.shape == (1, 2), x_pre.shape
+        T, D = data.shape
+        assert D == 2, D
+
+        A = kwargs.get("A", None)
+        Sigma = kwargs.get("Sigma", None)
+
+        dist_for_data0 = self.get_dist_condition_on_z_helper(x_pre, z, **kwargs) # TODO: need to adjust kwargs
+        log_prob = dist_for_data0.log_prob(data[0:1]).sum()
+
+        if T > 1:
+            dist_for_data_rest = self.get_dist_condition_on_z_helper(data[0:-1], z, **kwargs) # TODO: need to adjust kwargs
+            log_prob_for_data_rest = dist_for_data_rest.log_prob(data[1:]) # (T, 2)
+            log_prob += log_prob_for_data_rest.sum()
+
+        return log_prob
+
+        # TODO: cache the distance
+        # compute the mus and As
+
+    def get_dist_condition_on_z_helper(self, inputs, z, **kwargs):
+        T, _ = inputs.shape
+        A = kwargs.get("A", None)
+        Sigma = kwargs.get("Sigma", None)
+        if A is None:
+            Sigma, A = self.get_gp_cache_condition_on_z(inputs, z, A_only=False, **kwargs)
+        A_x, A_y = A
+        assert A_x.shape == A_y.shape == (T, self.n_gps)
+        mu_x = torch.matmul(A_x, self.us[z, :, 0:1]) # (T, n_gps) * (n_gps, 1) -> (T, 1)
+        mu_y = torch.matmul(A_y, self.us[z, :, 1:2]) # (T, 1)
+        mu = torch.cat((mu_x, mu_y), dim=-1)  # (T, 2)
+        mu = mu + inputs
+        assert mu.shape == (T, 2)
+        sigma = torch.exp(self.log_sigmas[z])**2 # (2,)
+        cov = Sigma + sigma[None,]
+        assert Sigma.shape == (T, 2)
+        return Normal(mu, torch.sqrt(cov))
+
     def log_prob_for_single_animal(self, inputs, **kwargs):
         """
         calculate the log prob for inputs[1:] based on inputs[:-1]
@@ -114,7 +164,6 @@ class GPObservationSingle(BaseObservation):
         mu, cov = self.get_mu_and_cov_for_single_animal(inputs[:-1], **kwargs)
         # mean: (T-1, K, 2), covariance (T-1, K, 2)
         m = Normal(mu, torch.sqrt(cov))
-
         # evaluated the observations except the first one. (T-1, 1, 2)
         log_prob = m.log_prob(inputs[1:, None])  # (T-1, K, 2)
         log_prob = torch.sum(log_prob, dim=-1)
@@ -132,7 +181,6 @@ class GPObservationSingle(BaseObservation):
         """
 
         inputs = check_and_convert_to_tensor(inputs, dtype=dtype, device=self.device)
-
         T, _ = inputs.shape
 
         # this is useful when train_rs =False and train_vs=False:
@@ -261,10 +309,8 @@ class GPObservationSingle(BaseObservation):
         if A is None:
             #print("Not using cache. Calculating Sigma, A...")
             Sigma, A = self.get_gp_cache_condition_on_z(x_pre, z, A_only=not with_noise, **kwargs)
-
         # each is (1, n_gps)
         A_x, A_y = A
-
         # (1, n_gps) * (n_gps, 1) ->  (1, 1)
         mu_x = torch.matmul(A_x, self.us[z, :, 0:1])
         mu_y = torch.matmul(A_y, self.us[z, :, 1:2])
@@ -272,17 +318,14 @@ class GPObservationSingle(BaseObservation):
         mu = torch.squeeze(mu, dim=0)
         mu = mu + x_pre[0]
         assert mu.shape == (2, )
-
         if not with_noise:
             return mu
 
         assert Sigma.shape == (1, 2)
         Sigma = torch.squeeze(Sigma, dim=0)
-
         # (2,)
         sigma = torch.exp(self.log_sigmas[z])
         cov = Sigma + sigma ** 2
-
         m = Normal(mu, torch.sqrt(cov))
         sample = m.sample()
         assert sample.shape == (2, )
@@ -323,7 +366,6 @@ class GPObservationSingle(BaseObservation):
 
         if A_only:
             return 0, (A_x, A_y)
-
         kernel_distsq_xx = self.vs.new_zeros((T, 2))
         K_xx = self.vs[z] * torch.exp(-(kernel_distsq_xx / self.rs[z] ** 2))
         assert K_xx.shape == (T, 2)
@@ -335,9 +377,7 @@ class GPObservationSingle(BaseObservation):
         crossterm = torch.cat((crossterm_x, crossterm_y), dim=-2)  # (T, 2, 1)
         crossterm = torch.squeeze(crossterm, dim=-1)  # (T, 2)
         Sigma = K_xx - crossterm
-
         assert Sigma.shape == (T, 2), Sigma.shape
-
         return Sigma, (A_x, A_y)
 
     def get_Kgg_inv(self):

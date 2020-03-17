@@ -50,8 +50,8 @@ samplt_T = T
 print("start sampling")
 sample_z, sample_x = model.sample(samplt_T)
 
-print("start sampling based on transformation")
-sample_z2, sample_x2 = model.sample(T, transformation=True)
+print("start sampling based on with_noise")
+sample_z2, sample_x2 = model.sample(T, with_noise=True)
 
 
 # inference
