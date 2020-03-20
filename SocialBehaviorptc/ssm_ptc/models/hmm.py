@@ -56,7 +56,7 @@ def nostdout():
     sys.stdout = save_stdout
 
 
-class HMM:
+class HMM(nn.Module):
 
     def __init__(self, K, D, M=0, init_state_distn=None, transition='stationary', observation="gaussian",Pi=None,
                  transition_kwargs=None, observation_kwargs=None, device=torch.device('cpu')):
@@ -65,6 +65,9 @@ class HMM:
         :param D: dimension of observations
         :param M: dimension of inputs
         """
+
+        super(HMM, self).__init__()
+
         assert isinstance(K, int)
         assert isinstance(D, int)
         assert isinstance(M, int)
@@ -290,21 +293,8 @@ class HMM:
         return self.log_likelihood(datas, inputs, transition_memory_kwargs=transition_memory_kwargs, **memory_kwargs) + self.log_prior()
 
     @property
-    def params(self):
-        result = []
-        for object in [self.init_state_distn, self.transition, self.observation]:
-            if (object is not None) and isinstance(object, nn.Module):
-                result = itertools.chain(result, object.parameters())
-        return result
-
-    @property
     def trainable_params(self):
-        result = []
-        for object in [self.init_state_distn, self.transition, self.observation]:
-            if (object is not None) and isinstance(object, nn.Module):
-                result = itertools.chain(result, filter(lambda p: p.requires_grad, object.parameters()))
-
-        return result
+        return filter(lambda p: p.requires_grad, self.parameters())
 
     # numpy operation
     def most_likely_states(self, data, input=None, transition_mkwargs=None, **memory_kwargs):

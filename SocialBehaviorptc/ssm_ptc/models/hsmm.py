@@ -1,10 +1,7 @@
-import torch
 import torch.nn as nn
-import numpy as np
 import numpy.random as npr
 import itertools
 
-import tqdm
 from tqdm import trange
 import sys
 
@@ -24,12 +21,14 @@ OBSERVATION_CLASSES = dict(gaussian=ARGaussianObservation,
                            truncatednormal=ARTruncatedNormalObservation)
 
 
-class HSMM:
+class HSMM(nn.Module):
 
     def __init__(self, K, D, L, M=0, init_state_distn=None,
                  transition="stationary", transition_kwargs=None,
                  observation="gaussian", observation_kwargs=None,
                  device=torch.device('cpu')):
+
+        super(HSMM, self).__init__()
 
         self.K, self.D, self.M, self.L = K, D, M, L
         self.device = device
@@ -91,22 +90,8 @@ class HSMM:
         return lplist
 
     @property
-    def params(self):
-        result = []
-        for object in [self.init_state_distn, self.transition, self.observation]:
-            if (object is not None) and isinstance(object, nn.Module):
-                result = itertools.chain(result, object.parameters())
-
-        return result
-
-    @property
     def trainable_params(self):
-        result = []
-        for object in [self.init_state_distn, self.transition, self.observation]:
-            if (object is not None) and isinstance(object, nn.Module):
-                result = itertools.chain(result, filter(lambda p: p.requires_grad, object.parameters()))
-
-        return result
+        return filter(lambda p: p.requires_grad, self.parameters())
 
     def sample(self, T, prefix=None, input=None, with_noise=True, return_np=False):
         """

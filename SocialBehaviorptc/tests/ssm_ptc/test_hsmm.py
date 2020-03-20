@@ -184,6 +184,14 @@ class TestMarginalization(unittest.TestCase):
         assert torch.allclose(log_marginal_likelihood, log_marginal_likelihood2), \
             "message passing ll = {}, brute-force ll = {}".format(log_marginal_likelihood, log_marginal_likelihood2)
 
+        """
+        print("log likelihood = {}".format(log_marginal_likelihood.detach().numpy())) # -82.07468494303106
+        print("now optimize...")
+        num_iters = 100
+        loss, opt = model.fit(datas=data, num_iters=num_iters, lr=5e-3)  # 64.59513596420202
+        print("loss = ", loss[-1])
+        """
+
     def test_stacked_log_likes(self):
         p1_k1, p2_k1, p3_k1, p4_k1 = 1.5, 2.5, 3, 4
         p1_k2, p2_k2, p3_k2, p4_k2 = 1.3, 2.4, 2.5, 6.6
@@ -226,6 +234,7 @@ class TestMarginalization(unittest.TestCase):
         s_over_T = HSMM.stacked_log_likes_helper_over_T(log_likes=log_likes, L=L)
         assert torch.allclose(true_stacked_log_likes, s_over_T), "true = \n{}\n computed = \n{}".format(
             true_stacked_log_likes, s_over_T)
+
 
 if __name__ == "__main__":
     #test_marginalization()
