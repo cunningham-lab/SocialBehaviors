@@ -157,7 +157,7 @@ class HMM:
         D = self.D
         M = self.M
 
-        dtype = torch.float32
+        dtype = torch.float64
 
         if prefix is None:
             # no prefix is given. Sample the initial state as the prefix
@@ -606,7 +606,7 @@ if __name__ == "__main__":
     from project_ssms.utils import downsample
     from project_ssms.gp_observation_single import GPObservationSingle
     from project_ssms.constants import *
-    from project_ssms.grid_utils import plot_realdata_quiver
+    from project_ssms.grid_utils import plot_realdata_quiver, plot_quiver
 
     # test for virgin selected
     repo = git.Repo('.', search_parent_directories=True)  # SocialBehaviorectories=True)
@@ -616,28 +616,29 @@ if __name__ == "__main__":
     end = 1
 
     data_dir = repo_dir + '/SocialBehaviorptc/data/traj_010_virgin_selected'
-    traj = joblib.load(data_dir)
-    T = len(traj)
-    traj = traj[int(T * start): int(T * end)]
+    traj_ = joblib.load(data_dir)
+    T = len(traj_)
+    traj_ = traj_[int(T * start): int(T * end)]
+    traj = traj_[800:2000]
 
-    downsample_n = 4
+    downsample_n = 10
     traj = downsample(traj, downsample_n)
-    traj = traj[200:500]
 
     device = torch.device('cpu')
     data = torch.tensor(traj, dtype=torch.float64, device=device)
 
-    K = 2
+    K = 5
     T, D = data.shape
 
     n_x = 3
     n_y = 3
-    mus_init = data[0] * torch.ones(K, D, dtype=torch.float64, device=device)
     x_grid_gap = (ARENA_XMAX - ARENA_XMIN) / n_x
     x_grids = np.array([ARENA_XMIN + i * x_grid_gap for i in range(n_x + 1)])
     y_grid_gap = (ARENA_YMAX - ARENA_YMIN) / n_y
     y_grids = np.array([ARENA_YMIN + i * y_grid_gap for i in range(n_y + 1)])
     bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX]])
+
+    mus_init = data[0] * torch.ones(K, D, dtype=torch.float64, device=device)
     train_rs = False
     obs = GPObservationSingle(K=K, D=D, mus_init=mus_init, x_grids=x_grids, y_grids=y_grids, bounds=bounds,
                               rs=None, train_rs=train_rs, device=device)
@@ -648,13 +649,34 @@ if __name__ == "__main__":
     ll = model.log_likelihood(data)  # -10315.3303
     print(ll)
 
-    #z = model.most_likely_states(data)
-    #plot_realdata_quiver(data, z, K=K, x_grids=x_grids, y_grids=y_grids, title="before training")
+    z = model.most_likely_states(data)
+    plot_realdata_quiver(data, z, K=K, x_grids=x_grids, y_grids=y_grids, title="before training")
 
     # fitting
-    num_iters = 100
-    loss = model.fit(datas=data, num_iters=num_iters, lr=1e-3)  # 10178.42
+    num_iters = 10
+    loss, opt, obs_rs = model.fit(datas=data, num_iters=num_iters, lr=5e-3)  # 10178.42
+    plt.figure()
+    plt.plot(loss)
+    plt.title("loss")
 
-    #z = model.most_likely_states(data)
-    #plot_realdata_quiver(data, z, K=K, x_grids=x_grids, y_grids=y_grids, title="after {} epochs".format(num_iters))
+    z = model.most_likely_states(data)
+    plot_realdata_quiver(data, z, K=K, x_grids=x_grids, y_grids=y_grids, title="after {} epochs".format(num_iters))
     #plt.show()
+
+    # sample
+    sample_T = 100
+    sample_z, sample_x = model.sample(sample_T)
+    plot_realdata_quiver(sample_x, sample_z, K=K, x_grids=x_grids, y_grids=y_grids, title="sample after {} epochs".format(num_iters))
+
+    # dynamics
+    XX, YY = np.meshgrid(np.linspace(20, 310, 30),
+                         np.linspace(0, 380, 30))
+    XY_grids = np.column_stack((np.ravel(XX), np.ravel(YY)))  # shape (900,2) grid values
+    obs = model.observation
+    XY_next, _ = obs.get_mu_and_cov_for_single_animal(XY_grids, mu_only=True)
+    dXY = get_np(XY_next) - XY_grids[:, None]
+    animal = "virgin"
+    quiver_scale = 1
+    plot_quiver(XY_grids, dXY, animal, K=K, scale=quiver_scale, alpha=0.9,
+                title="quiver ({} after {} epochs)".format(animal, num_iters), x_grids=x_grids, y_grids=y_grids, grid_alpha=0.2)
+

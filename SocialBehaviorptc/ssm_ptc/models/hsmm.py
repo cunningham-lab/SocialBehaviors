@@ -312,10 +312,9 @@ class HSMM:
     def log_probability(self, datas, inputs=None, transition_memory_kwargs=None, **memory_kwargs):
         return self.log_likelihood(datas, inputs, transition_memory_kwargs=transition_memory_kwargs, **memory_kwargs) + self.log_prior()
 
-    def log_joint_likelihood(self, zs, Ls, data):
+    def log_joint_likelihood(self, zs, Ls, data, fwd_obs_logprobs=None):
         """
         # TODO: add cache
-        # TODO: add len_logprobs
         :param zs: (T, )
         :param Ls: (T, ) list of integers
         :param data: (T, D)
@@ -331,17 +330,18 @@ class HSMM:
         x_pre = None
         log_transition = self.init_state_distn.log_probs[zs[0]] # a scalar
         while True:
-            #print("interval ", [t, t+Ls[t]])
+            steps_fwd = min(self.L, T-t)
+            log_len = self.len_logprobs[steps_fwd-1][Ls[t] - 1, zs[t]]
             log_seg = self.observation.log_prob_condition_on_z(data[t:t+Ls[t]], zs[t], x_pre=x_pre)
-            if t+Ls[t] == T:
-                break
-            if t+Ls[t] > T:
-                raise ValueError("Ls does not match data length")
+            log_likelihood += log_seg + log_transition + log_len
 
-            log_likelihood += log_seg + log_transition
             t = t+Ls[t]
+            if t == T:
+                break
+            if t > T:
+                raise ValueError("Ls does not match data length")
             x_pre = data[t-1:t]
-            log_transition = self.transition.stationary_transition_matrix[zs[t-1], zs[t]]
+            log_transition = self.transition.log_stationary_transition_matrix[zs[t-1], zs[t]]
         return log_likelihood
 
     @ensure_args_are_lists_of_tensors
@@ -390,7 +390,8 @@ class HSMM:
                 if T == 1:  # TODO: check this
                     log_Ps = log_P[None,][:0]
                 else:
-                    log_Ps = log_P[None,].repeat(T - 1, 1, 1)  # (T-1, K, K)
+                    #log_Ps = log_P[None,].repeat(T - 1, 1, 1)  # (T-1, K, K)
+                    log_Ps = log_P.expand((T-1, self.K, self.K))
             else:
                 assert isinstance(self.transition, GridTransition)
                 input = input[:-1] if input else input
@@ -400,9 +401,9 @@ class HSMM:
 
             log_likes = self.observation.log_prob(data, **m_kwargs) # (T, K)
             assert log_likes.shape == (T, self.K)
-            log_likes = self.stacked_fw_log_likes_helper(log_likes, self.L)
+            fwd_obs_logprobs = self.stacked_fw_log_likes_helper(log_likes, self.L)
 
-            ll = ll + hsmm_normalizer(log_pi=log_pi0, tran_logprobs=log_Ps, len_logprobs=self.len_logprobs, fwd_obs_logprobs=log_likes)
+            ll = ll + hsmm_normalizer(log_pi=log_pi0, tran_logprobs=log_Ps, len_logprobs=self.len_logprobs, fwd_obs_logprobs=fwd_obs_logprobs)
         return ll
 
     @staticmethod
@@ -414,7 +415,6 @@ class HSMM:
             [p1:2, p2:3, ..., p_{T-1:T}, -inf]
             ...
             [p1:L, p2:L+2, ...,p_{L-T+1:T}, -inf]]
-        :return: (L, T, K)
         """
         T, K = log_likes.shape
         max_L = min(T, L)
@@ -483,51 +483,6 @@ class HSMM:
         assert stacked_log_likes.shape == (max_L, T, K)
         return stacked_log_likes
 
-    @staticmethod
-    def test_stacked_log_likes():
-        p1_k1, p2_k1, p3_k1, p4_k1 = 1.5, 2.5, 3, 4
-        p1_k2, p2_k2, p3_k2, p4_k2 = 1.3, 2.4, 2.5, 6.6
-        log_likes = torch.tensor([[p1_k1, p1_k2], [p2_k1, p2_k2], [p3_k1, p3_k2], [p4_k1, p4_k2]])
-
-        # L<T
-        T = 4
-        L = 3
-
-        true_stacked_log_likes_k1 = torch.tensor([[p1_k1, p2_k1, p3_k1, p4_k1],
-                                                 [p1_k1+p2_k1, p2_k1+p3_k1, p3_k1+p4_k1, -float("inf")],
-                                                  [p1_k1+p2_k1+p3_k1, p2_k1+p3_k1+p4_k1, -float("inf"), -float("inf")]])
-        true_stacked_log_likes_k2 = torch.tensor([[p1_k2, p2_k2, p3_k2, p4_k2],
-                                                  [p1_k2+p2_k2, p2_k2+p3_k2, p3_k2+p4_k2, -float("inf")],
-                                                  [p1_k2+p2_k2+p3_k2, p2_k2+p3_k2+p4_k2, -float("inf"), -float("inf")]])
-        true_stacked_log_likes = torch.stack([true_stacked_log_likes_k1, true_stacked_log_likes_k2], dim=2) # (L, T, K)
-
-        s_over_L = HSMM.stacked_fw_log_likes_helper(log_likes=log_likes, L=L)
-        assert torch.all(true_stacked_log_likes == s_over_L), "true = \n{}\n computed = \n{}".format(true_stacked_log_likes, s_over_L)
-
-        print("\n")
-
-        s_over_T = HSMM.stacked_log_likes_helper_over_T(log_likes=log_likes, L=L)
-        assert torch.all(true_stacked_log_likes == s_over_T), "true = \n{}\n computed = \n{}".format(
-            true_stacked_log_likes, s_over_T)
-
-        #  L >= T
-        L = 5
-        l4_probs = torch.tensor([[p1_k1+p2_k1+p3_k1+p4_k1, p1_k2+p2_k2+p3_k2+p4_k2],
-                                 [-float("inf"), -float("inf")],
-                                 [-float("inf"), -float("inf")],
-                                 [-float("inf"), -float("inf")]])  # (T, K)
-        true_stacked_log_likes = torch.cat((true_stacked_log_likes, l4_probs[None, ])) # (L, T, K)
-
-        s_over_L = HSMM.stacked_fw_log_likes_helper(log_likes=log_likes, L=L)
-        assert torch.allclose(true_stacked_log_likes, s_over_L), "true = \n{}\n computed = \n{}".format(
-            true_stacked_log_likes, s_over_L)
-
-        print("\n")
-
-        s_over_T = HSMM.stacked_log_likes_helper_over_T(log_likes=log_likes, L=L)
-        assert torch.allclose(true_stacked_log_likes, s_over_T), "true = \n{}\n computed = \n{}".format(
-            true_stacked_log_likes, s_over_T)
-
 
 if __name__ == "__main__":
     #HSMM.test_stacked_log_likes()
@@ -551,34 +506,35 @@ if __name__ == "__main__":
     end = 1
 
     data_dir = repo_dir + '/SocialBehaviorptc/data/traj_010_virgin_selected'
-    traj = joblib.load(data_dir)
-    T = len(traj)
-    traj = traj[int(T * start): int(T * end)]
+    traj_ = joblib.load(data_dir)
+    T = len(traj_)
+    traj_ = traj_[int(T * start): int(T * end)]
+    traj = traj_[800:2000]
 
-    downsample_n = 4
+    downsample_n = 10
     traj = downsample(traj, downsample_n)
-    traj = traj[200:500]
 
     device = torch.device('cpu')
     data = torch.tensor(traj, dtype=torch.float64, device=device)
 
-    K = 2
+    K = 5
     T, D = data.shape
     print("data shape", data.shape)
 
     n_x = 3
     n_y = 3
-    mus_init = data[0] * torch.ones(K, D, dtype=torch.float64, device=device)
     x_grid_gap = (ARENA_XMAX - ARENA_XMIN) / n_x
     x_grids = np.array([ARENA_XMIN + i * x_grid_gap for i in range(n_x + 1)])
     y_grid_gap = (ARENA_YMAX - ARENA_YMIN) / n_y
     y_grids = np.array([ARENA_YMIN + i * y_grid_gap for i in range(n_y + 1)])
     bounds = np.array([[ARENA_XMIN, ARENA_XMAX], [ARENA_YMIN, ARENA_YMAX]])
+
+    mus_init = data[0] * torch.ones(K, D, dtype=torch.float64, device=device)
     train_rs = False
     obs = GPObservationSingle(K=K, D=D, mus_init=mus_init, x_grids=x_grids, y_grids=y_grids, bounds=bounds,
                               rs=None, train_rs=train_rs, device=device)
 
-    L = 5
+    L = 20
     model = HSMM(K=K, D=D, L=L, init_state_distn=None, transition='stationary', observation=obs)
 
     ll = model.log_likelihood(data)  # tensor(-10110.7855, dtype=torch.float64, grad_fn=<AddBackward0>)
@@ -589,31 +545,34 @@ if __name__ == "__main__":
     #plot_realdata_quiver(sample_x, sample_z, K=K, x_grids=x_grids, y_grids=y_grids, title="samples before training")
     #plt.show()
 
-    #_, hidden_state_seqs = model.most_likely_states(data)
+    _, hidden_state_seqs = model.most_likely_states(data)
     #print(len(hidden_state_seqs))
     #print(hidden_state_seqs)
 
-    #plot_realdata_quiver(data, hidden_state_seqs, K=2, x_grids=x_grids, y_grids=y_grids, title="before training")
+    plot_realdata_quiver(data, hidden_state_seqs, K=K, x_grids=x_grids, y_grids=y_grids, title="before training")
     #plt.show()
 
 
     # fitting
-    num_iters = 100
-    loss, opt = model.fit(datas=data, num_iters=num_iters, lr=1e-3)  # -10312.4181 for 100 epochs
-    #print(type(loss))
-    #plt.plot(loss)
+    num_iters = 6000
+    loss, opt = model.fit(datas=data, num_iters=num_iters, lr=5e-3)  # -10312.4181 for 100 epochs
+    plt.figure()
+    plt.plot(loss)
+    plt.title("loss")
     #plt.show()
 
-    #sample_T = 100
-    #sample_z, sample_x = model.sample(sample_T)
-    #plot_realdata_quiver(sample_x, sample_z, K=K, x_grids=x_grids, y_grids=y_grids, title="samples after {} epochs".format(num_iters))
-    #plt.show()
     # infer the most likely hidden states
-    #_, hidden_state_seqs = model.most_likely_states(data)
-    #print(len(hidden_state_seqs))
-    #print(hidden_state_seqs)
-    #plot_realdata_quiver(data, hidden_state_seqs, K=2, x_grids=x_grids, y_grids=y_grids, title="after {} epochs".format(num_iters))
+    _, hidden_state_seqs = model.most_likely_states(data)
+    # print(len(hidden_state_seqs))
+    # print(hidden_state_seqs)
+    plot_realdata_quiver(data, hidden_state_seqs, K=K, x_grids=x_grids, y_grids=y_grids, title="after {} epochs".format(num_iters))
+    # plt.show()
+
+    sample_T = 100
+    sample_z, sample_x = model.sample(sample_T)
+    plot_realdata_quiver(sample_x, sample_z, K=K, x_grids=x_grids, y_grids=y_grids, title="samples after {} epochs".format(num_iters))
     #plt.show()
+
 
     # samples
     #samples = model.sample()
@@ -622,13 +581,6 @@ if __name__ == "__main__":
     # quivers
 
     # training dynamics (how the color changes)
-
-
-
-    ########### quite constrained matrix initialization ########
-    import numpy.random as npr
-    logits_ = npr.rand(K, K)
-    # then get probs...
 
     # dynamics
     XX, YY = np.meshgrid(np.linspace(20, 310, 30),

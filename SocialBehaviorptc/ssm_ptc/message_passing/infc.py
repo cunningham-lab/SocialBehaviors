@@ -7,19 +7,22 @@ import numpy as np
 # TODO: check if -infs in tran_logprobs violates anything
 def bwd_mp(tran_logprobs, len_logprobs, fwd_obs_logprobs):
     """
-    :param tran_logprobs: (T, K, K)
+    :param tran_logprobs: (T-1, K, K)
     :param len_logprobs:  [(steps_fwd, K) tensor for steps_fwd in 1, ..., L], log_probs for duration variables
     :param fwd_obs_logprobs: (L, T, K)
     :return:
     """
 
     L, T, K = fwd_obs_logprobs.shape
+    assert tran_logprobs.shape == (T-1, K, K), tran_logprobs.shape
+    assert fwd_obs_logprobs.shape == (L, T, K), fwd_obs_logprobs.shape
     log_betas = tran_logprobs.new_zeros((T + 1, K))
     log_beta_stars = tran_logprobs.new_zeros((T + 1, K))
 
     for t in range(1, T+1): # t recorders the number of steps to the end
         steps_fwd = min(L, t)
-        len_logprob = len_logprobs[min(L-1, steps_fwd-1)]  # (steps_fwd, K)
+        len_logprob = len_logprobs[steps_fwd-1]
+        #len_logprob = len_logprobs[min(L-1, steps_fwd-1)]  # (steps_fwd, K)
 
         # \log beta*_t(k) = log \sum_l beta_{t+l}(k) p(l_{t+1}=l |k) p(x_{t+1:t+l}) p(l)
         log_beta_star = log_betas[T-t+1:T-t+1+steps_fwd] + len_logprob \

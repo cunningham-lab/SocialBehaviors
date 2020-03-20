@@ -43,9 +43,8 @@ def add_grid_to_ax(ax, x_grids, y_grids):
         ax.plot([x_grids[i], x_grids[i]], [y_grids[0], y_grids[-1]], '--', color='grey')
 
 
-def plot_realdata_quiver(realdata, z, K, x_grids=None, y_grids=None,
+def plot_realdata_quiver(realdata, z=None, K=None, x_grids=None, y_grids=None,
                          xlim=None, ylim=None, title=None, cluster_centers=None, grid_alpha=0.8, **quiver_args):
-    # TODO: fix the case for K=1. color mapping only work for K>=2. need to use only one color for K=1
     if isinstance(realdata, torch.Tensor):
         realdata = get_np(realdata)
 
@@ -53,25 +52,30 @@ def plot_realdata_quiver(realdata, z, K, x_grids=None, y_grids=None,
     assert D == 4 or D == 2
     assert T >=2, T
 
-    z = z[1:] # (T-1, )
-    assert z.shape == (T-1, )
+    if K == 1:
+        z = None
+    if z is not None:
+        z = z[1:] # (T-1, )
+        assert z.shape == (T-1, )
+        h = 1 / K
+        ticks = [(1 / 2 + k) * h for k in range(K)]
+        colors, cm = get_colors_and_cmap(K)
     start = realdata[:-1]
     end = realdata[1:]
     dXY = end - start
-
-    h = 1 / K
-    ticks = [(1 / 2 + k) * h for k in range(K)]
-    colors, cm = get_colors_and_cmap(K)
 
     if D == 2:
         plt.figure(figsize=(8, 7))
         if title is not None:
             plt.title(title)
-
-        plt.quiver(start[:, 0], start[:, 1], dXY[:, 0], dXY[:, 1],
-                   angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[z], **quiver_args)
-        cb = plt.colorbar(label='k', ticks=ticks)
-        cb.set_ticklabels(range(K))
+        if z is None:
+            plt.quiver(start[:, 0], start[:, 1], dXY[:, 0], dXY[:, 1],
+                       angles='xy', scale_units='xy', scale=1, **quiver_args)
+        else:
+            plt.quiver(start[:, 0], start[:, 1], dXY[:, 0], dXY[:, 1],
+                       angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[z], **quiver_args)
+            cb = plt.colorbar(label='k', ticks=ticks)
+            cb.set_ticklabels(range(K))
 
         add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
         if xlim is not None:
@@ -89,10 +93,14 @@ def plot_realdata_quiver(realdata, z, K, x_grids=None, y_grids=None,
             plt.suptitle(title)
 
         plt.subplot(1, 2, 1)
-        plt.quiver(start[:, 0], start[:, 1], dXY[:, 0], dXY[:, 1],
-               angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[z], **quiver_args)
-        cb = plt.colorbar(label='k', ticks=ticks)
-        cb.set_ticklabels(range(K))
+        if z is None:
+            plt.quiver(start[:, 0], start[:, 1], dXY[:, 0], dXY[:, 1],
+                       angles='xy', scale_units='xy', scale=1, **quiver_args)
+        else:
+            plt.quiver(start[:, 0], start[:, 1], dXY[:, 0], dXY[:, 1],
+                   angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[z], **quiver_args)
+            cb = plt.colorbar(label='k', ticks=ticks)
+            cb.set_ticklabels(range(K))
 
         add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
         plt.title("virgin")
@@ -106,10 +114,14 @@ def plot_realdata_quiver(realdata, z, K, x_grids=None, y_grids=None,
             plt.scatter(cluster_centers[:,0], cluster_centers[:,1], color='k', marker='*')
 
         plt.subplot(1, 2, 2)
-        plt.quiver(start[:, 2], start[:, 3], dXY[:, 2], dXY[:, 3],
-                   angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[z], **quiver_args)
-        cb = plt.colorbar(label='k', ticks=ticks)
-        cb.set_ticklabels(range(K))
+        if z is None:
+            plt.quiver(start[:, 2], start[:, 3], dXY[:, 2], dXY[:, 3],
+                       angles='xy', scale_units='xy', scale=1, **quiver_args)
+        else:
+            plt.quiver(start[:, 2], start[:, 3], dXY[:, 2], dXY[:, 3],
+                       angles='xy', scale_units='xy', scale=1, cmap=cm, color=colors[z], **quiver_args)
+            cb = plt.colorbar(label='k', ticks=ticks)
+            cb.set_ticklabels(range(K))
 
         add_grid(x_grids, y_grids, grid_alpha=grid_alpha)
         plt.title("mother")

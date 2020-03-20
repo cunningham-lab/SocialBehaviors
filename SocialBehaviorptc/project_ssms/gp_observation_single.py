@@ -108,19 +108,21 @@ class GPObservationSingle(BaseObservation):
         :param with_noise:
         :return: (2, )
         """
+        T, D = data.shape
+
         # compute for data[0:]
         if x_pre is None:
-            x_pre = self.mus_init[z:z+1]
+            p_init = Normal(self.mus_init[z], torch.exp(self.log_sigmas_init[z]))  #
+            log_prob = p_init.log_prob(data[0])
+            assert log_prob.shape == (self.D, ), log_prob.shape
+            log_prob = log_prob.sum()
 
-        assert x_pre.shape == (1, 2), x_pre.shape
-        T, D = data.shape
-        assert D == 2, D
+        else:
+            assert x_pre.shape == (1, 2), x_pre.shape
+            assert D == 2, D
 
-        A = kwargs.get("A", None)
-        Sigma = kwargs.get("Sigma", None)
-
-        dist_for_data0 = self.get_dist_condition_on_z_helper(x_pre, z, **kwargs) # TODO: need to adjust kwargs
-        log_prob = dist_for_data0.log_prob(data[0:1]).sum()
+            dist_for_data0 = self.get_dist_condition_on_z_helper(x_pre, z, **kwargs) # TODO: need to adjust kwargs
+            log_prob = dist_for_data0.log_prob(data[0:1]).sum()
 
         if T > 1:
             dist_for_data_rest = self.get_dist_condition_on_z_helper(data[0:-1], z, **kwargs) # TODO: need to adjust kwargs
@@ -128,9 +130,6 @@ class GPObservationSingle(BaseObservation):
             log_prob += log_prob_for_data_rest.sum()
 
         return log_prob
-
-        # TODO: cache the distance
-        # compute the mus and As
 
     def get_dist_condition_on_z_helper(self, inputs, z, **kwargs):
         T, _ = inputs.shape
